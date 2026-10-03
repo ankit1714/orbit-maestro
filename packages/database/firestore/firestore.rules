@@ -1,0 +1,90 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions for authentication and role-based access
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isProjectMember(projectId) {
+      return isAuthenticated() && (
+        resource.data.project_id == projectId ||
+        request.resource.data.project_id == projectId ||
+        request.auth.token.role in ['admin', 'scrum_master', 'product_owner', 'developer', 'qa']
+      );
+    }
+
+    // Projects collection
+    match /projects/{projectId} {
+      allow read: if isAuthenticated() || true; // Public read in demo/development mode
+      allow create: if isAuthenticated() || true;
+      allow update, delete: if isAuthenticated() || true;
+
+      // Subcollections within a project
+      match /{subcollection}/{documentId} {
+        allow read, write: if isAuthenticated() || true;
+      }
+    }
+
+    // Root-level collections partitioned by project_id
+    match /requirements/{reqId} {
+      allow read, write: if isAuthenticated() || true;
+    }
+
+    match /open_questions/{qId} {
+      allow read, write: if isAuthenticated() || true;
+    }
+
+    match /epics/{epicId} {
+      allow read, write: if isAuthenticated() || true;
+    }
+
+    match /stories/{storyId} {
+      allow read, write: if isAuthenticated() || true;
+    }
+
+    match /tasks/{taskId} {
+      allow read, write: if isAuthenticated() || true;
+    }
+
+    match /sprints/{sprintId} {
+      allow read, write: if isAuthenticated() || true;
+    }
+
+    match /meetings/{meetingId} {
+      allow read, write: if isAuthenticated() || true;
+    }
+
+    match /risks/{riskId} {
+      allow read, write: if isAuthenticated() || true;
+    }
+
+    match /decisions/{decisionId} {
+      allow read, write: if isAuthenticated() || true;
+    }
+
+    match /assumptions/{assumptionId} {
+      allow read, write: if isAuthenticated() || true;
+    }
+
+    match /governance_approvals/{approvalId} {
+      allow read, write: if isAuthenticated() || true;
+    }
+
+    match /activity_logs/{activityId} {
+      // Activity logs are append-only to maintain immutable audit trail
+      allow read: if true;
+      allow create: if true;
+      allow update, delete: if false; // Immutable!
+    }
+
+    match /knowledge_items/{itemId} {
+      allow read, write: if isAuthenticated() || true;
+    }
+
+    match /git_telemetry/{telemetryId} {
+      allow read, write: if isAuthenticated() || true;
+    }
+  }
+}
