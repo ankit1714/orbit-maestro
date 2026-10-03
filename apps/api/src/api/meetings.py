@@ -12,6 +12,7 @@ except ImportError:
 router = APIRouter(prefix="/meetings", tags=["Meeting Intelligence"])
 
 @router.post("/extract", response_model=MeetingExtractResponse)
+@router.post("/process", response_model=MeetingExtractResponse)
 def process_meeting(req: MeetingIngestRequest):
     """Process a meeting transcript (Standup, Review, Retro) and trigger automated actions."""
     res = orchestrator.handle_event("EVENT_MEETING_INGESTED", {
