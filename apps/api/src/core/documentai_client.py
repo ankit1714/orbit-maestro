@@ -1,5 +1,6 @@
 import logging
 import os
+from io import BytesIO
 from typing import Dict, Any, List
 from apps.api.src.core.config import settings
 
@@ -17,11 +18,48 @@ class DocumentAIService:
                 self._is_live = True
                 logger.info("Connected to live Google Document AI Processor.")
         except Exception as e:
-            logger.info(f"Using local Document AI optical layout simulator: {e}")
+            logger.debug(f"Document AI processor init: {e}")
             self._is_live = False
 
     def parse_document(self, file_bytes: bytes, mime_type: str = "application/pdf") -> Dict[str, Any]:
-        """Parses a PRD/Specification document, extracting structured text, sections, and tables."""
+        """Parses a PRD/Specification document, extracting actual text from PDF or text bytes."""
+        if not file_bytes:
+            return {"text": "", "pages": 0, "entities": []}
+
+        # 1. Native PDF extraction using pypdf
+        try:
+            from pypdf import PdfReader
+            reader = PdfReader(BytesIO(file_bytes))
+            pages_text = []
+            for idx, page in enumerate(reader.pages):
+                txt = page.extract_text()
+                if txt and txt.strip():
+                    pages_text.append(txt.strip())
+
+            if pages_text:
+                full_text = "\n\n".join(pages_text)
+                logger.info(f"Successfully extracted {len(pages_text)} pages ({len(full_text)} characters) from uploaded PDF using pypdf.")
+                return {
+                    "text": full_text,
+                    "pages": len(pages_text),
+                    "entities": []
+                }
+        except Exception as e:
+            logger.debug(f"Native pypdf extraction attempt: {e}")
+
+        # 2. Plain text / UTF-8 fallback
+        try:
+            utf8_text = file_bytes.decode("utf-8")
+            if utf8_text.strip():
+                return {
+                    "text": utf8_text,
+                    "pages": max(1, len(utf8_text) // 1500),
+                    "entities": []
+                }
+        except UnicodeDecodeError:
+            pass
+
+        # 3. Google Document AI Processor if configured
         if self._is_live and self._client and settings.DOCUMENT_AI_PROCESSOR_ID:
             try:
                 from google.cloud import documentai
@@ -36,32 +74,13 @@ class DocumentAIService:
                     "entities": [e.type_ for e in document.entities]
                 }
             except Exception as e:
-                logger.error(f"Live Document AI call failed, falling back to simulator: {e}")
+                logger.error(f"Live Document AI call failed: {e}")
 
-        # High-fidelity simulated layout extraction matching the sample Claims Automation PRD
-        sample_text = """
-# Product Requirements Document: Customer Claims Automation
-Version 1.2 — Status: In Review
-
-## 1. Business Objective
-Reduce manual claim review cycle time by 40% and automate intake for high-volume, low-risk claims.
-
-## 2. Target Personas
-- Customer: Submits bills and monitors claim payout status.
-- Claims Adjuster: Reviews flagged exceptions and audit anomalies.
-- Operations Lead: Tracks throughput, SLA metrics, and operational escalations.
-
-## 3. Functional Requirements
-3.2.1 Users can upload medical bills and claim forms. The system shall accept standard file attachments and queue them for OCR processing.
-3.2.2 Claims submitted under $1,000 shall be automatically approved if user KYC status is verified.
-3.2.3 Customer authentication will delegate to the primary enterprise OAuth2 gateway.
-3.2.4 When validation fails, the system notifies the user and triggers a re-submission workflow.
-3.2.5 Claims validation vendor API gateway connector shall verify provider NPI and policy limits.
-"""
+        # Fallback if binary file cannot be parsed
         return {
-            "text": sample_text.strip(),
-            "pages": 12,
-            "entities": ["BusinessObjective", "Persona", "Requirement", "SecurityStandard"]
+            "text": "Uploaded specification document binary content.",
+            "pages": 1,
+            "entities": []
         }
 
 docai_service = DocumentAIService()
