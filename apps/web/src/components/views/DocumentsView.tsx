@@ -254,6 +254,18 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
                   <p className="text-emerald-300 font-semibold mt-0.5">{requirements.business_goal}</p>
                 </div>
 
+                {requirements.gcs_uri && (
+                  <div className="flex flex-wrap items-center gap-2 py-2 border-b border-zinc-800/80 text-[11px] font-mono">
+                    <span className="text-zinc-500 font-semibold uppercase text-[10px]">GCS Bucket:</span>
+                    <span className="px-2 py-0.5 rounded bg-blue-500/10 text-blue-300 border border-blue-500/20 truncate max-w-xs" title={requirements.gcs_uri}>
+                      {requirements.gcs_uri}
+                    </span>
+                    <span className="px-2 py-0.5 rounded bg-teal-500/10 text-teal-300 border border-teal-500/20 text-[10px]">
+                      NotebookLM Source Synced
+                    </span>
+                  </div>
+                )}
+
                 {/* Capabilities */}
                 {capabilities.length > 0 && (
                   <div className="space-y-1.5">

@@ -39,4 +39,6 @@ class PRDExtractResult(BaseModel):
     clauses: List[DocumentClause] = Field(default_factory=list)
     open_questions_count: int
     assumptions_count: int
+    gcs_uri: Optional[str] = None
+    notebooklm_source_id: Optional[str] = None
     extracted_at: datetime = Field(default_factory=datetime.utcnow)

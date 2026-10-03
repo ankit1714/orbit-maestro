@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     
     # Document AI & Storage
     DOCUMENT_AI_PROCESSOR_ID: Optional[str] = os.getenv("DOCUMENT_AI_PROCESSOR_ID", None)
-    PRD_BUCKET_NAME: str = os.getenv("PRD_BUCKET_NAME", "ai-scrum-master-prd-uploads")
+    PRD_BUCKET_NAME: str = os.getenv("PRD_BUCKET_NAME", "ai-scrum-master-510116-prd-uploads")
     
     # Vertex AI Gemini
     GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
