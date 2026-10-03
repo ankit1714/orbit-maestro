@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
-import { TrendingDown, X, CheckCircle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { TrendingDown, X, CheckCircle, ShieldCheck } from 'lucide-react';
 import { api } from '@/lib/api';
 
 interface SpilloverModalProps {
@@ -11,7 +11,19 @@ interface SpilloverModalProps {
 }
 
 export const SpilloverModal: React.FC<SpilloverModalProps> = ({ isOpen, onClose, projectId }) => {
+  const [spillovers, setSpillovers] = useState<any[]>([]);
   const [resolvedActions, setResolvedActions] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (isOpen && projectId) {
+      setLoading(true);
+      api.getSpillovers(projectId)
+        .then((items) => setSpillovers(items || []))
+        .catch(() => setSpillovers([]))
+        .finally(() => setLoading(false));
+    }
+  }, [isOpen, projectId]);
 
   if (!isOpen) return null;
 
@@ -19,7 +31,7 @@ export const SpilloverModal: React.FC<SpilloverModalProps> = ({ isOpen, onClose,
     try {
       await api.resolveSpillover({
         project_id: projectId,
-        sprint_id: "sprint-3",
+        sprint_id: "active-sprint",
         task_id: taskId,
         action: action
       });
@@ -55,82 +67,60 @@ export const SpilloverModal: React.FC<SpilloverModalProps> = ({ isOpen, onClose,
 
         {/* Content */}
         <div className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
-          {/* Item 1 */}
-          <div className="p-4 rounded-xl border border-rose-500/30 bg-surface-950 space-y-3">
-            <div className="flex items-start justify-between">
-              <div>
-                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 font-bold">PAY-142 · 3 pts</span>
-                <h4 className="text-xs font-bold text-white mt-1">Payment Gateway Vendor Webhook Connector</h4>
-                <p className="text-[11px] text-zinc-400 mt-0.5">Blocked by missing external vendor schema contract (3 days idle).</p>
+          {spillovers.length > 0 ? (
+            spillovers.map((item) => (
+              <div key={item.task_id} className="p-4 rounded-xl border border-rose-500/30 bg-surface-950 space-y-3">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 font-bold">
+                      {item.task_key} · {item.points} pts
+                    </span>
+                    <h4 className="text-xs font-bold text-white mt-1">{item.title}</h4>
+                    <p className="text-[11px] text-zinc-400 mt-0.5">{item.reason}</p>
+                  </div>
+                  <span className="text-[10px] font-mono text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded">
+                    {item.spillover_probability_pct}% Spillover Risk
+                  </span>
+                </div>
+
+                <div className="p-2.5 rounded bg-brand-500/10 border border-brand-500/20 text-[11px] text-brand-300">
+                  <strong>AI Recommendation:</strong> {item.ai_recommendation}
+                </div>
+
+                <div className="flex items-center justify-between pt-2 border-t border-zinc-800 text-xs">
+                  {resolvedActions[item.task_id] ? (
+                    <div className="text-xs text-emerald-400 font-bold flex items-center gap-1.5">
+                      <CheckCircle className="w-4 h-4" /> Action Executed: <strong>{resolvedActions[item.task_id]}</strong>
+                    </div>
+                  ) : (
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={() => handleResolve(item.task_id, "Rolled forward to next sprint")}
+                        className="px-3 py-1.5 rounded bg-brand-600 hover:bg-brand-500 text-white font-medium text-xs transition"
+                      >
+                        Roll Forward to Next Sprint
+                      </button>
+                      <button
+                        onClick={() => handleResolve(item.task_id, "Split into Subtasks")}
+                        className="px-3 py-1.5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-medium text-xs transition"
+                      >
+                        Split Scope
+                      </button>
+                    </div>
+                  )}
+                  <span className="text-[10px] text-zinc-500 font-mono">Assignee: {item.assignee}</span>
+                </div>
               </div>
-              <span className="text-[10px] font-mono text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded">High Blocker Impact</span>
+            ))
+          ) : (
+            <div className="p-8 text-center rounded-xl border border-zinc-800 bg-surface-950 space-y-2">
+              <ShieldCheck className="w-8 h-8 text-emerald-400 mx-auto" />
+              <h4 className="text-xs font-bold text-white">Zero Active Spillover Risks</h4>
+              <p className="text-[11px] text-zinc-400 max-w-sm mx-auto">
+                All sprint stories and tasks are progressing within commitment velocity thresholds. No external blockages detected.
+              </p>
             </div>
-
-            <div className="p-2.5 rounded bg-brand-500/10 border border-brand-500/20 text-[11px] text-brand-300">
-              <strong>AI Recommendation:</strong> Move PAY-142 into Sprint 4 backlog. External vendor dependencies should not artificially distort team velocity metrics.
-            </div>
-
-            <div className="flex items-center justify-end space-x-2 pt-1">
-              {resolvedActions["PAY-142"] ? (
-                <span className="text-xs text-emerald-400 font-mono flex items-center gap-1.5">
-                  <CheckCircle className="w-4 h-4" /> Action Executed: <strong>{resolvedActions["PAY-142"]}</strong>
-                </span>
-              ) : (
-                <>
-                  <button
-                    onClick={() => handleResolve("PAY-142", "Rolled forward to Sprint 4")}
-                    className="px-3 py-1.5 rounded bg-brand-600 hover:bg-brand-500 text-white font-semibold text-xs transition"
-                  >
-                    Roll Forward to Sprint 4
-                  </button>
-                  <button
-                    onClick={() => handleResolve("PAY-142", "Split into Subtasks")}
-                    className="px-3 py-1.5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs"
-                  >
-                    Split Story
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
-
-          {/* Item 2 */}
-          <div className="p-4 rounded-xl border border-zinc-800 bg-surface-950 space-y-3">
-            <div className="flex items-start justify-between">
-              <div>
-                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300 font-bold">QA-401 · 1.5 pts</span>
-                <h4 className="text-xs font-bold text-white mt-1">Boundary Test Suites for Payment Validation</h4>
-                <p className="text-[11px] text-zinc-400 mt-0.5">Dependent on PAY-142 completion.</p>
-              </div>
-              <span className="text-[10px] font-mono text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded">Dependent Work</span>
-            </div>
-
-            <div className="p-2.5 rounded bg-brand-500/10 border border-brand-500/20 text-[11px] text-brand-300">
-              <strong>AI Recommendation:</strong> De-scope from Sprint 3 and link to Sprint 4 test plan.
-            </div>
-
-            <div className="flex items-center justify-end space-x-2 pt-1">
-              {resolvedActions["QA-401"] ? (
-                <span className="text-xs text-emerald-400 font-mono flex items-center gap-1.5">
-                  <CheckCircle className="w-4 h-4" /> Action Executed: <strong>{resolvedActions["QA-401"]}</strong>
-                </span>
-              ) : (
-                <button
-                  onClick={() => handleResolve("QA-401", "De-scoped to Sprint 4")}
-                  className="px-3 py-1.5 rounded bg-brand-600 hover:bg-brand-500 text-white font-semibold text-xs transition"
-                >
-                  De-scope to Sprint 4
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div className="px-6 py-3 border-t border-zinc-800 bg-surface-950 flex justify-end">
-          <button onClick={onClose} className="px-4 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-semibold">
-            Close Workbench
-          </button>
+          )}
         </div>
       </div>
     </div>

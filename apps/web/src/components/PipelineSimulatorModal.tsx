@@ -293,17 +293,17 @@ export const PipelineSimulatorModal: React.FC<PipelineSimulatorModalProps> = ({
                 <div className="flex items-center justify-between p-2 rounded bg-zinc-900/80 border border-purple-500/30">
                   <div className="flex items-center gap-2 font-bold text-white">
                     <span className="font-mono text-purple-400">EPC-01</span>
-                    <span>Customer Claim Submission & Validation Engine</span>
+                    <span>Project Core Capabilities & Execution Engine</span>
                   </div>
-                  <span className="font-mono text-[11px] text-zinc-400">PRD §3.0 - §3.4</span>
+                  <span className="font-mono text-[11px] text-zinc-400">Ingested PRD Specification</span>
                 </div>
 
                 <div className="pl-4 flex items-center justify-between p-2 rounded bg-zinc-900/40 border border-blue-500/30">
                   <div className="flex items-center gap-2 text-zinc-200">
-                    <span className="font-mono text-blue-400 font-semibold">STY-102</span>
-                    <span>As a customer, I can upload claims ({resolvedQuestions[1] || 'PDF, JPG, PNG max 25MB'}) with automated OCR</span>
+                    <span className="font-mono text-blue-400 font-semibold">STY-101</span>
+                    <span>As a user, I can execute core capability workflows ({resolvedQuestions[1] || 'Verified Constraints'})</span>
                   </div>
-                  <span className="font-mono text-[11px] text-blue-400">Trace: PRD §3.2.1 + Q1 Clarification</span>
+                  <span className="font-mono text-[11px] text-blue-400">Trace: Ingested PRD + Clarification</span>
                 </div>
 
                 <div className="pl-8 flex items-center justify-between p-1.5 text-zinc-300 border-l border-zinc-800">

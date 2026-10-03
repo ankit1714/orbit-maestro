@@ -77,11 +77,11 @@ Only return raw JSON, no markdown formatting or commentary.
         except Exception as e:
             logger.warning(f"Could not parse Gemini JSON response directly: {e}; falling back to grounded text extraction")
 
-        if parsed_data and "business_goal" in parsed_data:
+        if parsed_data and "business_goal" in parsed_data and parsed_data.get("business_goal"):
             personas = [Persona(**p) for p in parsed_data.get("personas", [])]
             capabilities = [SystemCapability(**c) for c in parsed_data.get("capabilities", [])]
             clauses = [DocumentClause(**cl) for cl in parsed_data.get("clauses", [])]
-            goal = parsed_data.get("business_goal", "Deliver software requirements autonomously.")
+            goal = parsed_data.get("business_goal") or f"Deliver core requirements for {file_name}"
         else:
             # Grounded heuristic extraction from user's actual text
             lines = [l.strip() for l in text.split("\n") if l.strip()]

@@ -127,7 +127,7 @@ export const Navigation: React.FC<NavigationProps> = ({
               className="flex items-center space-x-2 px-2.5 py-1.5 rounded-md hover:bg-zinc-800/60 border border-zinc-700/60 transition text-xs"
             >
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-              <span className="font-semibold text-zinc-100">{activeProject?.name || "Customer Claims Automation"}</span>
+              <span className="font-semibold text-zinc-100">{activeProject?.name || "Select Project"}</span>
               <span className="text-[10px] px-1.5 py-0.2 rounded font-mono uppercase bg-zinc-800 text-zinc-300 border border-zinc-700">
                 {activeProject?.mode === "STANDALONE" ? "Standalone (Native)" : "Enterprise Sync"}
               </span>

@@ -17,27 +17,31 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({ project, onSwitchVie
   const [loading, setLoading] = useState(false);
 
   const fillSample = () => {
+    const engineer = project?.team_members?.[0]?.name || "Lead Engineer";
+    const collaborator = project?.team_members?.[1]?.name || "Backend Developer";
     if (meetingType === 'STANDUP') {
-      setTranscript(`Engineer Alex: Finished core service API endpoints for ${project?.name || "the project"}. Today I am completing the database integration.
-Engineer David: Working on external gateway, but waiting on partner API contract. Currently blocked.
-Engineer Maria: Testing acceptance criteria.`);
+      setTranscript(`Standup updates for ${project?.name || "the project"}:
+${engineer}: Completed the primary API endpoints. Today focusing on acceptance tests.
+${collaborator}: Progressing on integration tasks, currently blocked waiting for external dependency specification.
+Product Owner: Agreed to follow up with external vendor today.`);
     } else if (meetingType === 'REVIEW') {
-      setTranscript(`Sprint Review Demo for ${project?.name || "Project"}:
-- Demonstrated core system workflows with 98% accuracy.
-- PO Feedback: Provide real-time audit event streaming.
-- PO Decision: Create backlog item for enhanced telemetry.`);
+      setTranscript(`Sprint Review Demo for ${project?.name || "the project"}:
+- Successfully demonstrated core user story execution with 98% accuracy.
+- Stakeholder Feedback: Approved demonstration.
+- Product Owner Decision: Proceed to sprint deployment.`);
     } else {
-      setTranscript(`Retrospective Notes for ${project?.name || "Project"}:
-What went well: Architecture baseline established cleanly.
-What didn't go well: Cloud permission propagation took extra time.
-Action: Automate IAM service account bindings before next sprint.`);
+      setTranscript(`Retrospective Notes for ${project?.name || "the project"}:
+- What went well: Core architecture and backlog synthesized smoothly.
+- What can be improved: Dependency contracts should be verified one sprint ahead.
+- Action: Document interface contracts in project knowledge base.`);
     }
   };
 
   const handleProcess = async () => {
     if (!transcript.trim()) return;
+    const pId = project?.id;
+    if (!pId) return;
     setLoading(true);
-    const pId = project?.id || "proj-claims-auto";
     try {
       const res = await api.processMeeting({
         project_id: pId,
@@ -47,7 +51,7 @@ Action: Automate IAM service account bindings before next sprint.`);
       setResult(res);
       if (onRefresh) onRefresh();
     } catch (e) {
-      console.warn("Meeting processing fallback:", e);
+      console.warn("Meeting processing error:", e);
     } finally {
       setLoading(false);
     }

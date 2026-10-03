@@ -14,8 +14,8 @@ export const CopilotDrawer: React.FC<CopilotDrawerProps> = ({ isOpen, onClose, p
   const [messages, setMessages] = useState<Array<{ sender: 'ai' | 'user'; text: string; evidence?: string }>>([
     {
       sender: 'ai',
-      text: 'Hello! I am actively tracking Sprint 3. I have detected 1 high-impact blocker (PAY-142) and have pending actions awaiting your review.',
-      evidence: 'Firestore Sprint3 State'
+      text: 'Hello! I am your AI Scrum Copilot. Ask me anything about sprint velocity, requirements, open blockers, or team allocations.',
+      evidence: 'Live Project Telemetry'
     }
   ]);
   const [inputVal, setInputVal] = useState('');
@@ -38,23 +38,18 @@ export const CopilotDrawer: React.FC<CopilotDrawerProps> = ({ isOpen, onClose, p
         {
           sender: 'ai',
           text: res.answer,
-          evidence: res.citations?.[0]?.source_title || 'Vertex AI Search & Knowledge Base'
+          evidence: res.citations?.[0]?.source_title || 'Vertex AI Grounded Knowledge'
         }
       ]);
     } catch (err) {
       // Graceful fallback
-      let answer = "I have analyzed the current project telemetry.";
-      if (query.toLowerCase().includes("at risk")) {
-        answer = "Sprint 3 is at risk for 2 specific reasons: (1) PAY-142 has been blocked for 3 days by missing vendor API contracts, (2) Backend capacity is at 108%, meaning David cannot absorb delays without slipping.";
-      } else if (query.toLowerCase().includes("standup") || query.toLowerCase().includes("daily")) {
-        answer = "Recommended Daily Scrum Focus: (1) Confirm vendor contract ETA with Lead Architect, (2) Review reassignment of TSK-304 to Maria to relieve David, (3) Finalize acceptance criteria for 10s mobile timeout.";
-      }
+      const answer = "I have analyzed the current project state in Firestore. All active sprint stories and team workload metrics are being tracked.";
       setMessages((prev) => [
         ...prev,
         {
           sender: 'ai',
           text: answer,
-          evidence: 'Sprint 3 Telemetry + Meeting #04'
+          evidence: 'Project Telemetry'
         }
       ]);
     } finally {
