@@ -46,22 +46,55 @@ ai-scrum-master/
 
 ---
 
-## ⚡ Quick Start (Local Development)
+## ⚡ Quick Start: Build & Run
 
-### 1. Initialize Local Environment
-```bash
-chmod +x scripts/setup_local_env.sh && ./scripts/setup_local_env.sh
-```
+> 📖 **Comprehensive Guide:** See [docs/BUILD_AND_RUN_GUIDE.md](docs/BUILD_AND_RUN_GUIDE.md) for full instructions covering Local Terminal, Gemini CLI, and Antigravity CLI.
 
-### 2. Run Local Multi-Container Stack
+### Option A: Local Terminal (Docker Compose)
 ```bash
+# 1. Build and start both API and Web UI
 docker compose up --build
+
+# 2. (Optional) Seed sample data
+python scripts/seed_project_data.py
 ```
 - **Web Cockpit:** [http://localhost:3000](http://localhost:3000)
 - **FastAPI Backend & Swagger Docs:** [http://localhost:8000/docs](http://localhost:8000/docs)
 - **Health Check:** [http://localhost:8000/healthz](http://localhost:8000/healthz)
 
-### 3. Preload Sample Multi-Project Data
+### Option B: Local Native Development (Dual Process)
+```bash
+# 1. Setup Python virtualenv and frontend dependencies
+chmod +x scripts/setup_local_env.sh && ./scripts/setup_local_env.sh
+
+# 2. Terminal 1 (Backend):
+source .venv/bin/activate
+uvicorn apps.api.src.main:app --reload --port 8000
+
+# 3. Terminal 2 (Frontend):
+cd apps/web && npm run dev
+```
+
+### Option C: Gemini CLI
+Launch the conversational agent in the repository to build, test, and diagnose:
+```bash
+gemini
+```
+*Prompt example:* `"Build the docker images, start the stack, and verify that all health checks pass."*
+
+### Option D: Antigravity CLI (`agy`)
+Launch the interactive agentic TUI:
+```bash
+# Install (macOS / Linux)
+curl -fsSL https://antigravity.google/cli/install.sh | bash
+
+# Launch TUI cockpit
+agy
+```
+
+---
+
+### Preload Sample Multi-Project Data
 ```bash
 python scripts/seed_project_data.py
 ```
