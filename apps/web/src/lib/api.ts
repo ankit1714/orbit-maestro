@@ -55,6 +55,9 @@ export const api = {
     fetchApi<any>('/backlog/generate', { method: 'POST', body: JSON.stringify({ project_id: projectId, clarifications }) }),
   updateTaskStatus: (projectId: string, taskId: string, newStatus: string) =>
     fetchApi<any>(`/backlog/tasks/${taskId}/status?project_id=${projectId}&new_status=${newStatus}`, { method: 'PUT' }),
+  getJiraStatus: () => fetchApi<any>('/backlog/jira/status'),
+  uploadBacklogToJira: (projectId: string, payload?: { project_key?: string }) =>
+    fetchApi<any>(`/backlog/${projectId}/upload-jira`, { method: 'POST', body: JSON.stringify(payload || {}) }),
 
   // Sprints
   getActiveSprint: (projectId: string) => fetchApi<any>(`/sprints/${projectId}`),

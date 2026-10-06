@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Layers, Bookmark, CheckSquare, AlertCircle, TestTube, ChevronDown, Plus, Sparkles, Inbox, FileText, ArrowRight } from 'lucide-react';
+import { Layers, Bookmark, CheckSquare, AlertCircle, TestTube, ChevronDown, Plus, Sparkles, Inbox, FileText, ArrowRight, UploadCloud, ExternalLink, CheckCircle2, X } from 'lucide-react';
 import { api } from '@/lib/api';
 
 interface BacklogViewProps {
@@ -20,6 +20,13 @@ export const BacklogView: React.FC<BacklogViewProps> = ({
   onSwitchView,
 }) => {
   const [generating, setGenerating] = useState(false);
+  const [uploadingJira, setUploadingJira] = useState(false);
+  const [showJiraModal, setShowJiraModal] = useState(false);
+  const [targetJiraKey, setTargetJiraKey] = useState(
+    project?.jira_settings?.project_key || (project?.key === "CLM" ? "CKST2" : project?.key || "CKST2")
+  );
+  const [jiraSyncResult, setJiraSyncResult] = useState<any>(null);
+  const [jiraError, setJiraError] = useState<string | null>(null);
 
   const epics = backlog?.epics || [];
   const hasBacklog = epics.length > 0;
@@ -38,6 +45,28 @@ export const BacklogView: React.FC<BacklogViewProps> = ({
     } finally {
       setGenerating(false);
     }
+  };
+
+  const handleUploadJira = async () => {
+    setUploadingJira(true);
+    setJiraError(null);
+    setJiraSyncResult(null);
+    try {
+      const res = await api.uploadBacklogToJira(project.id, {
+        project_key: targetJiraKey.trim().toUpperCase()
+      });
+      setJiraSyncResult(res);
+      onRefresh();
+    } catch (err: any) {
+      setJiraError(err?.message || "Failed to upload backlog to Jira.");
+    } finally {
+      setUploadingJira(false);
+    }
+  };
+
+  const isJiraKey = (key?: string) => {
+    if (!key) return false;
+    return !key.startsWith("EPC-") && !key.startsWith("STY-") && !key.startsWith("TSK-") && key.includes("-");
   };
 
   return (
@@ -59,6 +88,15 @@ export const BacklogView: React.FC<BacklogViewProps> = ({
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {hasBacklog && (
+            <button
+              onClick={() => setShowJiraModal(true)}
+              className="px-3.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold flex items-center gap-1.5 shadow-md shadow-blue-500/20 transition"
+            >
+              <UploadCloud className="w-3.5 h-3.5" />
+              <span>Upload to Jira</span>
+            </button>
+          )}
           {hasRequirements && (
             <button
               onClick={handleSynthesize}
@@ -71,6 +109,40 @@ export const BacklogView: React.FC<BacklogViewProps> = ({
           )}
         </div>
       </div>
+
+      {/* Jira Sync Success Alert */}
+      {jiraSyncResult && (
+        <div className="p-4 rounded-xl border border-emerald-500/40 bg-emerald-500/10 text-emerald-200 text-xs flex items-start justify-between">
+          <div className="flex items-start gap-2.5">
+            <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <p className="font-semibold text-emerald-300">
+                Backlog Uploaded Successfully to Jira [{jiraSyncResult.jira_project_key}]
+              </p>
+              <p className="text-zinc-300">
+                Created: {jiraSyncResult.total_epics_synced} Epic(s), {jiraSyncResult.total_stories_synced} Story(ies), {jiraSyncResult.total_tasks_synced} Task(s).
+              </p>
+              <div className="flex flex-wrap gap-2 pt-1 font-mono text-[11px]">
+                {jiraSyncResult.epics?.map((e: any) => (
+                  <a
+                    key={e.key}
+                    href={e.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 hover:bg-blue-500/30 transition underline"
+                  >
+                    <span>{e.key}: {e.title}</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                ))}
+              </div>
+            </div>
+          </div>
+          <button onClick={() => setJiraSyncResult(null)} className="text-zinc-400 hover:text-white">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       {/* Requirement Source Banner */}
       {!hasRequirements && (
@@ -108,7 +180,22 @@ export const BacklogView: React.FC<BacklogViewProps> = ({
               <React.Fragment key={epic.id || epic.key}>
                 {/* EPIC ROW */}
                 <div className="grid grid-cols-12 px-4 py-3 bg-zinc-900/40 items-center font-medium">
-                  <div className="col-span-1 font-mono text-brand-400 font-bold">{epic.key}</div>
+                  <div className="col-span-1 font-mono text-brand-400 font-bold flex items-center gap-1">
+                    {isJiraKey(epic.key) ? (
+                      <a
+                        href={`https://whirlpool.atlassian.net/browse/${epic.key}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="hover:underline flex items-center gap-0.5 text-blue-400"
+                        title="View Epic in Jira"
+                      >
+                        <span>{epic.key}</span>
+                        <ExternalLink className="w-2.5 h-2.5" />
+                      </a>
+                    ) : (
+                      epic.key
+                    )}
+                  </div>
                   <div className="col-span-4 flex items-center space-x-2 text-white font-semibold">
                     <ChevronDown className="w-3.5 h-3.5 text-zinc-400" />
                     <Layers className="w-4 h-4 text-purple-400" />
@@ -131,7 +218,22 @@ export const BacklogView: React.FC<BacklogViewProps> = ({
                 {epic.stories?.map((story: any) => (
                   <React.Fragment key={story.id || story.key}>
                     <div className="grid grid-cols-12 px-4 py-2.5 bg-surface-900/20 items-center hover:bg-zinc-800/30 transition">
-                      <div className="col-span-1 font-mono text-zinc-400 pl-4">{story.key}</div>
+                      <div className="col-span-1 font-mono text-zinc-400 pl-4 flex items-center gap-1">
+                        {isJiraKey(story.key) ? (
+                          <a
+                            href={`https://whirlpool.atlassian.net/browse/${story.key}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="hover:underline flex items-center gap-0.5 text-blue-400 font-semibold"
+                            title="View Story in Jira"
+                          >
+                            <span>{story.key}</span>
+                            <ExternalLink className="w-2.5 h-2.5" />
+                          </a>
+                        ) : (
+                          story.key
+                        )}
+                      </div>
                       <div className="col-span-4 flex items-center space-x-2 text-zinc-200 pl-4">
                         <Bookmark className="w-3.5 h-3.5 text-blue-400" />
                         <span>{story.title}</span>
@@ -169,8 +271,21 @@ export const BacklogView: React.FC<BacklogViewProps> = ({
                             isBlocked ? 'bg-rose-500/5 hover:bg-rose-500/10 border-l-2 border-rose-500' : 'bg-surface-950/40 hover:bg-zinc-800/20'
                           }`}
                         >
-                          <div className={`col-span-1 font-mono pl-8 ${isBlocked ? 'text-rose-300' : 'text-zinc-500'}`}>
-                            {task.key}
+                          <div className={`col-span-1 font-mono pl-8 flex items-center gap-1 ${isBlocked ? 'text-rose-300' : 'text-zinc-500'}`}>
+                            {isJiraKey(task.key) ? (
+                              <a
+                                href={`https://whirlpool.atlassian.net/browse/${task.key}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="hover:underline flex items-center gap-0.5 text-blue-400 font-semibold"
+                                title="View Subtask in Jira"
+                              >
+                                <span>{task.key}</span>
+                                <ExternalLink className="w-2.5 h-2.5" />
+                              </a>
+                            ) : (
+                              task.key
+                            )}
                           </div>
                           <div className="col-span-4 flex items-center space-x-2 text-zinc-300 pl-8">
                             {isBlocked ? (
@@ -234,6 +349,82 @@ export const BacklogView: React.FC<BacklogViewProps> = ({
                 Synthesize Backlog from Ingested Spec
               </button>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Jira Upload Modal */}
+      {showJiraModal && (
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-surface-900 border border-zinc-700 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-zinc-800">
+              <div className="flex items-center gap-2">
+                <UploadCloud className="w-5 h-5 text-blue-400" />
+                <h3 className="font-bold text-white text-sm">Upload Backlog to Jira</h3>
+              </div>
+              <button
+                onClick={() => setShowJiraModal(false)}
+                className="text-zinc-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <p className="text-xs text-zinc-300">
+              Synchronize this 4-tier backlog hierarchy (Epics, Stories, Gherkin Acceptance Criteria, Subtasks) directly into your Jira Cloud workspace.
+            </p>
+
+            <div className="space-y-3 text-xs">
+              <div>
+                <label className="block text-zinc-400 mb-1 font-medium">Jira Instance</label>
+                <input
+                  type="text"
+                  disabled
+                  value="https://whirlpool.atlassian.net"
+                  className="w-full px-3 py-2 rounded-lg bg-surface-950 border border-zinc-800 text-zinc-300 font-mono text-xs cursor-not-allowed"
+                />
+              </div>
+
+              <div>
+                <label className="block text-zinc-400 mb-1 font-medium">Target Jira Project Key</label>
+                <input
+                  type="text"
+                  value={targetJiraKey}
+                  onChange={(e) => setTargetJiraKey(e.target.value)}
+                  placeholder="e.g. CKST2, CKST1, UTP"
+                  className="w-full px-3 py-2 rounded-lg bg-surface-950 border border-zinc-700 text-white font-mono text-xs focus:outline-none focus:border-brand-500"
+                />
+                <span className="text-[11px] text-zinc-500 mt-1 block">
+                  Suggested keys: <strong>CKST2</strong>, <strong>CKST1</strong>, <strong>UTP</strong>, or <strong>CLM</strong>.
+                </span>
+              </div>
+            </div>
+
+            {jiraError && (
+              <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs">
+                {jiraError}
+              </div>
+            )}
+
+            <div className="pt-2 flex justify-end gap-2">
+              <button
+                onClick={() => setShowJiraModal(false)}
+                className="px-3.5 py-1.5 rounded-lg border border-zinc-700 hover:bg-zinc-800 text-zinc-300 text-xs"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  await handleUploadJira();
+                  setShowJiraModal(false);
+                }}
+                disabled={uploadingJira || !targetJiraKey.trim()}
+                className="px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs flex items-center gap-1.5 shadow-md shadow-blue-500/20 disabled:opacity-50"
+              >
+                <UploadCloud className="w-3.5 h-3.5" />
+                <span>{uploadingJira ? "Uploading..." : "Confirm & Upload"}</span>
+              </button>
+            </div>
           </div>
         </div>
       )}

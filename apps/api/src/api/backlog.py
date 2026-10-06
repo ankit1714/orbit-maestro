@@ -46,3 +46,31 @@ def update_task_status(task_id: str, project_id: str = Query(...), new_status: s
     """Update task status (e.g. TODO -> IN_PROGRESS -> IN_REVIEW -> DONE)."""
     provider = provider_factory.get_backlog_provider(project_id)
     return provider.update_task_status(project_id, task_id, new_status)
+
+@router.get("/jira/status")
+def get_jira_status():
+    """Verify live Jira connectivity, URL, and authenticated user."""
+    jira_provider = provider_factory.get_jira_provider("default")
+    return jira_provider.check_connection()
+
+@router.post("/{project_id}/upload-jira")
+def upload_backlog_to_jira(project_id: str, payload: Optional[Dict[str, Any]] = None):
+    """
+    Upload and synchronize an existing backlog (Epics, Stories, Tasks) directly to Jira.
+    Accepts optional 'project_key' in the payload to target a specific Jira project (e.g. CKST2).
+    """
+    target_key = payload.get("project_key") if payload else None
+    jira_provider = provider_factory.get_jira_provider(project_id, target_project_key=target_key)
+
+    if not jira_provider._is_configured():
+        raise HTTPException(
+            status_code=400,
+            detail="Jira credentials not configured. Please set JIRA_INSTANCE_URL, JIRA_USER_EMAIL, and JIRA_API_TOKEN in environment or project settings."
+        )
+
+    try:
+        result = jira_provider.upload_project_backlog(project_id, target_project_key=target_key)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to upload backlog to Jira: {str(e)}")
+
