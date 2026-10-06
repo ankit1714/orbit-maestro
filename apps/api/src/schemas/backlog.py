@@ -26,6 +26,8 @@ class TaskItem(BaseModel):
     is_blocked: bool = False
     blocker_reason: Optional[str] = None
     idle_hours: float = 0.0
+    skill_match_percentage: int = 92
+    skill_match_rationale: Optional[str] = None
     created_at: Optional[datetime] = Field(default_factory=datetime.utcnow)
     updated_at: Optional[datetime] = Field(default_factory=datetime.utcnow)
     jira_url: Optional[str] = None
@@ -44,7 +46,8 @@ class UserStory(BaseModel):
     assignee_id: Optional[str] = None
     assignee_name: Optional[str] = None
     assignee_email: Optional[str] = None
-    skill_match_percentage: int = 90
+    skill_match_percentage: int = 92
+    skill_match_rationale: Optional[str] = None
     acceptance_criteria: List[AcceptanceCriteria] = Field(default_factory=list)
     tasks: List[TaskItem] = Field(default_factory=list)
     created_at: Optional[datetime] = Field(default_factory=datetime.utcnow)

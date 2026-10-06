@@ -61,23 +61,50 @@ def create_project(data: ProjectCreate):
         jira_settings.api_token = jira_settings.api_token or settings.JIRA_API_TOKEN
         mode = ProjectMode.ENTERPRISE_SYNC
 
-    # 2. Parse developer names into TeamMember list
+    # 2. Parse developer profiles and technical skills
     team_members = list(data.team_members or [])
+    raw_inputs = []
+    if data.developer_skills_input:
+        raw_inputs.extend(data.developer_skills_input.replace(";", "\n").split("\n"))
     if data.developer_names:
-        for raw_name in data.developer_names:
-            name = raw_name.strip()
-            if not name:
-                continue
-            clean_email = re.sub(r'[^a-zA-Z0-9]', '.', name.lower())
-            team_members.append(TeamMember(
-                id=f"dev-{uuid.uuid4().hex[:6]}",
-                name=name,
-                role="Developer",
-                email=f"{clean_email}@company.com",
-                skills=["Fullstack", "Agile", "Cloud Run"],
-                available_hours_per_week=40.0,
-                current_workload_hours=0.0
-            ))
+        for dn in data.developer_names:
+            raw_inputs.extend(dn.replace(";", "\n").split("\n"))
+
+    for raw_line in raw_inputs:
+        line = raw_line.strip()
+        if not line:
+            continue
+        if ":" in line:
+            parts = line.split(":", 1)
+            name = parts[0].strip()
+            skills = [s.strip() for s in parts[1].split(",") if s.strip()]
+        else:
+            name = line.strip()
+            skills = ["Fullstack", "Agile", "Cloud Run"]
+
+        if not name:
+            continue
+
+        skills_lower = " ".join(skills).lower()
+        if any(w in skills_lower for w in ["qa", "test", "automation", "cypress", "pytest", "selenium"]):
+            role = "QA Engineer"
+        elif any(w in skills_lower for w in ["react", "next", "ui", "frontend", "css", "vue", "tailwind"]):
+            role = "Frontend Engineer"
+        elif any(w in skills_lower for w in ["python", "backend", "fastapi", "cloud", "api", "go", "java", "sql"]):
+            role = "Backend Engineer"
+        else:
+            role = "Fullstack Developer"
+
+        clean_email = re.sub(r"[^a-zA-Z0-9]", ".", name.lower())
+        team_members.append(TeamMember(
+            id=f"dev-{uuid.uuid4().hex[:6]}",
+            name=name,
+            role=role,
+            email=f"{clean_email}@company.com",
+            skills=skills,
+            available_hours_per_week=40.0,
+            current_workload_hours=0.0
+        ))
 
     project = Project(
         id=project_id,

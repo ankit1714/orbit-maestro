@@ -55,6 +55,7 @@ class ProjectBase(BaseModel):
 class ProjectCreate(ProjectBase):
     jira_project_link: Optional[str] = Field(None, description="Full link to Jira project, e.g. https://domain.atlassian.net/jira/software/projects/KEY/summary")
     developer_names: Optional[List[str]] = Field(default_factory=list, description="Names of developers assigned to the project")
+    developer_skills_input: Optional[str] = Field(None, description="Developer and skill profiles e.g. 'Ankit Maurya: Python, FastAPI, Cloud Run; Sarah Chen: React, Next.js, UI'")
     team_members: List[TeamMember] = Field(default_factory=list)
     git_settings: Optional[GitSettings] = Field(default_factory=GitSettings)
     jira_settings: Optional[JiraSettings] = Field(default_factory=JiraSettings)

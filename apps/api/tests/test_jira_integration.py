@@ -132,3 +132,27 @@ def test_jira_api_upload_endpoint_mocked():
         assert data["total_stories_synced"] == 1
         assert data["total_tasks_synced"] == 4
         assert len(data["epics"]) == 1
+
+def test_skill_matching_and_developer_profiling():
+    from packages.agents.src.backlog_agent import match_developer_by_skills
+
+    team = [
+        {"name": "Ankit Maurya", "skills": ["Python", "FastAPI", "Cloud Run", "Vertex AI"], "role": "Backend Engineer"},
+        {"name": "Sarah Chen", "skills": ["React", "Next.js", "TypeScript", "UI Components"], "role": "Frontend Engineer"},
+        {"name": "David Kim", "skills": ["QA", "Pytest", "Cypress", "Automation Testing"], "role": "QA Engineer"}
+    ]
+
+    dev_be, pct_be, rat_be = match_developer_by_skills("Build Document AI backend ingestion pipeline", "DEV", team)
+    assert dev_be == "Ankit Maurya"
+    assert pct_be >= 90
+    assert "Vertex AI" in rat_be or "Backend" in rat_be
+
+    dev_fe, pct_fe, rat_fe = match_developer_by_skills("Render interactive UI view components and forms", "DEV", team)
+    assert dev_fe == "Sarah Chen"
+    assert pct_fe >= 90
+    assert "UI Components" in rat_fe or "Frontend" in rat_fe
+
+    dev_qa, pct_qa, rat_qa = match_developer_by_skills("Boundary and regression test automation suites", "QA", team)
+    assert dev_qa == "David Kim"
+    assert pct_qa >= 90
+    assert "QA" in rat_qa or "Automation" in rat_qa

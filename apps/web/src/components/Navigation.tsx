@@ -78,8 +78,9 @@ export const Navigation: React.FC<NavigationProps> = ({
       key: finalKey,
       description: newProjectDesc || `${newProjectName} workspace`,
       jira_project_link: newJiraLink.trim() || undefined,
+      developer_skills_input: newDevNames.trim() || undefined,
       developer_names: newDevNames
-        ? newDevNames.split(',').map((n) => n.trim()).filter(Boolean)
+        ? newDevNames.split(/[\n;]/).map((n) => n.trim()).filter(Boolean)
         : undefined,
       mode: newProjectMode,
       git_settings: {
@@ -342,19 +343,22 @@ export const Navigation: React.FC<NavigationProps> = ({
               </div>
 
               <div>
-                <label className="block text-zinc-400 mb-1 font-medium flex items-center gap-1.5">
-                  <Users className="w-3 h-3 text-emerald-400" />
-                  <span>Developer Names (Comma-separated)</span>
+                <label className="block text-zinc-400 mb-1 font-medium flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <Users className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Developer Resources & Skill Profiles (Name: Skills)</span>
+                  </span>
+                  <span className="text-[10px] text-brand-400 font-mono">AI Matching</span>
                 </label>
-                <input
-                  type="text"
+                <textarea
+                  rows={3}
                   value={newDevNames}
                   onChange={(e) => setNewDevNames(e.target.value)}
-                  placeholder="e.g. Ankit Maurya, Sarah Chen, David Kim"
-                  className="w-full bg-surface-950 border border-zinc-800 rounded-lg p-2.5 text-white focus:outline-none focus:border-brand-500"
+                  placeholder={`Ankit Maurya: Python, FastAPI, Cloud Run, Vertex AI\nSarah Chen: React, Next.js, TypeScript, UI Components\nDavid Kim: QA, Pytest, Cypress, Automation Testing`}
+                  className="w-full bg-surface-950 border border-zinc-800 rounded-lg p-2.5 text-white font-mono text-[11px] focus:outline-none focus:border-brand-500"
                 />
                 <span className="text-[10px] text-zinc-500 mt-0.5 block">
-                  Assigned developers will be registered in Firestore with capacity loading and skills tracking.
+                  AI automatically matches tasks to developers based on their technical skills (e.g. 96% match).
                 </span>
               </div>
 

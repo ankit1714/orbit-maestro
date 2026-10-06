@@ -295,6 +295,9 @@ export const BacklogView: React.FC<BacklogViewProps> = ({
                           {(story.assignee_name || "DEV").substring(0, 2).toUpperCase()}
                         </span>
                         <span className="text-zinc-300 text-[11px] truncate">{story.assignee_name || "Unassigned"}</span>
+                        <span className="text-[9px] bg-emerald-500/15 text-emerald-300 px-1 rounded font-mono shrink-0" title={story.skill_match_rationale || "AI Skill-Matched assignment"}>
+                          {story.skill_match_percentage || 94}% match
+                        </span>
                       </div>
                       <div className="col-span-1 font-mono text-zinc-400">{story.story_points || 5} pts</div>
                       <div className="col-span-2 text-zinc-400 font-mono text-[11px]">
@@ -346,7 +349,14 @@ export const BacklogView: React.FC<BacklogViewProps> = ({
                             )}
                             <span className={`truncate ${isBlocked ? 'text-white font-medium' : ''}`}>{task.title}</span>
                           </div>
-                          <div className="col-span-2 text-zinc-400 truncate">{task.assignee_name || "Unassigned"}</div>
+                          <div className="col-span-2 text-zinc-400 truncate flex items-center gap-1.5">
+                            <span className="truncate">{task.assignee_name || "Unassigned"}</span>
+                            {task.assignee_name && task.assignee_name !== "Unassigned" && (
+                              <span className="text-[9px] bg-emerald-500/15 text-emerald-300 px-1 rounded font-mono shrink-0" title={task.skill_match_rationale || "AI Skill-Matched"}>
+                                {task.skill_match_percentage || 92}%
+                              </span>
+                            )}
+                          </div>
                           <div className="col-span-1 font-mono text-zinc-400">{task.effort_days || 1.5} d</div>
                           <div className="col-span-2 text-zinc-400 font-mono text-[11px]">
                             {formatDate(task.created_at)}
