@@ -40,6 +40,7 @@ export const api = {
   getProject: (id: string) => fetchApi<any>(`/projects/${id}`),
   createProject: (data: any) => fetchApi<any>('/projects', { method: 'POST', body: JSON.stringify(data) }),
   updateProject: (id: string, data: any) => fetchApi<any>(`/projects/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteProject: (id: string) => fetchApi<any>(`/projects/${id}`, { method: 'DELETE' }),
 
   // Document Ingestion & Open Questions
   getRequirements: (projectId: string) => fetchApi<any>(`/ingest/${projectId}`),

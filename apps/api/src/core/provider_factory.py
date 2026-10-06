@@ -43,7 +43,13 @@ class ProviderFactory:
         instance_url = (jira_settings.instance_url if jira_settings and jira_settings.instance_url else None) or settings.JIRA_INSTANCE_URL
         user_email = (jira_settings.user_email if jira_settings and jira_settings.user_email else None) or settings.JIRA_USER_EMAIL
         api_token = (jira_settings.api_token if jira_settings and jira_settings.api_token else None) or settings.JIRA_API_TOKEN
-        proj_key = target_project_key or (jira_settings.project_key if jira_settings and jira_settings.project_key else None) or (project.key if project else "CKST2")
+        proj_key = (
+            target_project_key
+            or (jira_settings.project_key if jira_settings and jira_settings.project_key else None)
+            or getattr(settings, "JIRA_PROJECT_KEY", None)
+            or (project.key if project and project.key not in ["CLM", "FIN"] else "SCRUM")
+            or "SCRUM"
+        )
 
         return JiraBacklogProvider(
             instance_url=instance_url,

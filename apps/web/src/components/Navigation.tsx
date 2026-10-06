@@ -11,7 +11,10 @@ import {
   Plus, 
   ExternalLink,
   Layers,
-  Check
+  Check,
+  Trash2,
+  Users,
+  Link as LinkIcon
 } from 'lucide-react';
 
 interface NavigationProps {
@@ -19,6 +22,7 @@ interface NavigationProps {
   activeProject: any;
   onSelectProject: (project: any) => void;
   onCreateProject: (projectData: any) => void;
+  onDeleteProject: (projectId: string) => void;
   onOpenSimulator: () => void;
   onOpenCommandPalette: () => void;
   onToggleCopilot: () => void;
@@ -32,6 +36,7 @@ export const Navigation: React.FC<NavigationProps> = ({
   activeProject,
   onSelectProject,
   onCreateProject,
+  onDeleteProject,
   onOpenSimulator,
   onOpenCommandPalette,
   onToggleCopilot,
@@ -46,17 +51,36 @@ export const Navigation: React.FC<NavigationProps> = ({
   const [newProjectName, setNewProjectName] = useState('');
   const [newProjectKey, setNewProjectKey] = useState('');
   const [newProjectDesc, setNewProjectDesc] = useState('');
-  const [newProjectMode, setNewProjectMode] = useState('STANDALONE');
+  const [newJiraLink, setNewJiraLink] = useState('');
+  const [newDevNames, setNewDevNames] = useState('');
+  const [newProjectMode, setNewProjectMode] = useState('ENTERPRISE_SYNC');
   const [newGitRepo, setNewGitRepo] = useState('');
   const [newNotebookLMUrl, setNewNotebookLMUrl] = useState('');
 
+  const handleJiraLinkChange = (link: string) => {
+    setNewJiraLink(link);
+    if (link) {
+      const match = link.match(/\/(?:projects|browse)\/([A-Za-z0-9_]+)/);
+      if (match && !newProjectKey) {
+        setNewProjectKey(match[1].toUpperCase());
+      }
+      setNewProjectMode('ENTERPRISE_SYNC');
+    }
+  };
+
   const handleCreateSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newProjectName || !newProjectKey) return;
+    if (!newProjectName) return;
+    const finalKey = (newProjectKey || (newJiraLink.match(/\/(?:projects|browse)\/([A-Za-z0-9_]+)/)?.[1]) || 'SCRUM').toUpperCase();
+    
     onCreateProject({
       name: newProjectName,
-      key: newProjectKey.toUpperCase(),
+      key: finalKey,
       description: newProjectDesc || `${newProjectName} workspace`,
+      jira_project_link: newJiraLink.trim() || undefined,
+      developer_names: newDevNames
+        ? newDevNames.split(',').map((n) => n.trim()).filter(Boolean)
+        : undefined,
       mode: newProjectMode,
       git_settings: {
         enabled: true,
@@ -65,13 +89,16 @@ export const Navigation: React.FC<NavigationProps> = ({
       notebooklm_settings: {
         enabled: true,
         notebook_url: newNotebookLMUrl || undefined,
-        workspace_name: `${newProjectName} Living Knowledge Hub`
+        workspace_name: `${newProjectName} Knowledge Hub`
       }
     });
+
     setCreateModalOpen(false);
     setNewProjectName('');
     setNewProjectKey('');
     setNewProjectDesc('');
+    setNewJiraLink('');
+    setNewDevNames('');
     setNewGitRepo('');
     setNewNotebookLMUrl('');
   };
@@ -129,50 +156,79 @@ export const Navigation: React.FC<NavigationProps> = ({
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
               <span className="font-semibold text-zinc-100">{activeProject?.name || "Select Project"}</span>
               <span className="text-[10px] px-1.5 py-0.2 rounded font-mono uppercase bg-zinc-800 text-zinc-300 border border-zinc-700">
-                {activeProject?.mode === "STANDALONE" ? "Standalone (Native)" : "Enterprise Sync"}
+                {activeProject?.jira_settings?.project_key || activeProject?.key || "SCRUM"}
               </span>
               <ChevronDown className="w-3.5 h-3.5 text-zinc-400" />
             </button>
 
             {/* Dropdown Menu */}
             {dropdownOpen && (
-              <div className="absolute left-0 mt-1.5 w-80 rounded-xl bg-surface-900 border border-zinc-700 shadow-2xl p-2 z-50 space-y-1">
-                <div className="px-2 py-1 text-[10px] font-mono text-zinc-500 uppercase tracking-wider flex justify-between items-center">
-                  <span>Switch Workspace</span>
-                  <span className="text-brand-400">Multi-Project</span>
+              <div className="absolute left-0 mt-1.5 w-88 rounded-xl bg-surface-900 border border-zinc-700 shadow-2xl p-2 z-50 space-y-1">
+                <div className="px-2 py-1 text-[10px] font-mono text-zinc-500 uppercase tracking-wider flex justify-between items-center border-b border-zinc-800 pb-1.5 mb-1">
+                  <span>Switch Workspace ({projects.length})</span>
+                  <span className="text-brand-400">GCP Firestore Retained</span>
                 </div>
 
-                {projects.map((proj) => (
-                  <button
-                    key={proj.id}
-                    onClick={() => {
-                      onSelectProject(proj);
-                      setDropdownOpen(false);
-                    }}
-                    className={`w-full text-left p-2 rounded-lg text-xs flex items-center justify-between transition ${
-                      activeProject?.id === proj.id ? 'bg-zinc-800 text-white font-semibold' : 'text-zinc-300 hover:bg-zinc-800/60'
-                    }`}
-                  >
-                    <div>
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-mono text-brand-400 font-bold">[{proj.key}]</span>
-                        <span>{proj.name}</span>
+                <div className="max-h-72 overflow-y-auto space-y-1">
+                  {projects.map((proj) => (
+                    <div
+                      key={proj.id}
+                      onClick={() => {
+                        onSelectProject(proj);
+                        setDropdownOpen(false);
+                      }}
+                      className={`w-full text-left p-2 rounded-lg text-xs flex items-center justify-between transition cursor-pointer group ${
+                        activeProject?.id === proj.id ? 'bg-zinc-800 text-white font-semibold' : 'text-zinc-300 hover:bg-zinc-800/60'
+                      }`}
+                    >
+                      <div className="truncate pr-2">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-mono text-brand-400 font-bold">[{proj.key}]</span>
+                          <span className="truncate">{proj.name}</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-[10px] text-zinc-500 mt-0.5">
+                          {proj.jira_settings?.enabled ? (
+                            <span className="text-blue-400 flex items-center gap-0.5">
+                              🔗 Jira: {proj.jira_settings.project_key || proj.key}
+                            </span>
+                          ) : (
+                            <span>⚡ Native Storage</span>
+                          )}
+                          {proj.team_members && proj.team_members.length > 0 && (
+                            <span className="text-zinc-400 flex items-center gap-0.5">
+                              • {proj.team_members.length} dev(s)
+                            </span>
+                          )}
+                        </div>
                       </div>
-                      <span className="text-[10px] text-zinc-500 block">
-                        {proj.mode === 'STANDALONE' ? '⚡ Native Firestore + Direct Git' : '🔗 Jira + Confluence Sync'}
-                      </span>
-                    </div>
-                    {activeProject?.id === proj.id && <Check className="w-4 h-4 text-emerald-400" />}
-                  </button>
-                ))}
 
-                <div className="pt-1 border-t border-zinc-800">
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {activeProject?.id === proj.id && <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (window.confirm(`Are you sure you want to permanently delete project "${proj.name}" [${proj.key}] from GCP Firestore?`)) {
+                              onDeleteProject(proj.id);
+                            }
+                          }}
+                          className="p-1 rounded opacity-60 hover:opacity-100 hover:bg-rose-500/20 text-zinc-400 hover:text-rose-400 transition"
+                          title="Delete project from GCP Firestore"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="pt-1.5 border-t border-zinc-800">
                   <button
                     onClick={() => {
                       setDropdownOpen(false);
                       setCreateModalOpen(true);
                     }}
-                    className="w-full text-left p-2 rounded-lg text-xs text-brand-400 hover:bg-brand-500/10 flex items-center gap-2 font-semibold"
+                    className="w-full text-left p-2 rounded-lg text-xs text-brand-400 hover:bg-brand-500/10 flex items-center gap-2 font-semibold transition"
                   >
                     <Plus className="w-4 h-4" />
                     <span>Create New Project...</span>
@@ -255,7 +311,7 @@ export const Navigation: React.FC<NavigationProps> = ({
               </button>
             </div>
 
-            <form onSubmit={handleCreateSubmit} className="space-y-3 text-xs">
+            <form onSubmit={handleCreateSubmit} className="space-y-3.5 text-xs">
               <div>
                 <label className="block text-zinc-400 mb-1 font-medium">Project Name *</label>
                 <input
@@ -263,56 +319,78 @@ export const Navigation: React.FC<NavigationProps> = ({
                   required
                   value={newProjectName}
                   onChange={(e) => setNewProjectName(e.target.value)}
-                  placeholder="e.g. Payment Gateway Modernization"
+                  placeholder="e.g. AI Scrum Master"
                   className="w-full bg-surface-950 border border-zinc-800 rounded-lg p-2.5 text-white focus:outline-none focus:border-brand-500"
                 />
               </div>
 
+              <div>
+                <label className="block text-zinc-400 mb-1 font-medium flex items-center gap-1.5">
+                  <LinkIcon className="w-3 h-3 text-blue-400" />
+                  <span>Jira Project Link (Auto-detects Key & Live Sync)</span>
+                </label>
+                <input
+                  type="text"
+                  value={newJiraLink}
+                  onChange={(e) => handleJiraLinkChange(e.target.value)}
+                  placeholder="https://the-ai-scrum-master.atlassian.net/jira/software/projects/SCRUM/summary"
+                  className="w-full bg-surface-950 border border-zinc-800 rounded-lg p-2.5 text-white font-mono text-[11px] focus:outline-none focus:border-brand-500"
+                />
+                <span className="text-[10px] text-zinc-500 mt-0.5 block">
+                  Paste full Jira board or project link to sync tickets, stories, points, and sprints automatically.
+                </span>
+              </div>
+
+              <div>
+                <label className="block text-zinc-400 mb-1 font-medium flex items-center gap-1.5">
+                  <Users className="w-3 h-3 text-emerald-400" />
+                  <span>Developer Names (Comma-separated)</span>
+                </label>
+                <input
+                  type="text"
+                  value={newDevNames}
+                  onChange={(e) => setNewDevNames(e.target.value)}
+                  placeholder="e.g. Ankit Maurya, Sarah Chen, David Kim"
+                  className="w-full bg-surface-950 border border-zinc-800 rounded-lg p-2.5 text-white focus:outline-none focus:border-brand-500"
+                />
+                <span className="text-[10px] text-zinc-500 mt-0.5 block">
+                  Assigned developers will be registered in Firestore with capacity loading and skills tracking.
+                </span>
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-zinc-400 mb-1 font-medium">Project Key Prefix *</label>
+                  <label className="block text-zinc-400 mb-1 font-medium">Project Key Prefix</label>
                   <input
                     type="text"
-                    required
-                    maxLength={5}
+                    maxLength={10}
                     value={newProjectKey}
                     onChange={(e) => setNewProjectKey(e.target.value.toUpperCase())}
-                    placeholder="e.g. PAY, FIN, MED"
+                    placeholder="e.g. SCRUM, PAY, FIN"
                     className="w-full bg-surface-950 border border-zinc-800 rounded-lg p-2.5 text-white font-mono uppercase focus:outline-none focus:border-brand-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-zinc-400 mb-1 font-medium">Operating Mode *</label>
+                  <label className="block text-zinc-400 mb-1 font-medium">Operating Mode</label>
                   <select
                     value={newProjectMode}
                     onChange={(e) => setNewProjectMode(e.target.value)}
                     className="w-full bg-surface-950 border border-zinc-800 rounded-lg p-2.5 text-white focus:outline-none focus:border-brand-500"
                   >
-                    <option value="STANDALONE">Standalone (Native Firestore + Git)</option>
-                    <option value="ENTERPRISE_SYNC">Enterprise Sync (Jira + Confluence)</option>
+                    <option value="ENTERPRISE_SYNC">Enterprise Sync (Jira Cloud Direct)</option>
+                    <option value="STANDALONE">Standalone (Native Firestore)</option>
                   </select>
                 </div>
               </div>
 
               <div>
-                <label className="block text-zinc-400 mb-1 font-medium">GitHub Repository URL (Optional)</label>
+                <label className="block text-zinc-400 mb-1 font-medium">Description (Optional)</label>
                 <input
                   type="text"
-                  value={newGitRepo}
-                  onChange={(e) => setNewGitRepo(e.target.value)}
-                  placeholder="https://github.com/my-org/my-repo"
-                  className="w-full bg-surface-950 border border-zinc-800 rounded-lg p-2.5 text-white focus:outline-none focus:border-brand-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-zinc-400 mb-1 font-medium">Google NotebookLM Workspace Link (Optional)</label>
-                <input
-                  type="text"
-                  value={newNotebookLMUrl}
-                  onChange={(e) => setNewNotebookLMUrl(e.target.value)}
-                  placeholder="https://notebooklm.google.com/notebook/..."
+                  value={newProjectDesc}
+                  onChange={(e) => setNewProjectDesc(e.target.value)}
+                  placeholder="Workspace scope and delivery milestones"
                   className="w-full bg-surface-950 border border-zinc-800 rounded-lg p-2.5 text-white focus:outline-none focus:border-brand-500"
                 />
               </div>
@@ -321,7 +399,7 @@ export const Navigation: React.FC<NavigationProps> = ({
                 <button
                   type="button"
                   onClick={() => setCreateModalOpen(false)}
-                  className="px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-medium"
+                  className="px-3.5 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-medium"
                 >
                   Cancel
                 </button>
@@ -329,7 +407,7 @@ export const Navigation: React.FC<NavigationProps> = ({
                   type="submit"
                   className="px-4 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-500 text-white font-semibold shadow-md shadow-brand-500/20"
                 >
-                  Create & Launch Workspace
+                  Create & Save to GCP
                 </button>
               </div>
             </form>

@@ -38,6 +38,9 @@ class Sprint(BaseModel):
     end_date: datetime
     committed_story_ids: List[str] = Field(default_factory=list)
     capacity: SprintCapacity = Field(default_factory=SprintCapacity)
+    source: str = "JIRA"
+    jira_board_id: Optional[int] = None
+    jira_sprint_id: Optional[int] = None
 
 class SprintScopeCommitRequest(BaseModel):
     project_id: str

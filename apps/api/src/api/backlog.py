@@ -16,7 +16,10 @@ router = APIRouter(prefix="/backlog", tags=["Backlog & Ambiguity Engine"])
 
 @router.get("/{project_id}", response_model=BacklogHierarchyResponse)
 def get_backlog(project_id: str):
-    """Retrieve 4-tier product backlog hierarchy for project."""
+    """Retrieve 4-tier product backlog hierarchy for project (synced directly from Jira if configured)."""
+    jira_provider = provider_factory.get_jira_provider(project_id)
+    if jira_provider._is_configured():
+        return jira_provider.get_backlog(project_id)
     provider = provider_factory.get_backlog_provider(project_id)
     return provider.get_backlog(project_id)
 
@@ -43,7 +46,10 @@ def resolve_question(req: OpenQuestionResolveRequest):
 
 @router.put("/tasks/{task_id}/status", response_model=TaskItem)
 def update_task_status(task_id: str, project_id: str = Query(...), new_status: str = Query(...)):
-    """Update task status (e.g. TODO -> IN_PROGRESS -> IN_REVIEW -> DONE)."""
+    """Update task status in real-time (synced to Jira workflow if task is a Jira issue)."""
+    jira_provider = provider_factory.get_jira_provider(project_id)
+    if jira_provider._is_configured():
+        return jira_provider.update_task_status(project_id, task_id, new_status)
     provider = provider_factory.get_backlog_provider(project_id)
     return provider.update_task_status(project_id, task_id, new_status)
 
