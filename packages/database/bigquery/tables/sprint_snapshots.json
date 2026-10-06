@@ -1,0 +1,15 @@
+[
+  { "name": "project_id", "type": "STRING", "mode": "REQUIRED", "description": "Unique identifier for the project" },
+  { "name": "sprint_id", "type": "STRING", "mode": "REQUIRED", "description": "Identifier for the sprint" },
+  { "name": "sprint_name", "type": "STRING", "mode": "REQUIRED", "description": "Name of the sprint" },
+  { "name": "planned_points", "type": "INTEGER", "mode": "REQUIRED", "description": "Story points committed at sprint planning" },
+  { "name": "delivered_points", "type": "INTEGER", "mode": "REQUIRED", "description": "Story points accepted at sprint review" },
+  { "name": "spillover_points", "type": "INTEGER", "mode": "REQUIRED", "description": "Story points incomplete at sprint closure" },
+  { "name": "total_tasks", "type": "INTEGER", "mode": "REQUIRED", "description": "Total count of tasks in sprint" },
+  { "name": "completed_tasks", "type": "INTEGER", "mode": "REQUIRED", "description": "Count of tasks moved to Done" },
+  { "name": "blocked_tasks_count", "type": "INTEGER", "mode": "NULLABLE", "description": "Count of tasks flagged as blocked" },
+  { "name": "cycle_time_avg_days", "type": "FLOAT", "mode": "NULLABLE", "description": "Average cycle time in days" },
+  { "name": "lead_time_avg_days", "type": "FLOAT", "mode": "NULLABLE", "description": "Average lead time in days" },
+  { "name": "sprint_start_date", "type": "TIMESTAMP", "mode": "REQUIRED", "description": "Start timestamp of sprint" },
+  { "name": "sprint_end_date", "type": "TIMESTAMP", "mode": "REQUIRED", "description": "Closing timestamp of sprint" }
+]

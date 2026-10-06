@@ -1,0 +1,1413 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Scrum Master — Executive Delivery Cockpit</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#eef2ff',
+              400: '#818cf8',
+              500: '#6366f1',
+              600: '#4f46e5',
+              900: '#1e1b4b',
+            },
+            surface: {
+              800: '#18181b',
+              850: '#121215',
+              900: '#09090b',
+              950: '#040406',
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+            mono: ['JetBrains Mono', 'Fira Code', 'monospace']
+          }
+        }
+      }
+    }
+  </script>
+  <!-- Lucide Icons CDN -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    /* Custom sleek scrollbars */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #09090b; }
+    ::-webkit-scrollbar-thumb { background: #27272a; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #3f3f46; }
+    .glass-panel {
+      background: rgba(18, 18, 21, 0.75);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+  </style>
+</head>
+<body class="bg-surface-950 text-zinc-100 font-sans antialiased min-h-screen flex flex-col selection:bg-brand-500/30 selection:text-brand-400">
+
+  <!-- TOP APP BAR -->
+  <header class="h-14 border-b border-zinc-800 bg-surface-900/90 backdrop-blur sticky top-0 z-40 px-4 flex items-center justify-between">
+    <!-- Left: Branding & Project Hub -->
+    <div class="flex items-center space-x-4">
+      <div class="flex items-center space-x-2">
+        <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-brand-600 via-indigo-500 to-purple-500 flex items-center justify-center shadow-lg shadow-brand-500/20">
+          <i data-lucide="bot" class="w-5 h-5 text-white"></i>
+        </div>
+        <div class="leading-none">
+          <span class="font-bold text-sm tracking-tight text-white flex items-center gap-1.5">
+            AI Scrum Master
+            <span class="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-brand-500/10 text-brand-400 border border-brand-500/20">ADK Agent</span>
+          </span>
+          <span class="text-[11px] text-zinc-400 font-medium">Autonomous Execution Loop</span>
+        </div>
+      </div>
+
+      <div class="h-4 w-[1px] bg-zinc-800"></div>
+
+      <!-- Project Selector Dropdown -->
+      <div class="relative group cursor-pointer">
+        <div class="flex items-center space-x-2 px-2.5 py-1.5 rounded-md hover:bg-zinc-800/60 border border-transparent hover:border-zinc-700/60 transition text-xs">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span class="font-medium text-zinc-200">Customer Claims Automation</span>
+          <span class="text-zinc-500 font-mono text-[11px]">Sprint 3 of 6</span>
+          <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-zinc-400"></i>
+        </div>
+      </div>
+    </div>
+
+    <!-- Center: Global Omnibar Command (⌘K) -->
+    <div class="flex-1 max-w-xl mx-8">
+      <button onclick="toggleCommandPalette()" class="w-full h-8 px-3 rounded-lg bg-zinc-900/80 border border-zinc-800 hover:border-zinc-700 text-zinc-400 flex items-center justify-between text-xs transition group">
+        <div class="flex items-center space-x-2">
+          <i data-lucide="search" class="w-3.5 h-3.5 text-zinc-500 group-hover:text-zinc-300"></i>
+          <span>Ask AI or jump to requirements, stories, risks...</span>
+        </div>
+        <div class="flex items-center space-x-1">
+          <kbd class="px-1.5 py-0.5 text-[10px] bg-zinc-800 border border-zinc-700 rounded text-zinc-400 font-mono">⌘K</kbd>
+        </div>
+      </button>
+    </div>
+
+    <!-- Right: Governance Badges & AI Status -->
+    <div class="flex items-center space-x-3">
+      <!-- Approvals Badge -->
+      <button onclick="switchView('governance')" class="flex items-center space-x-1.5 px-2.5 py-1 rounded-md bg-amber-500/10 border border-amber-500/30 text-amber-300 hover:bg-amber-500/20 transition text-xs">
+        <span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping"></span>
+        <i data-lucide="shield-alert" class="w-3.5 h-3.5"></i>
+        <span class="font-semibold" id="approval-count-badge">3 Approvals</span>
+      </button>
+
+      <!-- Delivery Health Indicator -->
+      <div class="flex items-center space-x-1.5 px-2.5 py-1 rounded-md bg-yellow-500/10 border border-yellow-500/20 text-yellow-300 text-xs">
+        <i data-lucide="activity" class="w-3.5 h-3.5"></i>
+        <span class="font-medium">Health: Watch</span>
+      </div>
+
+      <div class="h-4 w-[1px] bg-zinc-800"></div>
+
+      <!-- Copilot Drawer Toggle -->
+      <button onclick="toggleCopilot()" class="p-1.5 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-md transition" title="Toggle AI Copilot (⌘J)">
+        <i data-lucide="sparkles" class="w-4 h-4 text-brand-400"></i>
+      </button>
+
+      <!-- User Avatar -->
+      <div class="w-7 h-7 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-[11px] font-bold text-white border border-white/20">
+        PO
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN APP CONTAINER -->
+  <div class="flex-1 flex overflow-hidden">
+    <!-- LEFT SIDEBAR -->
+    <aside class="w-64 border-r border-zinc-800 bg-surface-900 flex flex-col justify-between select-none">
+      <div class="p-3 space-y-6">
+        <!-- Navigation Sections -->
+        <div>
+          <div class="px-2 mb-2 text-[10px] font-semibold text-zinc-500 uppercase tracking-wider font-mono">
+            Strategy & Ingestion
+          </div>
+          <nav class="space-y-0.5">
+            <button onclick="switchView('dashboard')" id="nav-dashboard" class="nav-btn w-full flex items-center space-x-2.5 px-2.5 py-1.5 rounded-md text-xs font-medium text-white bg-zinc-800/80">
+              <i data-lucide="layout-dashboard" class="w-4 h-4 text-brand-400"></i>
+              <span>Dashboard & Health</span>
+            </button>
+            <button onclick="switchView('documents')" id="nav-documents" class="nav-btn w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-xs font-medium text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/40">
+              <div class="flex items-center space-x-2.5">
+                <i data-lucide="file-text" class="w-4 h-4 text-blue-400"></i>
+                <span>Document Studio</span>
+              </div>
+              <span class="text-[10px] bg-amber-500/20 text-amber-300 px-1.5 py-0.2 rounded font-mono">4 Qs</span>
+            </button>
+            <button onclick="switchView('backlog')" id="nav-backlog" class="nav-btn w-full flex items-center space-x-2.5 px-2.5 py-1.5 rounded-md text-xs font-medium text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/40">
+              <i data-lucide="list-tree" class="w-4 h-4 text-emerald-400"></i>
+              <span>Backlog & Traceability</span>
+            </button>
+          </nav>
+        </div>
+
+        <div>
+          <div class="px-2 mb-2 text-[10px] font-semibold text-zinc-500 uppercase tracking-wider font-mono">
+            Sprint Execution
+          </div>
+          <nav class="space-y-0.5">
+            <button onclick="switchView('sprint')" id="nav-sprint" class="nav-btn w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-xs font-medium text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/40">
+              <div class="flex items-center space-x-2.5">
+                <i data-lucide="kanban" class="w-4 h-4 text-indigo-400"></i>
+                <span>Sprint Board</span>
+              </div>
+              <span class="text-[10px] bg-red-500/20 text-red-300 px-1.5 py-0.2 rounded font-mono">1 Blocker</span>
+            </button>
+            <button onclick="switchView('meetings')" id="nav-meetings" class="nav-btn w-full flex items-center space-x-2.5 px-2.5 py-1.5 rounded-md text-xs font-medium text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/40">
+              <i data-lucide="mic" class="w-4 h-4 text-violet-400"></i>
+              <span>Meeting Intelligence</span>
+            </button>
+            <button onclick="switchView('risks')" id="nav-risks" class="nav-btn w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-xs font-medium text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/40">
+              <div class="flex items-center space-x-2.5">
+                <i data-lucide="git-merge" class="w-4 h-4 text-rose-400"></i>
+                <span>Dependency & DAG</span>
+              </div>
+              <span class="w-2 h-2 rounded-full bg-rose-500"></span>
+            </button>
+          </nav>
+        </div>
+
+        <div>
+          <div class="px-2 mb-2 text-[10px] font-semibold text-zinc-500 uppercase tracking-wider font-mono">
+            Governance & Memory
+          </div>
+          <nav class="space-y-0.5">
+            <button onclick="switchView('governance')" id="nav-governance" class="nav-btn w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-xs font-medium text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/40">
+              <div class="flex items-center space-x-2.5">
+                <i data-lucide="check-check" class="w-4 h-4 text-amber-400"></i>
+                <span>Action & Approval Hub</span>
+              </div>
+              <span class="text-[10px] bg-amber-400/20 text-amber-300 font-mono px-1 rounded" id="sidebar-approval-count">3</span>
+            </button>
+            <button onclick="switchView('knowledge')" id="nav-knowledge" class="nav-btn w-full flex items-center space-x-2.5 px-2.5 py-1.5 rounded-md text-xs font-medium text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/40">
+              <i data-lucide="book-marked" class="w-4 h-4 text-teal-400"></i>
+              <span>Decisions & Assump.</span>
+            </button>
+          </nav>
+        </div>
+      </div>
+
+      <!-- Capacity & Telemetry Footer -->
+      <div class="p-3 border-t border-zinc-800/80 bg-surface-950/50 space-y-3">
+        <div class="flex items-center justify-between text-[11px]">
+          <span class="text-zinc-400 font-medium">Sprint Capacity</span>
+          <span class="text-amber-400 font-mono font-semibold">92% Loaded</span>
+        </div>
+        <div class="space-y-1.5">
+          <div class="flex justify-between text-[10px] text-zinc-500">
+            <span>Frontend (Alex, Maria)</span>
+            <span>72%</span>
+          </div>
+          <div class="w-full bg-zinc-800 h-1.5 rounded-full overflow-hidden">
+            <div class="bg-indigo-500 h-full rounded-full" style="width: 72%"></div>
+          </div>
+
+          <div class="flex justify-between text-[10px] text-zinc-500">
+            <span>Backend (David, Ken)</span>
+            <span class="text-rose-400 font-semibold">108% (Alert)</span>
+          </div>
+          <div class="w-full bg-zinc-800 h-1.5 rounded-full overflow-hidden">
+            <div class="bg-rose-500 h-full rounded-full" style="width: 100%"></div>
+          </div>
+        </div>
+
+        <div class="pt-2 border-t border-zinc-800/40 flex items-center justify-between text-[10px] text-zinc-500 font-mono">
+          <span class="flex items-center gap-1">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Vertex Agent: Online
+          </span>
+          <span>Latency: 280ms</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- CENTER DYNAMIC WORKSPACE CANVAS -->
+    <main class="flex-1 overflow-y-auto bg-surface-950 flex flex-col" id="main-viewport">
+      
+      <!-- ==================== VIEW 1: DASHBOARD & HEALTH ==================== -->
+      <div id="view-dashboard" class="p-6 space-y-6 max-w-7xl mx-auto w-full">
+        <!-- Header Banner -->
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-zinc-800">
+          <div>
+            <h1 class="text-xl font-bold text-white flex items-center gap-2">
+              Sprint 3 Delivery Cockpit
+              <span class="text-xs px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium">Day 7 of 10</span>
+            </h1>
+            <p class="text-xs text-zinc-400 mt-1">Goal: <span class="text-zinc-200 font-medium">Enable end-to-end customer claim submission with validation logic and vendor notification.</span></p>
+          </div>
+          <div class="flex items-center space-x-2">
+            <button onclick="triggerQuickMeeting()" class="px-3 py-1.5 rounded-md bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold flex items-center space-x-1.5 shadow-sm transition">
+              <i data-lucide="play" class="w-3.5 h-3.5 fill-current"></i>
+              <span>Simulate Daily Standup</span>
+            </button>
+            <button onclick="switchView('documents')" class="px-3 py-1.5 rounded-md bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-medium flex items-center space-x-1.5 transition">
+              <i data-lucide="upload-cloud" class="w-3.5 h-3.5"></i>
+              <span>Ingest Document</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 5-Dimensional Transparent Health Matrix (Section 21) -->
+        <div class="grid grid-cols-1 md:grid-cols-5 gap-3">
+          <div class="p-3.5 rounded-xl border border-zinc-800 bg-surface-900/60">
+            <div class="flex items-center justify-between text-xs mb-2">
+              <span class="text-zinc-400 font-medium">Schedule</span>
+              <span class="px-2 py-0.5 text-[10px] font-semibold rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">Watch</span>
+            </div>
+            <div class="text-lg font-bold text-white mb-1">2 Slipping</div>
+            <p class="text-[11px] text-zinc-400 leading-tight">PAY-142 has zero git commits over 48h.</p>
+          </div>
+
+          <div class="p-3.5 rounded-xl border border-zinc-800 bg-surface-900/60">
+            <div class="flex items-center justify-between text-xs mb-2">
+              <span class="text-zinc-400 font-medium">Dependencies</span>
+              <span class="px-2 py-0.5 text-[10px] font-semibold rounded bg-rose-500/10 text-rose-400 border border-rose-500/20">At Risk</span>
+            </div>
+            <div class="text-lg font-bold text-white mb-1">1 Critical</div>
+            <p class="text-[11px] text-zinc-400 leading-tight">Vendor Claims API contract unverified for 3 days.</p>
+          </div>
+
+          <div class="p-3.5 rounded-xl border border-zinc-800 bg-surface-900/60">
+            <div class="flex items-center justify-between text-xs mb-2">
+              <span class="text-zinc-400 font-medium">Scope Stability</span>
+              <span class="px-2 py-0.5 text-[10px] font-semibold rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Healthy</span>
+            </div>
+            <div class="text-lg font-bold text-white mb-1">+0 pts added</div>
+            <p class="text-[11px] text-zinc-400 leading-tight">1 interrupt intercepted & routed to Backlog.</p>
+          </div>
+
+          <div class="p-3.5 rounded-xl border border-zinc-800 bg-surface-900/60">
+            <div class="flex items-center justify-between text-xs mb-2">
+              <span class="text-zinc-400 font-medium">Quality & Tests</span>
+              <span class="px-2 py-0.5 text-[10px] font-semibold rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Healthy</span>
+            </div>
+            <div class="text-lg font-bold text-white mb-1">98.2% Pass</div>
+            <p class="text-[11px] text-zinc-400 leading-tight">14 Automated AC tests green; zero P1 defects.</p>
+          </div>
+
+          <div class="p-3.5 rounded-xl border border-zinc-800 bg-surface-900/60">
+            <div class="flex items-center justify-between text-xs mb-2">
+              <span class="text-zinc-400 font-medium">Capacity</span>
+              <span class="px-2 py-0.5 text-[10px] font-semibold rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">Watch</span>
+            </div>
+            <div class="text-lg font-bold text-white mb-1">Backend Lead</div>
+            <p class="text-[11px] text-zinc-400 leading-tight">Holds 68% of critical path effort.</p>
+          </div>
+        </div>
+
+        <!-- 2-Column Core Stats & Event-Driven Stream -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <!-- Left 2 Cols: Sprint Trajectory & Blocker Radar -->
+          <div class="lg:col-span-2 space-y-6">
+            <!-- Active Sprint Progress Card -->
+            <div class="p-4 rounded-xl border border-zinc-800 bg-surface-900/50">
+              <div class="flex items-center justify-between mb-3">
+                <div class="flex items-center space-x-2">
+                  <i data-lucide="target" class="w-4 h-4 text-brand-400"></i>
+                  <h3 class="text-xs font-semibold text-white uppercase tracking-wider">Sprint Velocity & Burndown</h3>
+                </div>
+                <span class="text-xs text-zinc-400 font-mono">24 of 32 pts completed (75%)</span>
+              </div>
+
+              <!-- Segmented Progress Bar -->
+              <div class="w-full h-3 bg-zinc-800 rounded-full overflow-hidden flex mb-3">
+                <div class="bg-emerald-500 h-full" style="width: 55%" title="Done: 18 pts"></div>
+                <div class="bg-indigo-500 h-full" style="width: 20%" title="In Review: 6 pts"></div>
+                <div class="bg-yellow-500 h-full" style="width: 15%" title="In Progress: 5 pts"></div>
+                <div class="bg-rose-500 h-full" style="width: 10%" title="Blocked: 3 pts"></div>
+              </div>
+              <div class="flex items-center justify-between text-[11px] text-zinc-400">
+                <div class="flex items-center gap-4">
+                  <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-emerald-500"></span> Done (18)</span>
+                  <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-indigo-500"></span> In Review (6)</span>
+                  <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-yellow-500"></span> In Dev (5)</span>
+                  <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-rose-500"></span> Blocked (3)</span>
+                </div>
+                <span class="text-zinc-500 font-mono">3 days left</span>
+              </div>
+            </div>
+
+            <!-- Active Impediment & Dependency Warning -->
+            <div class="p-4 rounded-xl border border-rose-500/20 bg-rose-500/5 space-y-3">
+              <div class="flex items-start justify-between">
+                <div class="flex items-start space-x-3">
+                  <div class="p-2 rounded-lg bg-rose-500/10 text-rose-400 mt-0.5">
+                    <i data-lucide="alert-octagon" class="w-5 h-5"></i>
+                  </div>
+                  <div>
+                    <div class="flex items-center gap-2">
+                      <span class="text-xs font-bold text-white">PAY-142: Payment API Integration</span>
+                      <span class="text-[10px] bg-rose-500/20 text-rose-300 font-mono px-1.5 py-0.5 rounded font-bold">IMPEDIMENT DETECTED</span>
+                    </div>
+                    <p class="text-xs text-zinc-300 mt-1">
+                      Blocked by External Vendor Contract. Assignee <strong>David (Backend)</strong> cannot complete verification endpoint.
+                    </p>
+                    <div class="flex items-center gap-4 mt-2 text-[11px] text-zinc-400">
+                      <span><strong>Detected via:</strong> Daily Scrum notes</span>
+                      <span><strong>Impact:</strong> Claims submission slip (+2 days)</span>
+                      <span><strong>Confidence:</strong> 94%</span>
+                    </div>
+                  </div>
+                </div>
+                <button onclick="switchView('governance')" class="px-2.5 py-1 text-xs rounded bg-rose-500/20 hover:bg-rose-500/30 text-rose-200 border border-rose-500/30 font-medium transition">
+                  Review Escalation
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right Col: Real-Time AI Autonomous Action Stream (Section 41) -->
+          <div class="p-4 rounded-xl border border-zinc-800 bg-surface-900/50 flex flex-col">
+            <div class="flex items-center justify-between pb-3 border-b border-zinc-800 mb-3">
+              <h3 class="text-xs font-semibold text-white uppercase tracking-wider flex items-center gap-1.5">
+                <i data-lucide="zap" class="w-3.5 h-3.5 text-brand-400"></i>
+                AI Action Timeline
+              </h3>
+              <span class="text-[10px] font-mono text-zinc-500">Live Audit Feed</span>
+            </div>
+
+            <div class="space-y-3 text-xs overflow-y-auto max-h-[360px] pr-1">
+              <!-- Item 1 -->
+              <div class="p-2.5 rounded-lg bg-zinc-800/40 border border-zinc-800/80 space-y-1">
+                <div class="flex items-center justify-between text-[11px]">
+                  <span class="text-brand-400 font-semibold font-mono">10:34 AM · Task Agent</span>
+                  <span class="text-[10px] px-1 rounded bg-zinc-700/50 text-zinc-300 font-mono">Auto-Executed</span>
+                </div>
+                <p class="text-zinc-200">Moved <span class="font-mono text-white bg-zinc-800 px-1 py-0.5 rounded">TSK-299</span> to <strong>In Review</strong> after PR #412 merged into develop.</p>
+                <span class="text-[10px] text-zinc-400 italic">Evidence: GitHub Webhook matching acceptance criteria AC-2.</span>
+              </div>
+
+              <!-- Item 2 -->
+              <div class="p-2.5 rounded-lg bg-zinc-800/40 border border-zinc-800/80 space-y-1">
+                <div class="flex items-center justify-between text-[11px]">
+                  <span class="text-rose-400 font-semibold font-mono">10:32 AM · Risk Agent</span>
+                  <span class="text-[10px] px-1 rounded bg-amber-500/20 text-amber-300 font-mono">Approval Needed</span>
+                </div>
+                <p class="text-zinc-200">Flagged critical dependency between <span class="font-mono text-white">PAY-142</span> and Vendor API contract.</p>
+                <span class="text-[10px] text-zinc-400 italic">Recommendation: Escalate to PO and prepare mock harness.</span>
+              </div>
+
+              <!-- Item 3 -->
+              <div class="p-2.5 rounded-lg bg-zinc-800/40 border border-zinc-800/80 space-y-1">
+                <div class="flex items-center justify-between text-[11px]">
+                  <span class="text-indigo-400 font-semibold font-mono">09:15 AM · Meeting Agent</span>
+                  <span class="text-[10px] px-1 rounded bg-zinc-700/50 text-zinc-300 font-mono">Auto-Executed</span>
+                </div>
+                <p class="text-zinc-200">Parsed Daily Scrum transcript: extracted 2 blocker notes, 4 completed tasks.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================== VIEW 2: DOCUMENT STUDIO & OPEN QUESTIONS ==================== -->
+      <div id="view-documents" class="hidden flex-1 flex flex-col p-6 max-w-7xl mx-auto w-full space-y-4">
+        <div class="flex items-center justify-between pb-3 border-b border-zinc-800">
+          <div>
+            <h1 class="text-lg font-bold text-white flex items-center gap-2">
+              Document Intelligence & Open Questions Engine
+              <span class="text-xs px-2 py-0.5 rounded bg-brand-500/10 text-brand-300 border border-brand-500/20 font-mono">FR-02 & FR-03</span>
+            </h1>
+            <p class="text-xs text-zinc-400">Extracts structured project intent, flags ambiguities, and maintains the assumption register.</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="text-xs text-zinc-400 font-mono">Ingested: Claims_Automation_PRD_v1.pdf (12 pages)</span>
+            <button class="px-2.5 py-1 text-xs rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700">Re-parse Doc</button>
+          </div>
+        </div>
+
+        <!-- 2-Pane Workbench -->
+        <div class="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-4 min-h-[550px]">
+          <!-- Left Pane: Ingested PRD with Entity Annotations -->
+          <div class="p-4 rounded-xl border border-zinc-800 bg-surface-900/60 flex flex-col">
+            <div class="flex items-center justify-between pb-2 mb-3 border-b border-zinc-800/80 text-xs">
+              <span class="font-semibold text-zinc-300 flex items-center gap-1.5">
+                <i data-lucide="file-code" class="w-4 h-4 text-blue-400"></i>
+                Document Text with AI Bounding Annotations
+              </span>
+              <div class="flex items-center gap-2 text-[10px]">
+                <span class="px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-300 border border-blue-500/20">Requirement</span>
+                <span class="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/20">Ambiguity</span>
+                <span class="px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-300 border border-purple-500/20">Assumption</span>
+              </div>
+            </div>
+
+            <div class="flex-1 font-mono text-xs text-zinc-300 space-y-3 leading-relaxed overflow-y-auto pr-2 bg-surface-950 p-3 rounded-lg border border-zinc-800/50">
+              <p class="text-zinc-500 font-bold"># Section 3.2: Automated Claim Submission Flow</p>
+              
+              <p>
+                3.2.1 Users can upload medical bills and claim forms. 
+                <span class="bg-amber-500/20 text-amber-200 border-b border-amber-500 px-1 py-0.5 rounded" title="AI Flagged: File types and size caps unspecified">
+                  The system shall accept standard file attachments
+                </span>
+                and queue them for OCR processing.
+              </p>
+
+              <p>
+                3.2.2 
+                <span class="bg-blue-500/20 text-blue-200 border-b border-blue-500 px-1 py-0.5 rounded">
+                  Claims submitted under $1,000 shall be automatically approved
+                </span>
+                if user KYC status is verified.
+              </p>
+
+              <p>
+                3.2.3 
+                <span class="bg-purple-500/20 text-purple-200 border-b border-purple-500 px-1 py-0.5 rounded" title="AI Flagged Assumption: Existing Auth service handles SSO">
+                  Customer authentication will delegate to the primary enterprise OAuth2 gateway.
+                </span>
+              </p>
+
+              <p>
+                3.2.4 When validation fails, 
+                <span class="bg-amber-500/20 text-amber-200 border-b border-amber-500 px-1 py-0.5 rounded" title="AI Flagged: No retry limit or fallback mechanism described">
+                  the system notifies the user and triggers a re-submission workflow.
+                </span>
+              </p>
+            </div>
+          </div>
+
+          <!-- Right Pane: Open Questions Engine & Assumption Register -->
+          <div class="space-y-4 flex flex-col">
+            <!-- Open Questions Card (FR-03) -->
+            <div class="flex-1 p-4 rounded-xl border border-zinc-800 bg-surface-900/60 flex flex-col">
+              <div class="flex items-center justify-between pb-2 mb-3 border-b border-zinc-800/80">
+                <div class="flex items-center space-x-2">
+                  <i data-lucide="help-circle" class="w-4 h-4 text-amber-400"></i>
+                  <h3 class="text-xs font-semibold text-white uppercase tracking-wider">Open Questions Requiring Human Input (3)</h3>
+                </div>
+                <span class="text-[10px] text-zinc-400 font-mono">Differentiator Feature</span>
+              </div>
+
+              <div class="space-y-3 overflow-y-auto flex-1 pr-1" id="questions-list">
+                <!-- Question 1 -->
+                <div class="p-3 rounded-lg bg-surface-950 border border-zinc-800 space-y-2" id="question-card-1">
+                  <div class="flex items-start justify-between">
+                    <span class="text-xs font-semibold text-white">Q1: What are the allowed attachment formats & maximum file sizes?</span>
+                    <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-300 border border-rose-500/20">High Impact</span>
+                  </div>
+                  <p class="text-[11px] text-zinc-400"><strong>Why clarification is needed:</strong> Unclear storage limits affect S3 bucket provisioning & Document AI parsing costs.</p>
+                  
+                  <div class="p-2 rounded bg-brand-500/5 border border-brand-500/20 text-[11px] text-brand-300">
+                    <strong>AI Suggested Answer:</strong> Support PDF, JPG, PNG with max 25MB per file (industry benchmark).
+                  </div>
+
+                  <div class="flex items-center justify-end space-x-2 pt-1">
+                    <button onclick="resolveQuestion(1, 'PDF, JPG, PNG max 25MB')" class="px-2.5 py-1 text-xs rounded bg-brand-600 hover:bg-brand-500 text-white font-medium transition">
+                      Accept Suggestion
+                    </button>
+                    <button class="px-2.5 py-1 text-xs rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300">
+                      Custom Answer
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Question 2 -->
+                <div class="p-3 rounded-lg bg-surface-950 border border-zinc-800 space-y-2">
+                  <div class="flex items-start justify-between">
+                    <span class="text-xs font-semibold text-white">Q2: How many retry attempts are allowed before lock-out on validation failure?</span>
+                    <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/20">Med Impact</span>
+                  </div>
+                  <p class="text-[11px] text-zinc-400"><strong>Why clarification is needed:</strong> Missing business rule for security exception handling.</p>
+                  
+                  <div class="p-2 rounded bg-brand-500/5 border border-brand-500/20 text-[11px] text-brand-300">
+                    <strong>AI Suggested Answer:</strong> Allow 3 attempts, then escalate to manual agent review.
+                  </div>
+
+                  <div class="flex items-center justify-end space-x-2 pt-1">
+                    <button class="px-2.5 py-1 text-xs rounded bg-brand-600 hover:bg-brand-500 text-white font-medium">Accept Suggestion</button>
+                    <button class="px-2.5 py-1 text-xs rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300">Custom Answer</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Assumption Register (FR-21) -->
+            <div class="p-3.5 rounded-xl border border-zinc-800 bg-surface-900/60">
+              <div class="flex items-center justify-between text-xs font-semibold text-zinc-300 mb-2">
+                <span class="flex items-center gap-1.5">
+                  <i data-lucide="bookmark" class="w-3.5 h-3.5 text-purple-400"></i>
+                  Assumption Register (FR-21)
+                </span>
+                <span class="text-[10px] font-mono text-zinc-500">2 tracked</span>
+              </div>
+              <div class="text-xs space-y-1.5">
+                <div class="flex items-center justify-between p-2 rounded bg-surface-950 border border-zinc-800 text-[11px]">
+                  <span class="text-zinc-200"><strong>ASSUMP-01:</strong> Existing Notification Service can be reused via REST.</span>
+                  <span class="text-amber-400 text-[10px] font-mono">Unconfirmed</span>
+                </div>
+                <div class="flex items-center justify-between p-2 rounded bg-surface-950 border border-zinc-800 text-[11px]">
+                  <span class="text-zinc-200"><strong>ASSUMP-02:</strong> Customer identity tokens comply with OAuth2 standard.</span>
+                  <span class="text-emerald-400 text-[10px] font-mono">Verified by Lead</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================== VIEW 3: BACKLOG & TRACEABILITY ==================== -->
+      <div id="view-backlog" class="hidden flex-1 p-6 max-w-7xl mx-auto w-full space-y-4">
+        <div class="flex items-center justify-between pb-3 border-b border-zinc-800">
+          <div>
+            <h1 class="text-lg font-bold text-white flex items-center gap-2">
+              Traceable Product Backlog
+              <span class="text-xs px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 font-mono">FR-04 & FR-05</span>
+            </h1>
+            <p class="text-xs text-zinc-400">Requirement → Epic → Story → Task → QA Traceability Matrix with Skill-Matched Assignments.</p>
+          </div>
+          <button class="px-3 py-1.5 rounded bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold flex items-center gap-1.5">
+            <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+            <span>Add Backlog Item</span>
+          </button>
+        </div>
+
+        <!-- Backlog Hierarchy Table -->
+        <div class="rounded-xl border border-zinc-800 bg-surface-900/60 overflow-hidden">
+          <div class="grid grid-cols-12 bg-surface-950 px-4 py-2.5 text-[11px] font-semibold text-zinc-400 uppercase tracking-wider font-mono border-b border-zinc-800">
+            <div class="col-span-1">Key</div>
+            <div class="col-span-4">Item Title & Hierarchy</div>
+            <div class="col-span-2">Requirement Origin</div>
+            <div class="col-span-2">AI Suggested Assignee</div>
+            <div class="col-span-1">Est. Effort</div>
+            <div class="col-span-1">Status</div>
+            <div class="col-span-1 text-right">Actions</div>
+          </div>
+
+          <div class="divide-y divide-zinc-800/60 text-xs">
+            <!-- EPIC ROW -->
+            <div class="grid grid-cols-12 px-4 py-3 bg-zinc-900/40 items-center font-medium">
+              <div class="col-span-1 font-mono text-brand-400 font-bold">EPC-01</div>
+              <div class="col-span-4 flex items-center space-x-2 text-white font-semibold">
+                <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-zinc-400"></i>
+                <i data-lucide="layers" class="w-4 h-4 text-purple-400"></i>
+                <span>Customer Claim Submission & Ingestion</span>
+              </div>
+              <div class="col-span-2 font-mono text-[11px] text-zinc-400">PRD §3.0 - §3.4</div>
+              <div class="col-span-2 text-zinc-400 text-[11px]">Core Team Alpha</div>
+              <div class="col-span-1 font-mono text-zinc-300">26 pts</div>
+              <div class="col-span-1"><span class="px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-300 text-[10px]">In Progress</span></div>
+              <div class="col-span-1 text-right text-zinc-500">···</div>
+            </div>
+
+            <!-- STORY ROW (Children of EPC-01) -->
+            <div class="grid grid-cols-12 px-4 py-2.5 bg-surface-900/20 items-center hover:bg-zinc-800/30 transition">
+              <div class="col-span-1 font-mono text-zinc-400 pl-4">STY-102</div>
+              <div class="col-span-4 flex items-center space-x-2 text-zinc-200 pl-4">
+                <i data-lucide="bookmark" class="w-3.5 h-3.5 text-blue-400"></i>
+                <span>As a customer, I can upload claim receipts for OCR parsing</span>
+              </div>
+              <div class="col-span-2 font-mono text-[11px] text-zinc-500">PRD §3.2.1</div>
+              <div class="col-span-2 flex items-center gap-1.5">
+                <span class="w-5 h-5 rounded-full bg-indigo-600 text-[9px] font-bold flex items-center justify-center text-white">AL</span>
+                <span class="text-zinc-300 text-[11px]">Alex (Backend)</span>
+                <span class="text-[9px] bg-emerald-500/15 text-emerald-300 px-1 rounded font-mono">92% match</span>
+              </div>
+              <div class="col-span-1 font-mono text-zinc-400">8 pts</div>
+              <div class="col-span-1"><span class="px-1.5 py-0.5 rounded bg-yellow-500/10 text-yellow-300 text-[10px]">Active</span></div>
+              <div class="col-span-1 text-right"><button class="text-zinc-400 hover:text-white text-xs">Edit</button></div>
+            </div>
+
+            <!-- TASK ROW (Sub-task 1 of STY-102) -->
+            <div class="grid grid-cols-12 px-4 py-2 bg-surface-950/40 items-center text-[11px] hover:bg-zinc-800/20 transition">
+              <div class="col-span-1 font-mono text-zinc-500 pl-8">TSK-301</div>
+              <div class="col-span-4 flex items-center space-x-2 text-zinc-300 pl-8">
+                <i data-lucide="check-square" class="w-3 h-3 text-emerald-400"></i>
+                <span>Build Document AI ingestion pipeline on Cloud Run</span>
+              </div>
+              <div class="col-span-2 font-mono text-[10px] text-zinc-500">Trace: AC-1 (Formats)</div>
+              <div class="col-span-2 text-zinc-400">Alex (Backend Lead)</div>
+              <div class="col-span-1 font-mono text-zinc-400">3 d</div>
+              <div class="col-span-1"><span class="px-1 py-0.5 rounded bg-emerald-500/10 text-emerald-400 text-[10px]">Done</span></div>
+              <div class="col-span-1 text-right text-zinc-500">···</div>
+            </div>
+
+            <!-- TASK ROW (Sub-task 2: BLOCKED) -->
+            <div class="grid grid-cols-12 px-4 py-2 bg-rose-500/5 items-center text-[11px] hover:bg-rose-500/10 transition border-l-2 border-rose-500">
+              <div class="col-span-1 font-mono text-rose-300 pl-8">PAY-142</div>
+              <div class="col-span-4 flex items-center space-x-2 text-white pl-8">
+                <i data-lucide="alert-circle" class="w-3 h-3 text-rose-400"></i>
+                <span>Claims Validation Vendor API Gateway connector</span>
+              </div>
+              <div class="col-span-2 font-mono text-[10px] text-rose-400">PRD §3.2.3</div>
+              <div class="col-span-2 text-zinc-300">David (Senior Dev)</div>
+              <div class="col-span-1 font-mono text-zinc-400">2 d</div>
+              <div class="col-span-1"><span class="px-1 py-0.5 rounded bg-rose-500/20 text-rose-300 text-[10px] font-bold">Blocked</span></div>
+              <div class="col-span-1 text-right"><button onclick="switchView('governance')" class="text-rose-300 underline text-[10px]">View</button></div>
+            </div>
+
+            <!-- QA TASK ROW -->
+            <div class="grid grid-cols-12 px-4 py-2 bg-surface-950/40 items-center text-[11px] hover:bg-zinc-800/20 transition">
+              <div class="col-span-1 font-mono text-zinc-500 pl-8">QA-401</div>
+              <div class="col-span-4 flex items-center space-x-2 text-zinc-300 pl-8">
+                <i data-lucide="test-tube" class="w-3 h-3 text-teal-400"></i>
+                <span>Automated boundary tests for >$1,000 threshold approval</span>
+              </div>
+              <div class="col-span-2 font-mono text-[10px] text-zinc-500">PRD §3.2.2</div>
+              <div class="col-span-2 text-zinc-400">Sam (QA Automator)</div>
+              <div class="col-span-1 font-mono text-zinc-400">1.5 d</div>
+              <div class="col-span-1"><span class="px-1 py-0.5 rounded bg-zinc-800 text-zinc-400 text-[10px]">To Do</span></div>
+              <div class="col-span-1 text-right text-zinc-500">···</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================== VIEW 4: SPRINT BOARD ==================== -->
+      <div id="view-sprint" class="hidden flex-1 p-6 max-w-7xl mx-auto w-full space-y-4">
+        <!-- Spillover warning banner (FR-13) -->
+        <div class="p-3 rounded-lg border border-amber-500/30 bg-amber-500/10 flex items-center justify-between text-xs">
+          <div class="flex items-center space-x-2 text-amber-200">
+            <i data-lucide="trending-down" class="w-4 h-4 text-amber-400"></i>
+            <span><strong>Spillover Forecast Alert:</strong> At current velocity, PAY-142 and QA-401 have a 78% likelihood of spilling into Sprint 4.</span>
+          </div>
+          <button onclick="triggerSpilloverModal()" class="px-2.5 py-1 rounded bg-amber-400 text-surface-950 font-bold hover:bg-amber-300 transition text-[11px]">
+            Execute Spillover Options
+          </button>
+        </div>
+
+        <div class="flex items-center justify-between pb-2 border-b border-zinc-800">
+          <div>
+            <h1 class="text-lg font-bold text-white">Active Sprint 3 Board</h1>
+            <p class="text-xs text-zinc-400">Automated transitions with human-approved overrides.</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <button class="px-2.5 py-1 text-xs rounded bg-zinc-800 text-zinc-300 hover:bg-zinc-700">Filter Assignee</button>
+            <button class="px-2.5 py-1 text-xs rounded bg-brand-600 text-white hover:bg-brand-500 font-medium">+ Quick Task</button>
+          </div>
+        </div>
+
+        <!-- Kanban Board Columns -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 flex-1">
+          <!-- TO DO COLUMN -->
+          <div class="p-3 rounded-xl border border-zinc-800 bg-surface-900/50 flex flex-col space-y-3">
+            <div class="flex items-center justify-between text-xs font-semibold text-zinc-400 pb-2 border-b border-zinc-800">
+              <span class="flex items-center gap-2">To Do <span class="text-[10px] bg-zinc-800 px-1.5 py-0.2 rounded font-mono">2</span></span>
+              <span>3 pts</span>
+            </div>
+
+            <!-- Card -->
+            <div class="p-3 rounded-lg bg-surface-950 border border-zinc-800 hover:border-zinc-700 transition space-y-2 cursor-grab">
+              <div class="flex items-center justify-between text-[10px]">
+                <span class="font-mono text-zinc-500">TSK-302</span>
+                <span class="px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300">AC-2</span>
+              </div>
+              <h4 class="text-xs font-medium text-white">File Upload MIME type validator</h4>
+              <div class="flex items-center justify-between pt-2 border-t border-zinc-800/60 text-[11px] text-zinc-400">
+                <span>Dev: Maria</span>
+                <span class="font-mono">1.5d</span>
+              </div>
+            </div>
+
+            <!-- Card -->
+            <div class="p-3 rounded-lg bg-surface-950 border border-zinc-800 hover:border-zinc-700 transition space-y-2 cursor-grab">
+              <div class="flex items-center justify-between text-[10px]">
+                <span class="font-mono text-zinc-500">QA-401</span>
+                <span class="px-1.5 py-0.5 rounded bg-teal-500/10 text-teal-300">QA Task</span>
+              </div>
+              <h4 class="text-xs font-medium text-white">Boundary test suites for auto-approval</h4>
+              <div class="flex items-center justify-between pt-2 border-t border-zinc-800/60 text-[11px] text-zinc-400">
+                <span>QA Lead</span>
+                <span class="font-mono">1.5d</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- IN PROGRESS COLUMN -->
+          <div class="p-3 rounded-xl border border-zinc-800 bg-surface-900/50 flex flex-col space-y-3">
+            <div class="flex items-center justify-between text-xs font-semibold text-zinc-400 pb-2 border-b border-zinc-800">
+              <span class="flex items-center gap-2">In Progress <span class="text-[10px] bg-zinc-800 px-1.5 py-0.2 rounded font-mono">1</span></span>
+              <span>5 pts</span>
+            </div>
+
+            <!-- Card -->
+            <div class="p-3 rounded-lg bg-surface-950 border border-indigo-500/40 hover:border-indigo-500 transition space-y-2 cursor-grab shadow-sm">
+              <div class="flex items-center justify-between text-[10px]">
+                <span class="font-mono text-indigo-400 font-bold">STY-102</span>
+                <span class="px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300">Feature</span>
+              </div>
+              <h4 class="text-xs font-medium text-white">OCR receipt parsing integration</h4>
+              <div class="p-1.5 rounded bg-zinc-900 text-[10px] text-zinc-400 border border-zinc-800">
+                <span class="text-emerald-400">● 4 of 5 commits passing CI</span>
+              </div>
+              <div class="flex items-center justify-between pt-2 border-t border-zinc-800/60 text-[11px] text-zinc-400">
+                <span>Dev: Alex</span>
+                <span class="font-mono text-indigo-300">3d left</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- BLOCKED COLUMN (FR-08 & FR-14) -->
+          <div class="p-3 rounded-xl border border-rose-900/40 bg-rose-950/10 flex flex-col space-y-3">
+            <div class="flex items-center justify-between text-xs font-semibold text-rose-400 pb-2 border-b border-rose-900/40">
+              <span class="flex items-center gap-2">Blocked <span class="text-[10px] bg-rose-500/20 px-1.5 py-0.2 rounded font-mono">1</span></span>
+              <span>3 pts</span>
+            </div>
+
+            <!-- Blocked Card -->
+            <div class="p-3 rounded-lg bg-surface-950 border border-rose-500/50 space-y-2 shadow-lg shadow-rose-950/20">
+              <div class="flex items-center justify-between text-[10px]">
+                <span class="font-mono text-rose-400 font-bold">PAY-142</span>
+                <span class="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 font-bold">IMPEDIMENT</span>
+              </div>
+              <h4 class="text-xs font-semibold text-white">Payment gateway vendor webhook</h4>
+              <div class="p-1.5 rounded bg-rose-500/10 border border-rose-500/30 text-[10px] text-rose-300">
+                <p><strong>Blocker:</strong> Vendor API schema contract delayed by 3 days.</p>
+                <div class="mt-1 flex items-center justify-between text-[9px] text-rose-400">
+                  <span>Source: Standup 10/02</span>
+                  <span>Confidence: 94%</span>
+                </div>
+              </div>
+              <div class="flex items-center justify-between pt-2 border-t border-zinc-800/60 text-[11px] text-zinc-400">
+                <span>Dev: David</span>
+                <button onclick="switchView('governance')" class="text-rose-400 hover:underline text-[10px] font-bold">Take Action →</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- DONE COLUMN -->
+          <div class="p-3 rounded-xl border border-zinc-800 bg-surface-900/50 flex flex-col space-y-3">
+            <div class="flex items-center justify-between text-xs font-semibold text-zinc-400 pb-2 border-b border-zinc-800">
+              <span class="flex items-center gap-2">Done <span class="text-[10px] bg-zinc-800 px-1.5 py-0.2 rounded font-mono">3</span></span>
+              <span>18 pts</span>
+            </div>
+
+            <!-- Done Card with AI auto-tag -->
+            <div class="p-3 rounded-lg bg-surface-950 border border-zinc-800/80 opacity-80 space-y-2">
+              <div class="flex items-center justify-between text-[10px]">
+                <span class="font-mono text-zinc-500 line-through">TSK-299</span>
+                <span class="px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 text-[9px] font-mono">Auto-moved</span>
+              </div>
+              <h4 class="text-xs font-medium text-zinc-300 line-through">Database Schema & Firestore collections</h4>
+              <div class="flex items-center justify-between pt-2 border-t border-zinc-800/60 text-[11px] text-zinc-500">
+                <span>Dev: Maria</span>
+                <span class="text-emerald-400">Verified</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================== VIEW 5: MEETING INTELLIGENCE STUDIO ==================== -->
+      <div id="view-meetings" class="hidden flex-1 p-6 max-w-7xl mx-auto w-full space-y-4">
+        <div class="flex items-center justify-between pb-3 border-b border-zinc-800">
+          <div>
+            <h1 class="text-lg font-bold text-white flex items-center gap-2">
+              Meeting Intelligence & Autonomous Actions
+              <span class="text-xs px-2 py-0.5 rounded bg-violet-500/10 text-violet-300 border border-violet-500/20 font-mono">FR-08 - FR-11</span>
+            </h1>
+            <p class="text-xs text-zinc-400">Convert voice transcripts & standup notes directly into decisions, blockers, and tracked tasks.</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <select class="px-2.5 py-1 text-xs rounded bg-zinc-800 text-zinc-300 border border-zinc-700">
+              <option>Daily Scrum (Today)</option>
+              <option>Sprint Planning #3</option>
+              <option>Sprint 2 Retrospective</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 flex-1">
+          <!-- Left: Transcript Input / Recorder -->
+          <div class="p-4 rounded-xl border border-zinc-800 bg-surface-900/60 flex flex-col space-y-3">
+            <div class="flex items-center justify-between pb-2 border-b border-zinc-800">
+              <span class="text-xs font-semibold text-zinc-300 flex items-center gap-2">
+                <i data-lucide="align-left" class="w-4 h-4 text-violet-400"></i>
+                Standup Transcript / Notes
+              </span>
+              <button onclick="fillSampleTranscript()" class="text-[11px] text-brand-400 hover:underline">Insert Sample Transcript</button>
+            </div>
+
+            <textarea id="meeting-notes-input" class="w-full flex-1 p-3 rounded-lg bg-surface-950 border border-zinc-800 text-xs font-mono text-zinc-200 focus:outline-none focus:border-brand-500 transition leading-relaxed min-h-[300px]" placeholder="Paste standup notes or audio transcript here..."></textarea>
+
+            <button onclick="processMeetingNotes()" class="w-full py-2.5 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white font-semibold text-xs flex items-center justify-center gap-2 shadow-lg transition">
+              <i data-lucide="sparkles" class="w-4 h-4"></i>
+              <span>Run Meeting Intelligence & Extract Actions</span>
+            </button>
+          </div>
+
+          <!-- Right: Real-Time Extracted Execution Plan -->
+          <div class="p-4 rounded-xl border border-zinc-800 bg-surface-900/60 flex flex-col space-y-3">
+            <div class="flex items-center justify-between pb-2 border-b border-zinc-800">
+              <span class="text-xs font-semibold text-zinc-300 flex items-center gap-2">
+                <i data-lucide="workflow" class="w-4 h-4 text-emerald-400"></i>
+                Extracted Entities & Execution Plan
+              </span>
+              <span class="text-[10px] text-zinc-500 font-mono" id="extracted-status">Awaiting trigger</span>
+            </div>
+
+            <div class="flex-1 space-y-3 overflow-y-auto" id="extracted-actions-container">
+              <div class="h-full flex flex-col items-center justify-center text-center p-8 text-zinc-500 space-y-2">
+                <i data-lucide="file-search" class="w-8 h-8 text-zinc-600 stroke-1"></i>
+                <p class="text-xs">Click "Insert Sample Transcript" and run extraction to preview real-time database mutations and tasks.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================== VIEW 6: DEPENDENCY & RISK DAG ==================== -->
+      <div id="view-risks" class="hidden flex-1 p-6 max-w-7xl mx-auto w-full space-y-4">
+        <div class="flex items-center justify-between pb-3 border-b border-zinc-800">
+          <div>
+            <h1 class="text-lg font-bold text-white flex items-center gap-2">
+              Dependency DAG & Critical Path Risk Radar
+              <span class="text-xs px-2 py-0.5 rounded bg-rose-500/10 text-rose-300 border border-rose-500/20 font-mono">FR-14 & FR-15</span>
+            </h1>
+            <p class="text-xs text-zinc-400">Directed Acyclic Graph identifying bottlenecks, unverified contracts, and path aging.</p>
+          </div>
+          <span class="text-xs font-mono text-rose-400 bg-rose-500/10 px-2 py-1 rounded border border-rose-500/20">Critical Path Aging: 48 hours</span>
+        </div>
+
+        <!-- Visual Dependency Graph Mockup -->
+        <div class="p-6 rounded-xl border border-zinc-800 bg-surface-900/70 relative min-h-[420px] flex items-center justify-center overflow-hidden">
+          <!-- Visual Nodes Connected by CSS Lines -->
+          <div class="w-full flex items-center justify-between px-8 z-10 max-w-4xl">
+            <!-- Node 1: Requirement -->
+            <div class="p-3 rounded-lg bg-surface-950 border border-blue-500/40 w-44 shadow-lg text-center space-y-1">
+              <span class="text-[10px] font-mono text-blue-400 uppercase">Requirement</span>
+              <p class="text-xs font-bold text-white">REQ-01: Claim OCR</p>
+              <span class="text-[10px] text-emerald-400">● Validated</span>
+            </div>
+
+            <i data-lucide="arrow-right" class="w-5 h-5 text-zinc-600"></i>
+
+            <!-- Node 2: Core Task -->
+            <div class="p-3 rounded-lg bg-surface-950 border border-emerald-500/40 w-44 shadow-lg text-center space-y-1">
+              <span class="text-[10px] font-mono text-emerald-400 uppercase">Backend API</span>
+              <p class="text-xs font-bold text-white">TSK-301: Ingestion API</p>
+              <span class="text-[10px] text-emerald-400">✓ Completed</span>
+            </div>
+
+            <i data-lucide="arrow-right" class="w-5 h-5 text-rose-500 animate-pulse"></i>
+
+            <!-- Node 3: Blocked Critical Path -->
+            <div class="p-3.5 rounded-lg bg-surface-950 border-2 border-rose-500 w-48 shadow-xl shadow-rose-950/40 text-center space-y-1.5 animate-pulse">
+              <span class="text-[10px] font-mono text-rose-400 uppercase font-bold flex items-center justify-center gap-1">
+                <i data-lucide="alert-triangle" class="w-3 h-3"></i> Critical Blocker
+              </span>
+              <p class="text-xs font-bold text-white">PAY-142: Vendor Gateway</p>
+              <span class="text-[10px] bg-rose-500/20 text-rose-300 px-1.5 py-0.5 rounded font-mono">Blocked: Contract missing</span>
+            </div>
+
+            <i data-lucide="arrow-right" class="w-5 h-5 text-zinc-600"></i>
+
+            <!-- Node 4: Dependent QA -->
+            <div class="p-3 rounded-lg bg-surface-950 border border-zinc-700/60 w-44 shadow-lg text-center space-y-1 opacity-60">
+              <span class="text-[10px] font-mono text-zinc-400 uppercase">Verification QA</span>
+              <p class="text-xs font-bold text-zinc-300">QA-401: End-to-End</p>
+              <span class="text-[10px] text-amber-400">Waiting on PAY-142</span>
+            </div>
+          </div>
+
+          <!-- Subtle Graph Grid Background -->
+          <div class="absolute inset-0 bg-[radial-gradient(#27272a_1px,transparent_1px)] [background-size:16px_16px] opacity-40"></div>
+        </div>
+      </div>
+
+      <!-- ==================== VIEW 7: ACTION CENTER & GOVERNANCE ==================== -->
+      <div id="view-governance" class="hidden flex-1 p-6 max-w-7xl mx-auto w-full space-y-6">
+        <div class="flex items-center justify-between pb-3 border-b border-zinc-800">
+          <div>
+            <h1 class="text-lg font-bold text-white flex items-center gap-2">
+              Action Center & Human Governance Ledger
+              <span class="text-xs px-2 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/20 font-mono">FR-22 & FR-23</span>
+            </h1>
+            <p class="text-xs text-zinc-400">Strict execution tiers: Auto-execute, Approval Required, and Human-Only decisions.</p>
+          </div>
+          <div class="flex items-center gap-2 text-xs font-mono text-zinc-400">
+            <span>Pending Approvals: <strong class="text-amber-400" id="gov-pending-count">3</strong></span>
+          </div>
+        </div>
+
+        <!-- Pending Human Approvals (Observation -> Evidence -> Impact -> Recommendation -> Action) -->
+        <div class="space-y-4" id="approvals-container">
+          <!-- Approval Item 1: Scope Change Intercept (FR-16 & FR-23) -->
+          <div class="p-4 rounded-xl border border-amber-500/30 bg-surface-900/60 space-y-3" id="approval-card-1">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <span class="px-2 py-0.5 text-[10px] font-bold rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 uppercase font-mono">Scope Change Detected</span>
+                <h3 class="text-xs font-bold text-white">Payment Timeout parameter reduced from 30s to 10s</h3>
+              </div>
+              <span class="text-xs font-mono text-emerald-400">Confidence: 94%</span>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-[11px] bg-surface-950 p-3 rounded-lg border border-zinc-800">
+              <div>
+                <span class="text-zinc-500 font-semibold block uppercase text-[10px]">Observation & Evidence</span>
+                <p class="text-zinc-300 mt-0.5">Line 42 of Standup transcript: "Timeout must be 10s for mobile users."</p>
+              </div>
+              <div>
+                <span class="text-zinc-500 font-semibold block uppercase text-[10px]">Delivery Impact</span>
+                <p class="text-amber-300 mt-0.5">Affects 2 backend tasks and performance testing criteria.</p>
+              </div>
+              <div>
+                <span class="text-zinc-500 font-semibold block uppercase text-[10px]">AI Proposed Action</span>
+                <p class="text-zinc-300 mt-0.5">Update Acceptance Criteria of STY-102 and add performance test task QA-403.</p>
+              </div>
+            </div>
+
+            <div class="flex items-center justify-end space-x-2 pt-1">
+              <button onclick="approveAction(1, 'Scope change applied to STY-102')" class="px-3 py-1.5 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs transition">
+                Approve & Mutate Backlog
+              </button>
+              <button onclick="dismissAction(1)" class="px-3 py-1.5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs">
+                Dismiss as Distraction
+              </button>
+            </div>
+          </div>
+
+          <!-- Approval Item 2: Reassignment Recommendation (FR-05) -->
+          <div class="p-4 rounded-xl border border-amber-500/30 bg-surface-900/60 space-y-3" id="approval-card-2">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <span class="px-2 py-0.5 text-[10px] font-bold rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 uppercase font-mono">Resource Rebalance</span>
+                <h3 class="text-xs font-bold text-white">Reassign TSK-304 (Claim validation schema) to Maria</h3>
+              </div>
+              <span class="text-xs font-mono text-emerald-400">Confidence: 89%</span>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-[11px] bg-surface-950 p-3 rounded-lg border border-zinc-800">
+              <div>
+                <span class="text-zinc-500 font-semibold block uppercase text-[10px]">Observation</span>
+                <p class="text-zinc-300 mt-0.5">David holds 108% capacity with 2 blocked dependencies.</p>
+              </div>
+              <div>
+                <span class="text-zinc-500 font-semibold block uppercase text-[10px]">Capacity Match</span>
+                <p class="text-indigo-300 mt-0.5">Maria has 14h available capacity and 95% TypeScript skill fit.</p>
+              </div>
+              <div>
+                <span class="text-zinc-500 font-semibold block uppercase text-[10px]">AI Proposed Action</span>
+                <p class="text-zinc-300 mt-0.5">Shift TSK-304 ownership to preserve Sprint 3 completion date.</p>
+              </div>
+            </div>
+
+            <div class="flex items-center justify-end space-x-2 pt-1">
+              <button onclick="approveAction(2, 'Task reassigned to Maria')" class="px-3 py-1.5 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs transition">
+                Approve Reassignment
+              </button>
+              <button onclick="dismissAction(2)" class="px-3 py-1.5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs">
+                Keep with David
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Immutable Audit Trail Table (Section 44) -->
+        <div class="p-4 rounded-xl border border-zinc-800 bg-surface-900/60 space-y-3">
+          <div class="flex items-center justify-between pb-2 border-b border-zinc-800">
+            <span class="text-xs font-semibold text-white uppercase tracking-wider flex items-center gap-1.5">
+              <i data-lucide="history" class="w-3.5 h-3.5 text-brand-400"></i>
+              Immutable AI Execution Audit Ledger (Firestore / BigQuery)
+            </span>
+            <span class="text-[10px] text-zinc-500 font-mono">Traceable Decision Log</span>
+          </div>
+
+          <table class="w-full text-left text-xs font-mono">
+            <thead>
+              <tr class="text-[10px] text-zinc-500 uppercase border-b border-zinc-800">
+                <th class="pb-2">Timestamp</th>
+                <th class="pb-2">Agent ID</th>
+                <th class="pb-2">Action Executed</th>
+                <th class="pb-2">Trigger Entity</th>
+                <th class="pb-2">Governance Tier</th>
+                <th class="pb-2 text-right">Confidence</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-zinc-800/60 text-zinc-300" id="audit-log-body">
+              <tr>
+                <td class="py-2.5 text-zinc-500">10:34 AM</td>
+                <td class="text-brand-400">Task Agent</td>
+                <td>Created dependency PAY-142 → API-CONTRACT-12</td>
+                <td class="text-zinc-400">Standup #04</td>
+                <td><span class="px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300 text-[10px]">Auto-Executed</span></td>
+                <td class="text-right text-emerald-400">96%</td>
+              </tr>
+              <tr>
+                <td class="py-2.5 text-zinc-500">09:15 AM</td>
+                <td class="text-violet-400">Meeting Agent</td>
+                <td>Extracted 3 actions and updated sprint velocity</td>
+                <td class="text-zinc-400">Daily Standup</td>
+                <td><span class="px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300 text-[10px]">Auto-Executed</span></td>
+                <td class="text-right text-emerald-400">92%</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ==================== VIEW 8: KNOWLEDGE & ASSUMPTIONS ==================== -->
+      <div id="view-knowledge" class="hidden flex-1 p-6 max-w-7xl mx-auto w-full space-y-4">
+        <div class="flex items-center justify-between pb-3 border-b border-zinc-800">
+          <div>
+            <h1 class="text-lg font-bold text-white flex items-center gap-2">
+              Decision Register & Project Memory
+              <span class="text-xs px-2 py-0.5 rounded bg-teal-500/10 text-teal-300 border border-teal-500/20 font-mono">FR-20 & FR-21</span>
+            </h1>
+            <p class="text-xs text-zinc-400">Structured decision log preventing knowledge loss and circular debates.</p>
+          </div>
+          <button class="px-2.5 py-1 text-xs rounded bg-brand-600 text-white font-medium">+ Record Decision</button>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="p-4 rounded-xl border border-zinc-800 bg-surface-900/60 space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-mono text-teal-400 font-bold">DECISION-08</span>
+              <span class="text-[10px] text-zinc-500 font-mono">2026-10-01</span>
+            </div>
+            <h3 class="text-sm font-semibold text-white">OAuth2 PKCE chosen over basic API tokens</h3>
+            <p class="text-xs text-zinc-300 leading-relaxed">
+              <strong>Context:</strong> External vendor requested direct token exchange. Team decided PKCE with short-lived tokens is mandatory per enterprise security policy.
+            </p>
+            <div class="flex items-center justify-between pt-2 border-t border-zinc-800 text-[10px] text-zinc-400">
+              <span>Participants: PO, Arch Lead</span>
+              <span class="text-emerald-400">Affects: Auth module</span>
+            </div>
+          </div>
+
+          <div class="p-4 rounded-xl border border-zinc-800 bg-surface-900/60 space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-mono text-teal-400 font-bold">DECISION-07</span>
+              <span class="text-[10px] text-zinc-500 font-mono">2026-09-28</span>
+            </div>
+            <h3 class="text-sm font-semibold text-white">Document AI OCR engine selected for bill parsing</h3>
+            <p class="text-xs text-zinc-300 leading-relaxed">
+              <strong>Context:</strong> Compared Google Document AI vs AWS Textract. Document AI specialized healthcare claims processor selected for 94% out-of-the-box accuracy.
+            </p>
+            <div class="flex items-center justify-between pt-2 border-t border-zinc-800 text-[10px] text-zinc-400">
+              <span>Participants: Engineering Lead</span>
+              <span class="text-emerald-400">Affects: TSK-301</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- RIGHT COPILOT DRAWER (FR-18 & Section 40) -->
+    <aside id="copilot-drawer" class="w-96 border-l border-zinc-800 bg-surface-900 flex flex-col justify-between transition-all duration-300 ease-in-out shadow-2xl z-30">
+      <!-- Copilot Header -->
+      <div class="h-14 border-b border-zinc-800 px-4 flex items-center justify-between">
+        <div class="flex items-center space-x-2">
+          <div class="w-6 h-6 rounded bg-brand-500/20 text-brand-400 flex items-center justify-center">
+            <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+          </div>
+          <span class="text-xs font-bold text-white">AI Scrum Master Assistant</span>
+        </div>
+        <button onclick="toggleCopilot()" class="text-zinc-500 hover:text-zinc-300 p-1">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <!-- Copilot Chat Stream -->
+      <div class="flex-1 p-4 space-y-3 overflow-y-auto text-xs" id="copilot-messages">
+        <!-- AI Initial Greeting -->
+        <div class="flex items-start space-x-2">
+          <div class="w-5 h-5 rounded bg-brand-500/20 text-brand-400 flex items-center justify-center shrink-0 mt-0.5 font-bold text-[10px]">
+            AI
+          </div>
+          <div class="p-3 rounded-lg bg-surface-950 border border-zinc-800/80 text-zinc-200 space-y-1.5 leading-relaxed">
+            <p>Hello! I am actively tracking <strong>Sprint 3</strong>. I have detected <strong>1 high-impact blocker</strong> (PAY-142) and have <strong>3 actions awaiting your approval</strong>.</p>
+            <p class="text-[11px] text-zinc-400">Ask me anything about requirements, velocity, or dependencies.</p>
+          </div>
+        </div>
+
+        <!-- Sample Suggested Prompts -->
+        <div class="space-y-1.5 pt-2">
+          <div class="text-[10px] text-zinc-500 font-mono uppercase">Quick Inquiries</div>
+          <button onclick="sendCopilotMessage('Why is the sprint at risk?')" class="w-full text-left p-2 rounded bg-zinc-800/40 hover:bg-zinc-800 border border-zinc-800 text-[11px] text-zinc-300 transition">
+            "Why is the sprint currently marked as Watch?"
+          </button>
+          <button onclick="sendCopilotMessage('Prepare tomorrow Daily Scrum agenda')" class="w-full text-left p-2 rounded bg-zinc-800/40 hover:bg-zinc-800 border border-zinc-800 text-[11px] text-zinc-300 transition">
+            "Generate tomorrow's Daily Scrum focus areas"
+          </button>
+          <button onclick="sendCopilotMessage('Analyze incomplete tasks for spillover')" class="w-full text-left p-2 rounded bg-zinc-800/40 hover:bg-zinc-800 border border-zinc-800 text-[11px] text-zinc-300 transition">
+            "Show spillover risks if PAY-142 is delayed 2 days"
+          </button>
+        </div>
+      </div>
+
+      <!-- Copilot Input Bar -->
+      <div class="p-3 border-t border-zinc-800 bg-surface-950">
+        <form onsubmit="handleCopilotSubmit(event)" class="flex items-center space-x-2">
+          <input type="text" id="copilot-input" class="flex-1 bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-brand-500 transition" placeholder="Ask AI Scrum Master..." />
+          <button type="submit" class="p-2 rounded-lg bg-brand-600 hover:bg-brand-500 text-white transition">
+            <i data-lucide="arrow-up" class="w-3.5 h-3.5"></i>
+          </button>
+        </form>
+      </div>
+    </aside>
+  </div>
+
+  <!-- COMMAND PALETTE MODAL (⌘K) -->
+  <div id="command-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden flex items-start justify-center pt-24">
+    <div class="w-full max-w-xl bg-surface-900 border border-zinc-700/80 rounded-xl shadow-2xl overflow-hidden">
+      <div class="p-3 border-b border-zinc-800 flex items-center space-x-2">
+        <i data-lucide="search" class="w-4 h-4 text-zinc-400"></i>
+        <input type="text" placeholder="Type a command or ask a project question..." class="w-full bg-transparent text-sm text-white placeholder-zinc-500 focus:outline-none font-sans" id="cmd-input" />
+        <kbd class="px-1.5 py-0.5 text-[10px] bg-zinc-800 text-zinc-400 rounded font-mono">ESC</kbd>
+      </div>
+      <div class="p-2 text-xs space-y-1">
+        <div class="px-2 py-1 text-[10px] text-zinc-500 font-mono uppercase">Quick Navigation</div>
+        <button onclick="switchView('dashboard'); toggleCommandPalette();" class="w-full text-left px-3 py-2 rounded-md hover:bg-zinc-800 flex items-center justify-between text-zinc-200">
+          <span class="flex items-center gap-2"><i data-lucide="layout-dashboard" class="w-4 h-4 text-brand-400"></i> Go to Sprint 3 Dashboard</span>
+          <span class="text-[10px] text-zinc-500 font-mono">Jump</span>
+        </button>
+        <button onclick="switchView('governance'); toggleCommandPalette();" class="w-full text-left px-3 py-2 rounded-md hover:bg-zinc-800 flex items-center justify-between text-zinc-200">
+          <span class="flex items-center gap-2"><i data-lucide="shield-alert" class="w-4 h-4 text-amber-400"></i> Review Pending Approvals (3)</span>
+          <span class="text-[10px] text-zinc-500 font-mono">Review</span>
+        </button>
+        <button onclick="switchView('documents'); toggleCommandPalette();" class="w-full text-left px-3 py-2 rounded-md hover:bg-zinc-800 flex items-center justify-between text-zinc-200">
+          <span class="flex items-center gap-2"><i data-lucide="file-text" class="w-4 h-4 text-blue-400"></i> Open Questions Engine</span>
+          <span class="text-[10px] text-zinc-500 font-mono">Docs</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCRIPT LOGIC -->
+  <script>
+    // Initialize Lucide icons
+    lucide.createIcons();
+
+    // View Navigation Switcher
+    function switchView(viewName) {
+      const views = ['dashboard', 'documents', 'backlog', 'sprint', 'meetings', 'risks', 'governance', 'knowledge'];
+      views.forEach(v => {
+        const el = document.getElementById(`view-${v}`);
+        const nav = document.getElementById(`nav-${v}`);
+        if (el) el.classList.add('hidden');
+        if (nav) {
+          nav.classList.remove('bg-zinc-800/80', 'text-white');
+          nav.classList.add('text-zinc-400');
+        }
+      });
+
+      const targetView = document.getElementById(`view-${viewName}`);
+      const targetNav = document.getElementById(`nav-${viewName}`);
+      if (targetView) targetView.classList.remove('hidden');
+      if (targetNav) {
+        targetNav.classList.add('bg-zinc-800/80', 'text-white');
+        targetNav.classList.remove('text-zinc-400');
+      }
+      lucide.createIcons();
+    }
+
+    // Toggle AI Copilot Drawer
+    function toggleCopilot() {
+      const drawer = document.getElementById('copilot-drawer');
+      drawer.classList.toggle('hidden');
+    }
+
+    // Toggle Command Palette (⌘K)
+    function toggleCommandPalette() {
+      const modal = document.getElementById('command-modal');
+      modal.classList.toggle('hidden');
+      if (!modal.classList.contains('hidden')) {
+        document.getElementById('cmd-input').focus();
+      }
+    }
+
+    // Keyboard Shortcuts Listener
+    window.addEventListener('keydown', (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        toggleCommandPalette();
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === 'j') {
+        e.preventDefault();
+        toggleCopilot();
+      }
+      if (e.key === 'Escape') {
+        const modal = document.getElementById('command-modal');
+        if (!modal.classList.contains('hidden')) modal.classList.add('hidden');
+      }
+    });
+
+    // Governance Actions Logic
+    let approvalsCount = 3;
+    function approveAction(id, message) {
+      const card = document.getElementById(`approval-card-${id}`);
+      if (card) {
+        card.innerHTML = `
+          <div class="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-lg text-emerald-300 text-xs flex items-center justify-between">
+            <span class="flex items-center gap-2"><i data-lucide="check" class="w-4 h-4"></i> <strong>Approved & Executed:</strong> ${message}</span>
+            <span class="text-[10px] font-mono">Logged to Firestore</span>
+          </div>
+        `;
+        approvalsCount--;
+        updateApprovalBadges();
+        addAuditRow('Approved Action', message, 'Human PO');
+        lucide.createIcons();
+      }
+    }
+
+    function dismissAction(id) {
+      const card = document.getElementById(`approval-card-${id}`);
+      if (card) {
+        card.remove();
+        approvalsCount--;
+        updateApprovalBadges();
+      }
+    }
+
+    function updateApprovalBadges() {
+      document.getElementById('approval-count-badge').innerText = `${approvalsCount} Approvals`;
+      document.getElementById('sidebar-approval-count').innerText = approvalsCount;
+      document.getElementById('gov-pending-count').innerText = approvalsCount;
+    }
+
+    function addAuditRow(action, trigger, authority) {
+      const tbody = document.getElementById('audit-log-body');
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td class="py-2.5 text-zinc-500">Just Now</td>
+        <td class="text-brand-400">Workflow Agent</td>
+        <td>${action}: ${trigger}</td>
+        <td class="text-zinc-400">Action Center</td>
+        <td><span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[10px]">${authority}</span></td>
+        <td class="text-right text-emerald-400 font-mono">100%</td>
+      `;
+      tbody.prepend(tr);
+    }
+
+    // Open Questions Resolution
+    function resolveQuestion(qNum, answerText) {
+      const card = document.getElementById(`question-card-${qNum}`);
+      if (card) {
+        card.innerHTML = `
+          <div class="p-2.5 bg-emerald-500/10 border border-emerald-500/20 rounded text-xs text-emerald-300 flex items-center justify-between">
+            <span>✓ <strong>Resolved:</strong> ${answerText}. Acceptance criteria automatically updated on STY-102.</span>
+            <span class="text-[10px] font-mono text-emerald-400">Saved</span>
+          </div>
+        `;
+      }
+    }
+
+    // Meeting Intelligence Fill & Process
+    function fillSampleTranscript() {
+      const sample = `Alex: Finished OCR prototype endpoints. Today I'm wiring the validation logic.
+David: I was working on PAY-142 for the payment gateway, but I am totally blocked because the vendor team hasn't sent their API schema. We cannot complete checkout.
+Maria: Also PO mentioned in the hallway that timeout must be 10s instead of 30s for the mobile app experience.`;
+      document.getElementById('meeting-notes-input').value = sample;
+    }
+
+    function processMeetingNotes() {
+      const container = document.getElementById('extracted-actions-container');
+      const status = document.getElementById('extracted-status');
+      status.innerText = "Processing via Gemini...";
+
+      setTimeout(() => {
+        status.innerText = "Extracted 3 actions";
+        container.innerHTML = `
+          <!-- Decision -->
+          <div class="p-2.5 rounded-lg bg-surface-950 border border-teal-500/30 space-y-1">
+            <div class="flex items-center justify-between text-[10px]">
+              <span class="font-bold text-teal-400 uppercase font-mono">Decision Extracted</span>
+              <span class="px-1 bg-teal-500/10 text-teal-300 rounded font-mono">Confidence: 96%</span>
+            </div>
+            <p class="text-xs text-white">"Payment timeout constraint modified from 30s to 10s"</p>
+            <div class="flex justify-between items-center text-[10px] text-zinc-400 pt-1">
+              <span>Source: Maria quote</span>
+              <span class="text-amber-400 font-semibold">Flagged for PO Approval</span>
+            </div>
+          </div>
+
+          <!-- Impediment -->
+          <div class="p-2.5 rounded-lg bg-surface-950 border border-rose-500/30 space-y-1">
+            <div class="flex items-center justify-between text-[10px]">
+              <span class="font-bold text-rose-400 uppercase font-mono">Impediment / Blocker</span>
+              <span class="px-1 bg-rose-500/10 text-rose-300 rounded font-mono">Confidence: 94%</span>
+            </div>
+            <p class="text-xs text-white">PAY-142 Blocked: Missing vendor API schema contract</p>
+            <div class="flex justify-between items-center text-[10px] text-zinc-400 pt-1">
+              <span>Assignee: David</span>
+              <span class="text-rose-400">Created Blocker Record</span>
+            </div>
+          </div>
+
+          <!-- Task Update -->
+          <div class="p-2.5 rounded-lg bg-surface-950 border border-emerald-500/30 space-y-1">
+            <div class="flex items-center justify-between text-[10px]">
+              <span class="font-bold text-emerald-400 uppercase font-mono">Task Status Auto-Update</span>
+              <span class="px-1 bg-emerald-500/10 text-emerald-300 rounded font-mono">Confidence: 91%</span>
+            </div>
+            <p class="text-xs text-white">TSK-301 (OCR Endpoints) marked as Complete</p>
+            <div class="flex justify-between items-center text-[10px] text-zinc-400 pt-1">
+              <span>Assignee: Alex</span>
+              <span class="text-emerald-400">Board Updated</span>
+            </div>
+          </div>
+        `;
+        lucide.createIcons();
+      }, 700);
+    }
+
+    // Copilot Chat handling
+    function handleCopilotSubmit(e) {
+      e.preventDefault();
+      const input = document.getElementById('copilot-input');
+      const val = input.value.trim();
+      if (!val) return;
+      sendCopilotMessage(val);
+      input.value = '';
+    }
+
+    function sendCopilotMessage(query) {
+      const container = document.getElementById('copilot-messages');
+      // User message
+      const userBubble = document.createElement('div');
+      userBubble.className = "flex items-start justify-end space-x-2";
+      userBubble.innerHTML = `
+        <div class="p-2.5 rounded-lg bg-brand-600 text-white text-xs max-w-[85%]">
+          ${query}
+        </div>
+      `;
+      container.appendChild(userBubble);
+
+      // AI Simulated response
+      setTimeout(() => {
+        let answer = "I have analyzed the current project state.";
+        if (query.includes("at risk")) {
+          answer = "<strong>Sprint 3 is at risk for 2 specific reasons:</strong><br/>1. <strong>PAY-142</strong> is blocked by external vendor API specs with 3 days left.<br/>2. <strong>Backend capacity</strong> is at 108%, meaning David cannot absorb unblocking delays without slipping.";
+        } else if (query.includes("Daily Scrum")) {
+          answer = "<strong>Recommended Daily Scrum Agenda:</strong><br/>• Confirm vendor contract ETA with Lead Architect.<br/>• Review reassignment of TSK-304 to Maria to relieve David.<br/>• Finalize acceptance criteria for 10s mobile timeout.";
+        }
+
+        const aiBubble = document.createElement('div');
+        aiBubble.className = "flex items-start space-x-2";
+        aiBubble.innerHTML = `
+          <div class="w-5 h-5 rounded bg-brand-500/20 text-brand-400 flex items-center justify-center shrink-0 mt-0.5 font-bold text-[10px]">
+            AI
+          </div>
+          <div class="p-3 rounded-lg bg-surface-950 border border-zinc-800 text-zinc-200 text-xs leading-relaxed space-y-1">
+            <p>${answer}</p>
+            <span class="text-[9px] text-zinc-500 font-mono block">Evidence: Firestore Sprint3 + Meeting #04</span>
+          </div>
+        `;
+        container.appendChild(aiBubble);
+        container.scrollTop = container.scrollHeight;
+      }, 500);
+    }
+
+    function triggerQuickMeeting() {
+      switchView('meetings');
+      fillSampleTranscript();
+      processMeetingNotes();
+    }
+
+    function triggerSpilloverModal() {
+      alert("Spillover Recommendation Engine:\n\n1. Move PAY-142 to Sprint 4 (Recommended - Blocker external)\n2. Split STY-102 into OCR Core and Vendor Payment\n3. De-scope QA-401 from automated test suite\n\nAI Rationale: External dependencies should not artificially distort team velocity metrics.");
+    }
+  </script>
+</body>
+</html>

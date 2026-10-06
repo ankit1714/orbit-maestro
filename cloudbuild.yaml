@@ -1,0 +1,65 @@
+# Automated Cloud Build CI/CD Pipeline for AI Scrum Master
+steps:
+  # 1. Run Unit Tests & Agent Schema Validation
+  - name: 'python:3.11-slim'
+    id: 'test-backend-and-agents'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        pip install -r apps/api/requirements.txt pytest httpx networkx
+        PYTHONPATH=. pytest packages/agents/tests apps/api/tests
+
+  # 2. Build Backend Docker Image
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'build-api-image'
+    args: ['build', '-t', '$_REGION-docker.pkg.dev/$PROJECT_ID/app-images/api:latest', '-f', 'apps/api/Dockerfile', '.']
+
+  # 3. Push API Image
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'push-api-image'
+    args: ['push', '$_REGION-docker.pkg.dev/$PROJECT_ID/app-images/api:latest']
+
+  # 4. Build Web Cockpit Docker Image
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'build-web-image'
+    args: ['build', '-t', '$_REGION-docker.pkg.dev/$PROJECT_ID/app-images/web:latest', '-f', 'apps/web/Dockerfile', '.']
+
+  # 5. Push Web Image
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'push-web-image'
+    args: ['push', '$_REGION-docker.pkg.dev/$PROJECT_ID/app-images/web:latest']
+
+  # 6. Deploy API to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'deploy-api-cloud-run'
+    entrypoint: 'gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'ai-scrum-api'
+      - '--image=$_REGION-docker.pkg.dev/$PROJECT_ID/app-images/api:latest'
+      - '--region=$_REGION'
+      - '--platform=managed'
+      - '--allow-unauthenticated'
+      - '--set-env-vars=PROJECT_ID=$PROJECT_ID,REGION=$_REGION,ENVIRONMENT=prod'
+
+  # 7. Deploy Web Cockpit to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'deploy-web-cloud-run'
+    entrypoint: 'gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'ai-scrum-cockpit'
+      - '--image=$_REGION-docker.pkg.dev/$PROJECT_ID/app-images/web:latest'
+      - '--region=$_REGION'
+      - '--platform=managed'
+      - '--allow-unauthenticated'
+
+substitutions:
+  _REGION: 'us-central1'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  machineType: 'E2_HIGHCPU_8'
