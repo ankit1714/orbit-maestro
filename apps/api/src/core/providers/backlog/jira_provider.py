@@ -403,7 +403,7 @@ class JiraBacklogProvider(BaseBacklogProvider):
                 remaining_days = max(0, (end_utc - now_utc).days)
                 total_days = max(1, (end_utc - start_utc).days)
 
-                # 3. Fetch issues inside this sprint
+                # 3. Fetch issues inside this sprint and project for capacity calculation
                 issues_url = f"{self.instance_url}/rest/agile/1.0/sprint/{s_id}/issue"
                 res_i = requests.get(issues_url, headers=self._get_headers(), auth=self._get_auth(), timeout=8)
                 committed_keys = []
@@ -422,6 +422,145 @@ class JiraBacklogProvider(BaseBacklogProvider):
                         if st_name in ["done", "completed", "closed", "resolved"]:
                             delivered_pts += pts
 
+                # 4. Fetch all project issues from Jira to compute true live capacity loading
+                search_url = f"{self.instance_url}/rest/api/3/search/jql"
+                search_payload = {
+                    "jql": f"project = '{self.project_key}' ORDER BY created DESC",
+                    "maxResults": 100,
+                    "fields": ["summary", "status", "issuetype", "assignee", "customfield_10016"]
+                }
+                res_search = requests.post(search_url, headers=self._get_headers(), json=search_payload, auth=self._get_auth(), timeout=8)
+                all_jira_issues = res_search.json().get("issues", []) if res_search.status_code == 200 else []
+
+                # Fetch project team members from Firestore
+                proj_doc = db.collection("projects").document(project_id).get()
+                proj_data = proj_doc.to_dict() if proj_doc.exists else {}
+                reg_team = proj_data.get("team_members", [])
+
+                fe_committed_hrs = 0.0
+                be_committed_hrs = 0.0
+                qa_committed_hrs = 0.0
+                dev_workloads: Dict[str, Dict[str, Any]] = {}
+
+                for ji in all_jira_issues:
+                    jf = ji.get("fields", {})
+                    jsum = jf.get("summary", "").lower()
+                    is_sub = jf.get("issuetype", {}).get("subtask", False)
+                    jpts = float(jf.get("customfield_10016") or (1.5 if is_sub else 5.0))
+                    hrs = jpts * 6.0 if is_sub else jpts * 4.0
+
+                    if "[qa]" in jsum or "qa" in jsum or "test" in jsum:
+                        qa_committed_hrs += hrs
+                    elif "[fe]" in jsum or "[ui]" in jsum or "view" in jsum or "page" in jsum or "ui" in jsum or "component" in jsum:
+                        fe_committed_hrs += hrs
+                    else:
+                        be_committed_hrs += hrs
+
+                    j_assignee = jf.get("assignee")
+                    a_name = j_assignee.get("displayName") if j_assignee else "Unassigned"
+                    if a_name not in dev_workloads:
+                        dev_workloads[a_name] = {"tickets": 0, "points": 0.0, "hours": 0.0}
+                    dev_workloads[a_name]["tickets"] += 1
+                    dev_workloads[a_name]["points"] += jpts
+                    dev_workloads[a_name]["hours"] += hrs
+
+                # Assemble DeveloperCapacity list
+                from apps.api.src.schemas.sprint import DeveloperCapacity
+                developer_allocations: List[DeveloperCapacity] = []
+
+                # First add registered team members from Firestore
+                known_names = set()
+                for m in reg_team:
+                    m_name = m.get("name", "Developer")
+                    known_names.add(m_name.lower())
+                    matched_wl = next((wl for k, wl in dev_workloads.items() if m_name.lower() in k.lower()), None)
+                    t_count = matched_wl["tickets"] if matched_wl else 0
+                    t_pts = matched_wl["points"] if matched_wl else 0.0
+                    t_hrs = matched_wl["hours"] if matched_wl else 0.0
+                    avail_hrs = float(m.get("available_hours_per_week", 40.0)) * 2.0
+                    load = round((t_hrs / max(avail_hrs, 1.0)) * 100, 1)
+
+                    developer_allocations.append(DeveloperCapacity(
+                        name=m_name,
+                        role=m.get("role", "Developer"),
+                        assigned_tickets_count=t_count,
+                        assigned_story_points=t_pts,
+                        allocated_hours=round(t_hrs, 1),
+                        available_hours=avail_hrs,
+                        load_pct=load,
+                        status="OVERLOADED" if load > 100 else ("HIGH_LOAD" if load >= 85 else ("BALANCED" if load >= 50 else "HEALTHY"))
+                    ))
+
+                # Also add any active Jira assignees that weren't in registered team members
+                for a_name, wl in dev_workloads.items():
+                    if a_name != "Unassigned" and a_name.lower() not in known_names:
+                        known_names.add(a_name.lower())
+                        avail = 80.0
+                        load = round((wl["hours"] / avail) * 100, 1)
+                        developer_allocations.append(DeveloperCapacity(
+                            name=a_name,
+                            role="Jira Engineer",
+                            assigned_tickets_count=wl["tickets"],
+                            assigned_story_points=wl["points"],
+                            allocated_hours=round(wl["hours"], 1),
+                            available_hours=avail,
+                            load_pct=load,
+                            status="OVERLOADED" if load > 100 else ("HIGH_LOAD" if load >= 85 else ("BALANCED" if load >= 50 else "HEALTHY"))
+                        ))
+
+                # If no registered team members and no assigned Jira users, include authenticated user
+                if not developer_allocations:
+                    user_name = "ANKIT MAURYA" if "ankit" in (self.user_email or "").lower() else "Lead Developer"
+                    developer_allocations.append(DeveloperCapacity(
+                        name=user_name,
+                        role="Scrum Lead / Developer",
+                        assigned_tickets_count=len(all_jira_issues),
+                        assigned_story_points=sum(float(ji.get("fields", {}).get("customfield_10016") or 1.5) for ji in all_jira_issues),
+                        allocated_hours=round(fe_committed_hrs + be_committed_hrs + qa_committed_hrs, 1),
+                        available_hours=80.0,
+                        load_pct=round(((fe_committed_hrs + be_committed_hrs + qa_committed_hrs) / 80.0) * 100, 1),
+                        status="BALANCED"
+                    ))
+
+                # Include unassigned queue if there are unassigned tickets and specific assigned developers exist
+                if "Unassigned" in dev_workloads and dev_workloads["Unassigned"]["tickets"] > 0 and len(developer_allocations) > 1:
+                    un_wl = dev_workloads["Unassigned"]
+                    developer_allocations.append(DeveloperCapacity(
+                        name="Unassigned Queue",
+                        role="Pending Jira Allocation",
+                        assigned_tickets_count=un_wl["tickets"],
+                        assigned_story_points=un_wl["points"],
+                        allocated_hours=round(un_wl["hours"], 1),
+                        available_hours=80.0,
+                        load_pct=round((un_wl["hours"] / 80.0) * 100, 1),
+                        status="BALANCED"
+                    ))
+
+                # Calculate overall capacity figures
+                total_avail_hours = sum(d.available_hours for d in developer_allocations) or 160.0
+                total_comm_hours = sum(d.allocated_hours for d in developer_allocations) or (fe_committed_hrs + be_committed_hrs + qa_committed_hrs)
+                overall_load = round((total_comm_hours / max(total_avail_hours, 1.0)) * 100, 1)
+
+                frontend_avail = max(40.0, total_avail_hours * 0.35)
+                backend_avail = max(60.0, total_avail_hours * 0.45)
+                qa_avail = max(20.0, total_avail_hours * 0.20)
+
+                capacity = SprintCapacity(
+                    team_total_hours=round(total_avail_hours, 1),
+                    committed_hours=round(total_comm_hours, 1),
+                    overall_load_pct=min(overall_load, 150.0),
+                    frontend_hours=round(frontend_avail, 1),
+                    frontend_committed_hours=round(fe_committed_hrs, 1),
+                    frontend_load_pct=round((fe_committed_hrs / frontend_avail) * 100, 1),
+                    backend_hours=round(backend_avail, 1),
+                    backend_committed_hours=round(be_committed_hrs, 1),
+                    backend_load_pct=round((be_committed_hrs / backend_avail) * 100, 1),
+                    qa_hours=round(qa_avail, 1),
+                    qa_committed_hours=round(qa_committed_hrs, 1),
+                    qa_load_pct=round((qa_committed_hrs / qa_avail) * 100, 1),
+                    developer_allocations=developer_allocations
+                )
+
                 return Sprint(
                     id=f"jira-sprint-{s_id}",
                     project_id=project_id,
@@ -436,7 +575,7 @@ class JiraBacklogProvider(BaseBacklogProvider):
                     start_date=start_dt,
                     end_date=end_dt,
                     committed_story_ids=committed_keys,
-                    capacity=SprintCapacity(team_total_hours=160.0),
+                    capacity=capacity,
                     source="JIRA",
                     jira_board_id=board_id,
                     jira_sprint_id=s_id

@@ -139,6 +139,8 @@ export default function CockpitPage() {
           openQuestionsCount={openQuestionsCount}
           approvalsCount={approvalsCount}
           hasBlocker={flashHealth?.status === "OFF_TRACK"}
+          sprint={sprint}
+          project={activeProject}
         />
 
         {/* Center Workspace Canvas */}

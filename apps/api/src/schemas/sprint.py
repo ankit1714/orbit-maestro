@@ -4,14 +4,30 @@ from datetime import datetime
 from apps.api.src.schemas.common import ItemStatus
 from apps.api.src.schemas.backlog import UserStory
 
+class DeveloperCapacity(BaseModel):
+    name: str
+    role: str = "Developer"
+    assigned_tickets_count: int = 0
+    assigned_story_points: float = 0.0
+    allocated_hours: float = 0.0
+    available_hours: float = 80.0
+    load_pct: float = 0.0
+    status: str = "BALANCED" # HEALTHY, BALANCED, HIGH_LOAD, OVERLOADED
+
 class SprintCapacity(BaseModel):
     team_total_hours: float = 160.0
+    committed_hours: float = 120.0
+    overall_load_pct: float = 75.0
     frontend_hours: float = 60.0
+    frontend_committed_hours: float = 40.0
+    frontend_load_pct: float = 66.7
     backend_hours: float = 80.0
+    backend_committed_hours: float = 64.0
+    backend_load_pct: float = 80.0
     qa_hours: float = 20.0
-    frontend_load_pct: float = 72.0
-    backend_load_pct: float = 108.0 # Alert
-    qa_load_pct: float = 65.0
+    qa_committed_hours: float = 16.0
+    qa_load_pct: float = 80.0
+    developer_allocations: List[DeveloperCapacity] = Field(default_factory=list)
 
 class SpilloverItem(BaseModel):
     task_id: str
