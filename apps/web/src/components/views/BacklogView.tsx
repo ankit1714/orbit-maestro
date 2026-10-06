@@ -183,7 +183,7 @@ export const BacklogView: React.FC<BacklogViewProps> = ({
                   <div className="col-span-1 font-mono text-brand-400 font-bold flex items-center gap-1">
                     {isJiraKey(epic.key) ? (
                       <a
-                        href={`https://whirlpool.atlassian.net/browse/${epic.key}`}
+                        href={`https://the-ai-scrum-master.atlassian.net/browse/${epic.key}`}
                         target="_blank"
                         rel="noreferrer"
                         className="hover:underline flex items-center gap-0.5 text-blue-400"
@@ -221,7 +221,7 @@ export const BacklogView: React.FC<BacklogViewProps> = ({
                       <div className="col-span-1 font-mono text-zinc-400 pl-4 flex items-center gap-1">
                         {isJiraKey(story.key) ? (
                           <a
-                            href={`https://whirlpool.atlassian.net/browse/${story.key}`}
+                            href={`https://the-ai-scrum-master.atlassian.net/browse/${story.key}`}
                             target="_blank"
                             rel="noreferrer"
                             className="hover:underline flex items-center gap-0.5 text-blue-400 font-semibold"
@@ -274,7 +274,7 @@ export const BacklogView: React.FC<BacklogViewProps> = ({
                           <div className={`col-span-1 font-mono pl-8 flex items-center gap-1 ${isBlocked ? 'text-rose-300' : 'text-zinc-500'}`}>
                             {isJiraKey(task.key) ? (
                               <a
-                                href={`https://whirlpool.atlassian.net/browse/${task.key}`}
+                                href={`https://the-ai-scrum-master.atlassian.net/browse/${task.key}`}
                                 target="_blank"
                                 rel="noreferrer"
                                 className="hover:underline flex items-center gap-0.5 text-blue-400 font-semibold"
@@ -380,7 +380,7 @@ export const BacklogView: React.FC<BacklogViewProps> = ({
                 <input
                   type="text"
                   disabled
-                  value="https://whirlpool.atlassian.net"
+                  value="https://the-ai-scrum-master.atlassian.net"
                   className="w-full px-3 py-2 rounded-lg bg-surface-950 border border-zinc-800 text-zinc-300 font-mono text-xs cursor-not-allowed"
                 />
               </div>
@@ -391,11 +391,11 @@ export const BacklogView: React.FC<BacklogViewProps> = ({
                   type="text"
                   value={targetJiraKey}
                   onChange={(e) => setTargetJiraKey(e.target.value)}
-                  placeholder="e.g. CKST2, CKST1, UTP"
+                  placeholder="e.g. SCRUM"
                   className="w-full px-3 py-2 rounded-lg bg-surface-950 border border-zinc-700 text-white font-mono text-xs focus:outline-none focus:border-brand-500"
                 />
                 <span className="text-[11px] text-zinc-500 mt-1 block">
-                  Suggested keys: <strong>CKST2</strong>, <strong>CKST1</strong>, <strong>UTP</strong>, or <strong>CLM</strong>.
+                  Suggested keys: <strong>SCRUM</strong>.
                 </span>
               </div>
             </div>
