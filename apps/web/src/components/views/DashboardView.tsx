@@ -1,11 +1,12 @@
 'use client';
 
 import React from 'react';
-import { Target, AlertOctagon, Zap, Play, UploadCloud, CheckCircle2 } from 'lucide-react';
+import { Target, AlertOctagon, Zap, Play, UploadCloud, CheckCircle2, ExternalLink, Layers, CheckSquare } from 'lucide-react';
 
 interface DashboardViewProps {
   project: any;
   sprint: any;
+  backlog?: any;
   healthMatrix: any;
   flashHealth: any;
   activityLogs: any[];
@@ -16,6 +17,7 @@ interface DashboardViewProps {
 export const DashboardView: React.FC<DashboardViewProps> = ({
   project,
   sprint,
+  backlog,
   healthMatrix,
   flashHealth,
   activityLogs,
@@ -25,9 +27,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const isOffTrack = flashHealth?.status === "OFF_TRACK";
   const isAtRisk = flashHealth?.status === "AT_RISK";
 
-  const totalPoints = sprint?.planned_points || 30;
+  const totalPoints = backlog?.total_points || sprint?.planned_points || 39;
   const deliveredPoints = sprint?.delivered_points || 0;
   const completionPct = totalPoints > 0 ? Math.round((deliveredPoints / totalPoints) * 100) : 0;
+  const totalTasks = backlog?.total_tasks || 10;
+  const totalEpics = backlog?.total_epics || 3;
+  const isJira = backlog?.source === "JIRA" || sprint?.source === "JIRA";
+  const jiraKey = project?.jira_settings?.project_key || project?.key || "SCRUM";
 
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto w-full">
@@ -35,19 +41,31 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-zinc-800">
         <div>
           <div className="flex items-center gap-2">
-            <span className="font-mono text-brand-400 font-bold text-sm">[{project?.key || "PROJECT"}]</span>
+            <span className="font-mono text-brand-400 font-bold text-sm">[{jiraKey}]</span>
             <h1 className="text-xl font-bold text-white">
-              {project?.name || "Scrum Delivery Cockpit"}
+              {project?.name || "AI Scrum Master"}
             </h1>
-            <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium">
-              {sprint?.name || "Sprint 1"}
+            <span className="text-xs px-2.5 py-0.5 rounded-full bg-blue-500/10 text-blue-300 border border-blue-500/20 font-medium flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              {sprint?.name || "Active Jira Sprint"}
             </span>
           </div>
           <p className="text-xs text-zinc-400 mt-1">
-            Goal: <span className="text-zinc-200 font-medium">{sprint?.goal || project?.business_objective || "Establish project baseline and initial user stories."}</span>
+            Goal: <span className="text-zinc-200 font-medium">{sprint?.goal || project?.business_objective || "Real-time Jira Sprint tracking and automated delivery execution."}</span>
           </p>
         </div>
         <div className="flex items-center space-x-2">
+          {isJira && (
+            <a
+              href={`https://the-ai-scrum-master.atlassian.net/jira/software/projects/${jiraKey}/boards`}
+              target="_blank"
+              rel="noreferrer"
+              className="px-3 py-1.5 rounded-md border border-blue-400/40 bg-blue-500/10 hover:bg-blue-500/20 text-blue-300 text-xs font-semibold flex items-center space-x-1.5 transition"
+            >
+              <span>Jira Board</span>
+              <ExternalLink className="w-3.5 h-3.5" />
+            </a>
+          )}
           <button
             onClick={() => onSwitchView('meetings')}
             className="px-3 py-1.5 rounded-md bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold flex items-center space-x-1.5 shadow-sm transition"
@@ -86,8 +104,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
       ) : (
         <div className="p-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5 flex items-center justify-between text-xs text-emerald-300">
-          <span>🟢 <strong>GitHub Flash Engine:</strong> {flashHealth?.headline || "Active commits recorded across feature branches. CI checks passing."}</span>
-          <span className="font-mono text-[10px]">Auto-monitored</span>
+          <span>🟢 <strong>Jira & GitHub Live Sync:</strong> Real-time Jira Cloud metrics ({totalPoints} story points across {totalTasks} tasks in {totalEpics} epics).</span>
+          <span className="font-mono text-[10px]">Live Connected</span>
         </div>
       )}
 
@@ -126,7 +144,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center space-x-2">
                 <Target className="w-4 h-4 text-brand-400" />
-                <h3 className="text-xs font-semibold text-white uppercase tracking-wider">Sprint Velocity & Burndown</h3>
+                <h3 className="text-xs font-semibold text-white uppercase tracking-wider">Jira Sprint Velocity & Burndown</h3>
               </div>
               <span className="text-xs text-zinc-400 font-mono">
                 {deliveredPoints} of {totalPoints} pts completed ({completionPct}%)
@@ -138,8 +156,36 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <div className="bg-emerald-500 h-full" style={{ width: `${completionPct}%` }}></div>
             </div>
             <div className="flex items-center justify-between text-[11px] text-zinc-400">
-              <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500"></span> Delivered ({deliveredPoints} pts)</span>
-              <span className="text-zinc-500 font-mono">{sprint?.remaining_days || 10} days left</span>
+              <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500"></span> Delivered from Jira ({deliveredPoints} pts)</span>
+              <span className="text-zinc-500 font-mono">{sprint?.remaining_days ?? 4} days left in sprint</span>
+            </div>
+          </div>
+
+          {/* Quick Metrics Grid */}
+          <div className="grid grid-cols-3 gap-3">
+            <div className="p-3.5 rounded-xl border border-zinc-800 bg-surface-900/40">
+              <span className="text-[10px] font-mono text-zinc-500 uppercase">Jira Epics</span>
+              <div className="text-xl font-bold text-white mt-1 flex items-center gap-1.5">
+                <Layers className="w-4 h-4 text-purple-400" />
+                <span>{totalEpics}</span>
+              </div>
+              <p className="text-[10px] text-zinc-400 mt-0.5">Top-level features</p>
+            </div>
+            <div className="p-3.5 rounded-xl border border-zinc-800 bg-surface-900/40">
+              <span className="text-[10px] font-mono text-zinc-500 uppercase">Tracked Issues</span>
+              <div className="text-xl font-bold text-white mt-1 flex items-center gap-1.5">
+                <CheckSquare className="w-4 h-4 text-brand-400" />
+                <span>{totalTasks}</span>
+              </div>
+              <p className="text-[10px] text-zinc-400 mt-0.5">Active Jira tasks & subtasks</p>
+            </div>
+            <div className="p-3.5 rounded-xl border border-zinc-800 bg-surface-900/40">
+              <span className="text-[10px] font-mono text-zinc-500 uppercase">Total Story Points</span>
+              <div className="text-xl font-bold text-white mt-1 flex items-center gap-1.5">
+                <Target className="w-4 h-4 text-emerald-400" />
+                <span>{totalPoints}</span>
+              </div>
+              <p className="text-[10px] text-zinc-400 mt-0.5">Live backlog estimation</p>
             </div>
           </div>
 

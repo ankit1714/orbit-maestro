@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Layers, Bookmark, CheckSquare, AlertCircle, TestTube, ChevronDown, Plus, Sparkles, Inbox, FileText, ArrowRight } from 'lucide-react';
+import { Layers, Bookmark, CheckSquare, AlertCircle, TestTube, ChevronDown, Plus, Sparkles, Inbox, FileText, ArrowRight, UploadCloud, ExternalLink, CheckCircle2, X, RefreshCw, User, Calendar, Clock } from 'lucide-react';
 import { api } from '@/lib/api';
 
 interface BacklogViewProps {
@@ -20,10 +20,18 @@ export const BacklogView: React.FC<BacklogViewProps> = ({
   onSwitchView,
 }) => {
   const [generating, setGenerating] = useState(false);
+  const [uploadingJira, setUploadingJira] = useState(false);
+  const [showJiraModal, setShowJiraModal] = useState(false);
+  const [targetJiraKey, setTargetJiraKey] = useState(
+    project?.jira_settings?.project_key || "SCRUM"
+  );
+  const [jiraSyncResult, setJiraSyncResult] = useState<any>(null);
+  const [jiraError, setJiraError] = useState<string | null>(null);
 
   const epics = backlog?.epics || [];
   const hasBacklog = epics.length > 0;
   const hasRequirements = requirements && requirements.capabilities && requirements.capabilities.length > 0;
+  const isJiraSource = backlog?.source === "JIRA";
 
   const handleSynthesize = async () => {
     setGenerating(true);
@@ -40,25 +48,82 @@ export const BacklogView: React.FC<BacklogViewProps> = ({
     }
   };
 
+  const handleUploadJira = async () => {
+    setUploadingJira(true);
+    setJiraError(null);
+    setJiraSyncResult(null);
+    try {
+      const res = await api.uploadBacklogToJira(project.id, {
+        project_key: targetJiraKey.trim().toUpperCase()
+      });
+      setJiraSyncResult(res);
+      onRefresh();
+    } catch (err: any) {
+      setJiraError(err?.message || "Failed to upload backlog to Jira.");
+    } finally {
+      setUploadingJira(false);
+    }
+  };
+
+  const isJiraKey = (key?: string) => {
+    if (!key) return false;
+    return !key.startsWith("EPC-") && !key.startsWith("STY-") && !key.startsWith("TSK-") && key.includes("-");
+  };
+
+  const formatDate = (dateStr?: string) => {
+    if (!dateStr) return "-";
+    try {
+      const d = new Date(dateStr);
+      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    } catch {
+      return dateStr;
+    }
+  };
+
   return (
     <div className="p-6 max-w-7xl mx-auto w-full space-y-4 flex-1">
       {/* Header */}
       <div className="flex items-center justify-between pb-3 border-b border-zinc-800">
         <div>
           <div className="flex items-center gap-2">
-            <span className="font-mono text-brand-400 font-bold text-sm">[{project?.key}]</span>
+            <span className="font-mono text-brand-400 font-bold text-sm">[{project?.key || "SCRUM"}]</span>
             <h1 className="text-lg font-bold text-white">
               Traceable Product Backlog
             </h1>
-            <span className="text-xs px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 font-mono">
-              Linked to: {requirements?.document_title || "Document Studio PRD"}
-            </span>
+            {isJiraSource ? (
+              <span className="text-xs px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-300 border border-blue-500/20 font-mono flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                Live Jira Sync: {backlog?.jira_project_key || "SCRUM"}
+              </span>
+            ) : (
+              <span className="text-xs px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 font-mono">
+                Linked to: {requirements?.document_title || "Document Studio PRD"}
+              </span>
+            )}
           </div>
           <p className="text-xs text-zinc-400 mt-0.5">
-            4-Tier Requirement Traceability Matrix with Skill-Matched Assignments ({backlog?.total_points || 0} story points).
+            4-Tier Requirement Traceability Matrix with Skill-Matched Assignments ({backlog?.total_points || 0} story points, {backlog?.total_tasks || 0} tasks).
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {isJiraSource && (
+            <button
+              onClick={onRefresh}
+              className="px-3 py-1.5 rounded-lg border border-zinc-800 bg-surface-900 hover:bg-zinc-800 text-zinc-300 text-xs font-semibold flex items-center gap-1.5 transition"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              <span>Refresh Jira</span>
+            </button>
+          )}
+          {hasBacklog && (
+            <button
+              onClick={() => setShowJiraModal(true)}
+              className="px-3.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold flex items-center gap-1.5 shadow-md shadow-blue-500/20 transition"
+            >
+              <UploadCloud className="w-3.5 h-3.5" />
+              <span>Upload to Jira</span>
+            </button>
+          )}
           {hasRequirements && (
             <button
               onClick={handleSynthesize}
@@ -72,8 +137,63 @@ export const BacklogView: React.FC<BacklogViewProps> = ({
         </div>
       </div>
 
+      {/* Jira Live Source Banner */}
+      {isJiraSource && (
+        <div className="p-3 rounded-xl border border-blue-500/30 bg-blue-500/10 flex items-center justify-between text-xs text-blue-200">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+            <span>
+              <strong>Direct Jira Cloud Sync:</strong> Displaying real-time issues from <strong>{backlog?.jira_project_key || "SCRUM"}</strong> ({backlog?.total_epics} Epics, {backlog?.total_stories} Stories, {backlog?.total_tasks} Tasks). Live status, assignees, created, and modified timestamps.
+            </span>
+          </div>
+          <a
+            href="https://the-ai-scrum-master.atlassian.net/jira/software/projects/SCRUM/boards"
+            target="_blank"
+            rel="noreferrer"
+            className="px-2.5 py-1 rounded border border-blue-400/40 hover:bg-blue-500/20 text-blue-300 font-semibold text-[11px] flex items-center gap-1 shrink-0"
+          >
+            <span>Open in Jira</span>
+            <ExternalLink className="w-3 h-3" />
+          </a>
+        </div>
+      )}
+
+      {/* Jira Sync Success Alert */}
+      {jiraSyncResult && (
+        <div className="p-4 rounded-xl border border-emerald-500/40 bg-emerald-500/10 text-emerald-200 text-xs flex items-start justify-between">
+          <div className="flex items-start gap-2.5">
+            <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <p className="font-semibold text-emerald-300">
+                Backlog Uploaded Successfully to Jira [{jiraSyncResult.jira_project_key}]
+              </p>
+              <p className="text-zinc-300">
+                Created: {jiraSyncResult.total_epics_synced} Epic(s), {jiraSyncResult.total_stories_synced} Story(ies), {jiraSyncResult.total_tasks_synced} Task(s).
+              </p>
+              <div className="flex flex-wrap gap-2 pt-1 font-mono text-[11px]">
+                {jiraSyncResult.epics?.map((e: any) => (
+                  <a
+                    key={e.key}
+                    href={e.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 hover:bg-blue-500/30 transition underline"
+                  >
+                    <span>{e.key}: {e.title}</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                ))}
+              </div>
+            </div>
+          </div>
+          <button onClick={() => setJiraSyncResult(null)} className="text-zinc-400 hover:text-white">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       {/* Requirement Source Banner */}
-      {!hasRequirements && (
+      {!hasRequirements && !isJiraSource && (
         <div className="p-3.5 rounded-xl border border-amber-500/30 bg-amber-500/10 flex items-center justify-between text-xs text-amber-200">
           <div className="flex items-center space-x-2">
             <FileText className="w-4 h-4 text-amber-400" />
@@ -95,67 +215,101 @@ export const BacklogView: React.FC<BacklogViewProps> = ({
         <div className="rounded-xl border border-zinc-800 bg-surface-900/60 overflow-hidden">
           <div className="grid grid-cols-12 bg-surface-950 px-4 py-2.5 text-[11px] font-semibold text-zinc-400 uppercase tracking-wider font-mono border-b border-zinc-800">
             <div className="col-span-1">Key</div>
-            <div className="col-span-4">Item Title & Hierarchy</div>
-            <div className="col-span-2">Origin Trace (PRD §)</div>
-            <div className="col-span-2">AI Suggested Assignee</div>
+            <div className="col-span-3">Item Title & Hierarchy</div>
+            <div className="col-span-2">Assigned To</div>
             <div className="col-span-1">Effort</div>
-            <div className="col-span-1">Status</div>
-            <div className="col-span-1 text-right">Actions</div>
+            <div className="col-span-2">Created Date</div>
+            <div className="col-span-2">Last Modified</div>
+            <div className="col-span-1 text-right">Status</div>
           </div>
 
           <div className="divide-y divide-zinc-800/60 text-xs">
             {epics.map((epic: any) => (
               <React.Fragment key={epic.id || epic.key}>
                 {/* EPIC ROW */}
-                <div className="grid grid-cols-12 px-4 py-3 bg-zinc-900/40 items-center font-medium">
-                  <div className="col-span-1 font-mono text-brand-400 font-bold">{epic.key}</div>
-                  <div className="col-span-4 flex items-center space-x-2 text-white font-semibold">
-                    <ChevronDown className="w-3.5 h-3.5 text-zinc-400" />
-                    <Layers className="w-4 h-4 text-purple-400" />
-                    <span>{epic.title}</span>
+                <div className="grid grid-cols-12 px-4 py-3 bg-zinc-900/50 items-center font-medium">
+                  <div className="col-span-1 font-mono text-brand-400 font-bold flex items-center gap-1">
+                    {isJiraKey(epic.key) ? (
+                      <a
+                        href={`https://the-ai-scrum-master.atlassian.net/browse/${epic.key}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="hover:underline flex items-center gap-0.5 text-blue-400 font-bold"
+                        title="View Epic in Jira"
+                      >
+                        <span>{epic.key}</span>
+                        <ExternalLink className="w-2.5 h-2.5" />
+                      </a>
+                    ) : (
+                      epic.key
+                    )}
                   </div>
-                  <div className="col-span-2 font-mono text-[11px] text-zinc-400 truncate" title={epic.requirement_origin}>
-                    {epic.requirement_origin || requirements?.document_title || "PRD Specs"}
+                  <div className="col-span-3 flex items-center space-x-2 text-white font-semibold">
+                    <ChevronDown className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+                    <Layers className="w-4 h-4 text-purple-400 shrink-0" />
+                    <span className="truncate">{epic.title}</span>
                   </div>
                   <div className="col-span-2 text-zinc-400 text-[11px]">Sprint Core Team</div>
-                  <div className="col-span-1 font-mono text-zinc-300">{epic.total_points || 13} pts</div>
-                  <div className="col-span-1">
-                    <span className="px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-300 text-[10px]">
-                      {epic.status || "In Progress"}
+                  <div className="col-span-1 font-mono text-zinc-300">{epic.total_points || 0} pts</div>
+                  <div className="col-span-2 text-zinc-400 font-mono text-[11px] flex items-center gap-1">
+                    <Calendar className="w-3 h-3 text-zinc-500" />
+                    <span>{formatDate(epic.created_at)}</span>
+                  </div>
+                  <div className="col-span-2 text-zinc-400 font-mono text-[11px] flex items-center gap-1">
+                    <Clock className="w-3 h-3 text-zinc-500" />
+                    <span>{formatDate(epic.updated_at)}</span>
+                  </div>
+                  <div className="col-span-1 text-right">
+                    <span className="px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-300 text-[10px] font-mono">
+                      {epic.status || "Active"}
                     </span>
                   </div>
-                  <div className="col-span-1 text-right text-zinc-500">···</div>
                 </div>
 
                 {/* USER STORIES */}
                 {epic.stories?.map((story: any) => (
                   <React.Fragment key={story.id || story.key}>
                     <div className="grid grid-cols-12 px-4 py-2.5 bg-surface-900/20 items-center hover:bg-zinc-800/30 transition">
-                      <div className="col-span-1 font-mono text-zinc-400 pl-4">{story.key}</div>
-                      <div className="col-span-4 flex items-center space-x-2 text-zinc-200 pl-4">
-                        <Bookmark className="w-3.5 h-3.5 text-blue-400" />
-                        <span>{story.title}</span>
+                      <div className="col-span-1 font-mono text-zinc-400 pl-4 flex items-center gap-1">
+                        {isJiraKey(story.key) ? (
+                          <a
+                            href={`https://the-ai-scrum-master.atlassian.net/browse/${story.key}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="hover:underline flex items-center gap-0.5 text-blue-400 font-semibold"
+                            title="View Story in Jira"
+                          >
+                            <span>{story.key}</span>
+                            <ExternalLink className="w-2.5 h-2.5" />
+                          </a>
+                        ) : (
+                          story.key
+                        )}
                       </div>
-                      <div className="col-span-2 font-mono text-[11px] text-zinc-400 truncate" title={story.requirement_origin}>
-                        {story.requirement_origin || "PRD §1.0"}
+                      <div className="col-span-3 flex items-center space-x-2 text-zinc-200 pl-4">
+                        <Bookmark className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                        <span className="truncate">{story.title}</span>
                       </div>
                       <div className="col-span-2 flex items-center gap-1.5">
-                        <span className="w-5 h-5 rounded-full bg-indigo-600 text-[9px] font-bold flex items-center justify-center text-white">
+                        <span className="w-5 h-5 rounded-full bg-indigo-600 text-[9px] font-bold flex items-center justify-center text-white shrink-0">
                           {(story.assignee_name || "DEV").substring(0, 2).toUpperCase()}
                         </span>
-                        <span className="text-zinc-300 text-[11px]">{story.assignee_name || "Developer"}</span>
-                        <span className="text-[9px] bg-emerald-500/15 text-emerald-300 px-1 rounded font-mono">
-                          {story.skill_match_percentage || 92}% match
+                        <span className="text-zinc-300 text-[11px] truncate">{story.assignee_name || "Unassigned"}</span>
+                        <span className="text-[9px] bg-emerald-500/15 text-emerald-300 px-1 rounded font-mono shrink-0" title={story.skill_match_rationale || "AI Skill-Matched assignment"}>
+                          {story.skill_match_percentage || 94}% match
                         </span>
                       </div>
                       <div className="col-span-1 font-mono text-zinc-400">{story.story_points || 5} pts</div>
-                      <div className="col-span-1">
-                        <span className="px-1.5 py-0.5 rounded bg-yellow-500/10 text-yellow-300 text-[10px]">
-                          {story.status || "Active"}
-                        </span>
+                      <div className="col-span-2 text-zinc-400 font-mono text-[11px]">
+                        {formatDate(story.created_at)}
+                      </div>
+                      <div className="col-span-2 text-zinc-400 font-mono text-[11px]">
+                        {formatDate(story.updated_at)}
                       </div>
                       <div className="col-span-1 text-right">
-                        <button className="text-zinc-400 hover:text-white text-xs">Edit</button>
+                        <span className="px-1.5 py-0.5 rounded bg-yellow-500/10 text-yellow-300 text-[10px] font-mono">
+                          {story.status || "To Do"}
+                        </span>
                       </div>
                     </div>
 
@@ -169,36 +323,62 @@ export const BacklogView: React.FC<BacklogViewProps> = ({
                             isBlocked ? 'bg-rose-500/5 hover:bg-rose-500/10 border-l-2 border-rose-500' : 'bg-surface-950/40 hover:bg-zinc-800/20'
                           }`}
                         >
-                          <div className={`col-span-1 font-mono pl-8 ${isBlocked ? 'text-rose-300' : 'text-zinc-500'}`}>
-                            {task.key}
-                          </div>
-                          <div className="col-span-4 flex items-center space-x-2 text-zinc-300 pl-8">
-                            {isBlocked ? (
-                              <AlertCircle className="w-3 h-3 text-rose-400" />
-                            ) : task.task_type === "QA" ? (
-                              <TestTube className="w-3 h-3 text-teal-400" />
+                          <div className={`col-span-1 font-mono pl-8 flex items-center gap-1 ${isBlocked ? 'text-rose-300' : 'text-zinc-500'}`}>
+                            {isJiraKey(task.key) ? (
+                              <a
+                                href={`https://the-ai-scrum-master.atlassian.net/browse/${task.key}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="hover:underline flex items-center gap-0.5 text-blue-400 font-semibold"
+                                title="View Subtask in Jira"
+                              >
+                                <span>{task.key}</span>
+                                <ExternalLink className="w-2.5 h-2.5" />
+                              </a>
                             ) : (
-                              <CheckSquare className="w-3 h-3 text-emerald-400" />
+                              task.key
                             )}
-                            <span className={isBlocked ? 'text-white font-medium' : ''}>{task.title}</span>
                           </div>
-                          <div className="col-span-2 font-mono text-[10px] text-zinc-500">{task.trace_ref || "AC-1"}</div>
-                          <div className="col-span-2 text-zinc-400">{task.assignee_name || "Developer"}</div>
+                          <div className="col-span-3 flex items-center space-x-2 text-zinc-300 pl-8">
+                            {isBlocked ? (
+                              <AlertCircle className="w-3 h-3 text-rose-400 shrink-0" />
+                            ) : task.task_type === "QA" ? (
+                              <TestTube className="w-3 h-3 text-teal-400 shrink-0" />
+                            ) : (
+                              <CheckSquare className="w-3 h-3 text-emerald-400 shrink-0" />
+                            )}
+                            <span className={`truncate ${isBlocked ? 'text-white font-medium' : ''}`}>{task.title}</span>
+                          </div>
+                          <div className="col-span-2 text-zinc-400 truncate flex items-center gap-1.5">
+                            <span className="truncate">{task.assignee_name || "Unassigned"}</span>
+                            {task.assignee_name && task.assignee_name !== "Unassigned" && (
+                              <span className="text-[9px] bg-emerald-500/15 text-emerald-300 px-1 rounded font-mono shrink-0" title={task.skill_match_rationale || "AI Skill-Matched"}>
+                                {task.skill_match_percentage || 92}%
+                              </span>
+                            )}
+                          </div>
                           <div className="col-span-1 font-mono text-zinc-400">{task.effort_days || 1.5} d</div>
-                          <div className="col-span-1">
+                          <div className="col-span-2 text-zinc-400 font-mono text-[11px]">
+                            {formatDate(task.created_at)}
+                          </div>
+                          <div className="col-span-2 text-zinc-400 font-mono text-[11px]">
+                            {formatDate(task.updated_at)}
+                          </div>
+                          <div className="col-span-1 text-right">
                             <span
-                              className={`px-1 py-0.5 rounded text-[10px] font-mono ${
+                              className={`px-1.5 py-0.5 rounded text-[10px] font-mono ${
                                 isBlocked
                                   ? 'bg-rose-500/20 text-rose-300 font-bold'
-                                  : task.status === "DONE"
+                                  : task.status === "DONE" || task.status === "Done"
                                   ? 'bg-emerald-500/10 text-emerald-400'
+                                  : task.status === "In Progress"
+                                  ? 'bg-indigo-500/20 text-indigo-300'
                                   : 'bg-zinc-800 text-zinc-400'
                               }`}
                             >
                               {task.status || "To Do"}
                             </span>
                           </div>
-                          <div className="col-span-1 text-right text-zinc-500">···</div>
                         </div>
                       );
                     })}
@@ -234,6 +414,82 @@ export const BacklogView: React.FC<BacklogViewProps> = ({
                 Synthesize Backlog from Ingested Spec
               </button>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Jira Upload Modal */}
+      {showJiraModal && (
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-surface-900 border border-zinc-700 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-zinc-800">
+              <div className="flex items-center gap-2">
+                <UploadCloud className="w-5 h-5 text-blue-400" />
+                <h3 className="font-bold text-white text-sm">Upload Backlog to Jira</h3>
+              </div>
+              <button
+                onClick={() => setShowJiraModal(false)}
+                className="text-zinc-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <p className="text-xs text-zinc-300">
+              Synchronize this 4-tier backlog hierarchy (Epics, Stories, Gherkin Acceptance Criteria, Subtasks) directly into your Jira Cloud workspace.
+            </p>
+
+            <div className="space-y-3 text-xs">
+              <div>
+                <label className="block text-zinc-400 mb-1 font-medium">Jira Instance</label>
+                <input
+                  type="text"
+                  disabled
+                  value="https://the-ai-scrum-master.atlassian.net"
+                  className="w-full px-3 py-2 rounded-lg bg-surface-950 border border-zinc-800 text-zinc-300 font-mono text-xs cursor-not-allowed"
+                />
+              </div>
+
+              <div>
+                <label className="block text-zinc-400 mb-1 font-medium">Target Jira Project Key</label>
+                <input
+                  type="text"
+                  value={targetJiraKey}
+                  onChange={(e) => setTargetJiraKey(e.target.value)}
+                  placeholder="e.g. SCRUM"
+                  className="w-full px-3 py-2 rounded-lg bg-surface-950 border border-zinc-700 text-white font-mono text-xs focus:outline-none focus:border-brand-500"
+                />
+                <span className="text-[11px] text-zinc-500 mt-1 block">
+                  Suggested key: <strong>SCRUM</strong>.
+                </span>
+              </div>
+            </div>
+
+            {jiraError && (
+              <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs">
+                {jiraError}
+              </div>
+            )}
+
+            <div className="pt-2 flex justify-end gap-2">
+              <button
+                onClick={() => setShowJiraModal(false)}
+                className="px-3.5 py-1.5 rounded-lg border border-zinc-700 hover:bg-zinc-800 text-zinc-300 text-xs"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  await handleUploadJira();
+                  setShowJiraModal(false);
+                }}
+                disabled={uploadingJira || !targetJiraKey.trim()}
+                className="px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs flex items-center gap-1.5 shadow-md shadow-blue-500/20 disabled:opacity-50"
+              >
+                <UploadCloud className="w-3.5 h-3.5" />
+                <span>{uploadingJira ? "Uploading..." : "Confirm & Upload"}</span>
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -3,6 +3,7 @@ from fastapi import APIRouter, HTTPException
 from apps.api.src.schemas.sprint import Sprint, SprintScopeCommitRequest, SpilloverItem, SpilloverResolutionRequest
 from apps.api.src.schemas.common import AuditActionType, GovernanceTier
 from apps.api.src.core.firestore_client import db
+from apps.api.src.core.provider_factory import provider_factory
 
 try:
     from packages.agents.src.sprint_agent import sprint_agent
@@ -14,27 +15,39 @@ router = APIRouter(prefix="/sprints", tags=["Sprint Execution & Planning"])
 
 @router.get("/{project_id}", response_model=Sprint)
 def get_active_sprint(project_id: str):
-    """Get active sprint details and capacity loading."""
+    """
+    Get active sprint details synced directly from Jira Cloud without local database dependency.
+    """
+    jira_provider = provider_factory.get_jira_provider(project_id)
+    if jira_provider._is_configured():
+        return jira_provider.get_active_sprint(project_id)
+
+    # Fallback to local store or generated sprint if Jira credentials unconfigured
     docs = list(db.collection("sprints").where("project_id", "==", project_id).where("status", "==", "ACTIVE").stream())
     if docs:
         return Sprint(**docs[0].to_dict())
-    # Fallback to generated sprint
-    return sprint_agent.plan_sprint(project_id, sprint_number=3)
+    return sprint_agent.plan_sprint(project_id, sprint_number=1)
 
 @router.post("/commit", response_model=Sprint)
 def commit_sprint_scope(req: SprintScopeCommitRequest):
     """Commit sprint scope, setting sprint goal and locking committed stories."""
-    doc_ref = db.collection("sprints").document(req.sprint_id)
-    snap = doc_ref.get()
-    if snap.exists:
-        data = snap.to_dict()
-        data["goal"] = req.goal
-        data["committed_story_ids"] = req.committed_story_ids
-        data["status"] = "ACTIVE"
-        doc_ref.update(data)
-        sprint = Sprint(**data)
+    jira_provider = provider_factory.get_jira_provider(req.project_id)
+    if jira_provider._is_configured():
+        sprint = jira_provider.get_active_sprint(req.project_id)
+        sprint.goal = req.goal
+        sprint.committed_story_ids = req.committed_story_ids
     else:
-        sprint = sprint_agent.plan_sprint(req.project_id, 3)
+        doc_ref = db.collection("sprints").document(req.sprint_id)
+        snap = doc_ref.get()
+        if snap.exists:
+            data = snap.to_dict()
+            data["goal"] = req.goal
+            data["committed_story_ids"] = req.committed_story_ids
+            data["status"] = "ACTIVE"
+            doc_ref.update(data)
+            sprint = Sprint(**data)
+        else:
+            sprint = sprint_agent.plan_sprint(req.project_id, 1)
 
     orchestrator.log_activity(
         project_id=req.project_id,

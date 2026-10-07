@@ -89,6 +89,21 @@ export default function CockpitPage() {
     }
   };
 
+  const handleDeleteProject = async (projectId: string) => {
+    try {
+      await api.deleteProject(projectId);
+      setProjects((prev) => {
+        const remaining = prev.filter((p) => p.id !== projectId);
+        if (activeProject?.id === projectId) {
+          setActiveProject(remaining.length > 0 ? remaining[0] : null);
+        }
+        return remaining;
+      });
+    } catch (err) {
+      console.warn("Could not delete project:", err);
+    }
+  };
+
   const handleRefresh = () => {
     if (activeProject?.id) {
       loadProjectData(activeProject.id);
@@ -106,6 +121,7 @@ export default function CockpitPage() {
         activeProject={activeProject}
         onSelectProject={(p) => setActiveProject(p)}
         onCreateProject={handleCreateProject}
+        onDeleteProject={handleDeleteProject}
         onOpenSimulator={() => setSimulatorOpen(true)}
         onOpenCommandPalette={() => setCommandPaletteOpen(true)}
         onToggleCopilot={() => setCopilotOpen(!copilotOpen)}
@@ -123,6 +139,8 @@ export default function CockpitPage() {
           openQuestionsCount={openQuestionsCount}
           approvalsCount={approvalsCount}
           hasBlocker={flashHealth?.status === "OFF_TRACK"}
+          sprint={sprint}
+          project={activeProject}
         />
 
         {/* Center Workspace Canvas */}
@@ -131,6 +149,7 @@ export default function CockpitPage() {
             <DashboardView
               project={activeProject}
               sprint={sprint}
+              backlog={backlog}
               healthMatrix={healthMatrix}
               flashHealth={flashHealth}
               activityLogs={activityLogs}

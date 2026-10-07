@@ -19,11 +19,12 @@ class Settings(BaseSettings):
     BIGQUERY_DATASET: str = os.getenv("BIGQUERY_DATASET", "scrum_delivery_analytics")
 
     # Atlassian Default Integrations (Can also be set per project)
-    JIRA_INSTANCE_URL: Optional[str] = os.getenv("JIRA_INSTANCE_URL", "https://whirlpool.atlassian.net")
+    JIRA_INSTANCE_URL: Optional[str] = os.getenv("JIRA_INSTANCE_URL", "https://the-ai-scrum-master.atlassian.net")
     JIRA_USER_EMAIL: Optional[str] = os.getenv("JIRA_USER_EMAIL", None)
     JIRA_API_TOKEN: Optional[str] = os.getenv("JIRA_API_TOKEN", None)
+    JIRA_PROJECT_KEY: str = os.getenv("JIRA_PROJECT_KEY", "SCRUM")
     
-    CONFLUENCE_INSTANCE_URL: Optional[str] = os.getenv("CONFLUENCE_INSTANCE_URL", "https://whirlpool.atlassian.net/wiki")
+    CONFLUENCE_INSTANCE_URL: Optional[str] = os.getenv("CONFLUENCE_INSTANCE_URL", "https://the-ai-scrum-master.atlassian.net/wiki")
     CONFLUENCE_USER_EMAIL: Optional[str] = os.getenv("CONFLUENCE_USER_EMAIL", None)
     CONFLUENCE_API_TOKEN: Optional[str] = os.getenv("CONFLUENCE_API_TOKEN", None)
 

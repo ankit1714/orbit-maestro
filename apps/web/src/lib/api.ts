@@ -40,6 +40,7 @@ export const api = {
   getProject: (id: string) => fetchApi<any>(`/projects/${id}`),
   createProject: (data: any) => fetchApi<any>('/projects', { method: 'POST', body: JSON.stringify(data) }),
   updateProject: (id: string, data: any) => fetchApi<any>(`/projects/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteProject: (id: string) => fetchApi<any>(`/projects/${id}`, { method: 'DELETE' }),
 
   // Document Ingestion & Open Questions
   getRequirements: (projectId: string) => fetchApi<any>(`/ingest/${projectId}`),
@@ -55,6 +56,9 @@ export const api = {
     fetchApi<any>('/backlog/generate', { method: 'POST', body: JSON.stringify({ project_id: projectId, clarifications }) }),
   updateTaskStatus: (projectId: string, taskId: string, newStatus: string) =>
     fetchApi<any>(`/backlog/tasks/${taskId}/status?project_id=${projectId}&new_status=${newStatus}`, { method: 'PUT' }),
+  getJiraStatus: () => fetchApi<any>('/backlog/jira/status'),
+  uploadBacklogToJira: (projectId: string, payload?: { project_key?: string }) =>
+    fetchApi<any>(`/backlog/${projectId}/upload-jira`, { method: 'POST', body: JSON.stringify(payload || {}) }),
 
   // Sprints
   getActiveSprint: (projectId: string) => fetchApi<any>(`/sprints/${projectId}`),

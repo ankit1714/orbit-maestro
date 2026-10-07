@@ -14,11 +14,34 @@ class BaseBacklogProvider(ABC):
         pass
 
     @abstractmethod
-    def create_story(self, project_id: str, epic_id: str, title: str, description: str, points: int, ac_list: List[Dict[str, str]], assignee: Optional[str] = None) -> UserStory:
+    def create_story(
+        self,
+        project_id: str,
+        epic_id: str,
+        title: str,
+        description: str,
+        points: int,
+        ac_list: List[Dict[str, str]],
+        assignee: Optional[str] = None,
+        origin: Optional[str] = None,
+        skill_match_percentage: int = 92,
+        skill_match_rationale: Optional[str] = None
+    ) -> UserStory:
         pass
 
     @abstractmethod
-    def create_task(self, project_id: str, story_id: str, title: str, task_type: str, effort_days: float, assignee: Optional[str] = None) -> TaskItem:
+    def create_task(
+        self,
+        project_id: str,
+        story_id: str,
+        title: str,
+        task_type: str,
+        effort_days: float,
+        assignee: Optional[str] = None,
+        trace_ref: Optional[str] = None,
+        skill_match_percentage: int = 92,
+        skill_match_rationale: Optional[str] = None
+    ) -> TaskItem:
         pass
 
     @abstractmethod

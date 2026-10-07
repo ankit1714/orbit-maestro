@@ -63,7 +63,19 @@ class NativeFirestoreBacklogProvider(BaseBacklogProvider):
         db.collection("epics").document(epic_id).set(epic.dict())
         return epic
 
-    def create_story(self, project_id: str, epic_id: str, title: str, description: str, points: int, ac_list: List[Dict[str, str]], assignee: Optional[str] = None, origin: Optional[str] = None) -> UserStory:
+    def create_story(
+        self,
+        project_id: str,
+        epic_id: str,
+        title: str,
+        description: str,
+        points: int,
+        ac_list: List[Dict[str, str]],
+        assignee: Optional[str] = None,
+        origin: Optional[str] = None,
+        skill_match_percentage: int = 92,
+        skill_match_rationale: Optional[str] = None
+    ) -> UserStory:
         story_id = f"story-{uuid.uuid4().hex[:8]}"
         existing_count = len(list(db.collection("stories").where("project_id", "==", project_id).stream()))
         key = f"STY-{100 + existing_count + 1}"
@@ -89,13 +101,26 @@ class NativeFirestoreBacklogProvider(BaseBacklogProvider):
             requirement_origin=origin or f"PRD Section: {key}",
             story_points=points,
             assignee_name=assignee,
+            skill_match_percentage=skill_match_percentage,
+            skill_match_rationale=skill_match_rationale,
             acceptance_criteria=acs,
             status=ItemStatus.TODO
         )
         db.collection("stories").document(story_id).set(story.dict())
         return story
 
-    def create_task(self, project_id: str, story_id: str, title: str, task_type: str, effort_days: float, assignee: Optional[str] = None, trace_ref: Optional[str] = None) -> TaskItem:
+    def create_task(
+        self,
+        project_id: str,
+        story_id: str,
+        title: str,
+        task_type: str,
+        effort_days: float,
+        assignee: Optional[str] = None,
+        trace_ref: Optional[str] = None,
+        skill_match_percentage: int = 92,
+        skill_match_rationale: Optional[str] = None
+    ) -> TaskItem:
         task_id = f"task-{uuid.uuid4().hex[:8]}"
         existing_count = len(list(db.collection("tasks").where("project_id", "==", project_id).stream()))
         prefix = "QA" if task_type == "QA" else "TSK"
@@ -111,6 +136,8 @@ class NativeFirestoreBacklogProvider(BaseBacklogProvider):
             effort_days=effort_days,
             assignee_name=assignee,
             trace_ref=trace_ref or "AC-1",
+            skill_match_percentage=skill_match_percentage,
+            skill_match_rationale=skill_match_rationale,
             status=ItemStatus.TODO
         )
         db.collection("tasks").document(task_id).set(task.dict())

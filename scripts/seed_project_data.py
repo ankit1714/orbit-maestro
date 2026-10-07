@@ -82,13 +82,13 @@ def seed():
         ],
         jira_settings=JiraSettings(
             enabled=True,
-            instance_url="https://whirlpool.atlassian.net",
+            instance_url="https://the-ai-scrum-master.atlassian.net",
             project_key="FIN",
             board_id="board-101"
         ),
         confluence_settings=ConfluenceSettings(
             enabled=True,
-            instance_url="https://whirlpool.atlassian.net/wiki",
+            instance_url="https://the-ai-scrum-master.atlassian.net/wiki",
             space_key="PAY",
             parent_page_id="page-501"
         ),

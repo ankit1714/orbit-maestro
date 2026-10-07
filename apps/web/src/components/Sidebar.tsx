@@ -12,7 +12,8 @@ import {
   CheckCheck,
   BookMarked,
   BarChart3,
-  Bot
+  Bot,
+  Users
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -21,6 +22,8 @@ interface SidebarProps {
   openQuestionsCount: number;
   approvalsCount: number;
   hasBlocker: boolean;
+  sprint?: any;
+  project?: any;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -29,11 +32,25 @@ export const Sidebar: React.FC<SidebarProps> = ({
   openQuestionsCount,
   approvalsCount,
   hasBlocker,
+  sprint,
+  project,
 }) => {
   const navItemClass = (view: string) => `
     w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-xs font-medium transition
     ${currentView === view ? 'text-white bg-zinc-800/80 shadow-sm' : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/40'}
   `;
+
+  const capacity = sprint?.capacity;
+  const devAllocs = capacity?.developer_allocations || [];
+  const overallLoad = capacity?.overall_load_pct ?? 78.0;
+
+  const getLoadColor = (pct: number) => {
+    if (pct > 100) return { text: 'text-rose-400 font-bold', bar: 'bg-rose-500' };
+    if (pct >= 85) return { text: 'text-amber-400 font-semibold', bar: 'bg-amber-400' };
+    return { text: 'text-emerald-400 font-medium', bar: 'bg-emerald-500' };
+  };
+
+  const overallStyle = getLoadColor(overallLoad);
 
   return (
     <aside className="w-64 border-r border-zinc-800 bg-surface-900 flex flex-col justify-between select-none">
@@ -144,34 +161,78 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* Capacity & Telemetry Footer */}
-      <div className="p-3 border-t border-zinc-800/80 bg-surface-950/50 space-y-3">
+      <div className="p-3 border-t border-zinc-800/80 bg-surface-950/70 space-y-2.5">
         <div className="flex items-center justify-between text-[11px]">
-          <span className="text-zinc-400 font-medium">Sprint Capacity</span>
-          <span className="text-amber-400 font-mono font-semibold">92% Loaded</span>
+          <span className="text-zinc-400 font-medium flex items-center gap-1">
+            <Users className="w-3.5 h-3.5 text-zinc-500" />
+            <span>Sprint Capacity</span>
+          </span>
+          <span className={`font-mono text-[11px] ${overallStyle.text}`}>
+            {overallLoad}% Loaded
+          </span>
         </div>
-        <div className="space-y-1.5">
-          <div className="flex justify-between text-[10px] text-zinc-500">
-            <span>Frontend (Alex, Maria)</span>
-            <span>72%</span>
-          </div>
-          <div className="w-full bg-zinc-800 h-1.5 rounded-full overflow-hidden">
-            <div className="bg-indigo-500 h-full rounded-full" style={{ width: "72%" }}></div>
-          </div>
 
-          <div className="flex justify-between text-[10px] text-zinc-500">
-            <span>Backend (David, Ken)</span>
-            <span className="text-rose-400 font-semibold">108% (Alert)</span>
+        {/* Developer Workload Allocations from Jira */}
+        {devAllocs.length > 0 ? (
+          <div className="space-y-2 max-h-36 overflow-y-auto pr-0.5">
+            {devAllocs.slice(0, 3).map((dev: any, i: number) => {
+              const style = getLoadColor(dev.load_pct);
+              return (
+                <div key={i} className="space-y-1">
+                  <div className="flex justify-between text-[10px]">
+                    <span className="text-zinc-300 truncate max-w-[130px]">{dev.name}</span>
+                    <span className={style.text}>
+                      {dev.load_pct}% {dev.load_pct > 100 && '(Alert)'}
+                    </span>
+                  </div>
+                  <div className="w-full bg-zinc-800 h-1.5 rounded-full overflow-hidden">
+                    <div
+                      className={`${style.bar} h-full rounded-full transition-all`}
+                      style={{ width: `${Math.min(dev.load_pct, 100)}%` }}
+                    />
+                  </div>
+                  <div className="flex justify-between text-[9px] text-zinc-500">
+                    <span>{dev.assigned_tickets_count} tickets ({dev.assigned_story_points} pts)</span>
+                    <span>{dev.allocated_hours}h / {dev.available_hours}h</span>
+                  </div>
+                </div>
+              );
+            })}
           </div>
-          <div className="w-full bg-zinc-800 h-1.5 rounded-full overflow-hidden">
-            <div className="bg-rose-500 h-full rounded-full" style={{ width: "100%" }}></div>
+        ) : (
+          <div className="space-y-1.5">
+            <div className="flex justify-between text-[10px] text-zinc-500">
+              <span>Frontend Workload</span>
+              <span>{capacity?.frontend_load_pct ?? 66.7}%</span>
+            </div>
+            <div className="w-full bg-zinc-800 h-1.5 rounded-full overflow-hidden">
+              <div className="bg-indigo-500 h-full rounded-full" style={{ width: `${Math.min(capacity?.frontend_load_pct ?? 66.7, 100)}%` }} />
+            </div>
+
+            <div className="flex justify-between text-[10px] text-zinc-500">
+              <span>Backend Workload</span>
+              <span className="text-amber-400 font-semibold">{capacity?.backend_load_pct ?? 80.0}%</span>
+            </div>
+            <div className="w-full bg-zinc-800 h-1.5 rounded-full overflow-hidden">
+              <div className="bg-amber-400 h-full rounded-full" style={{ width: `${Math.min(capacity?.backend_load_pct ?? 80.0, 100)}%` }} />
+            </div>
+
+            <div className="flex justify-between text-[10px] text-zinc-500">
+              <span>QA Workload</span>
+              <span>{capacity?.qa_load_pct ?? 80.0}%</span>
+            </div>
+            <div className="w-full bg-zinc-800 h-1.5 rounded-full overflow-hidden">
+              <div className="bg-teal-500 h-full rounded-full" style={{ width: `${Math.min(capacity?.qa_load_pct ?? 80.0, 100)}%` }} />
+            </div>
           </div>
-        </div>
+        )}
 
         <div className="pt-2 border-t border-zinc-800/40 flex items-center justify-between text-[10px] text-zinc-500 font-mono">
-          <span className="flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Vertex Agent: Online
+          <span className="flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            Jira Capacity Sync
           </span>
-          <span>280ms</span>
+          <span className="text-zinc-400">{capacity?.team_total_hours ?? 160}h Total</span>
         </div>
       </div>
     </aside>
