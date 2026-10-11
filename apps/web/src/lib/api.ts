@@ -88,9 +88,18 @@ export const api = {
   resolveSpillover: (data: { project_id: string; sprint_id: string; task_id: string; action: string }) =>
     fetchApi<any>('/sprints/spillovers/resolve', { method: 'POST', body: JSON.stringify(data) }),
 
-  // Meetings
-  processMeeting: (data: { project_id: string; meeting_type: string; transcript_text: string }) =>
-    fetchApi<any>('/meetings/extract', { method: 'POST', body: JSON.stringify(data) }),
+  // Meetings & Intelligence
+  processMeeting: (data: {
+    project_id: string;
+    meeting_type: string;
+    transcript_text: string;
+    title?: string;
+    entered_by?: string;
+    date?: string;
+  }) => fetchApi<any>('/meetings/extract', { method: 'POST', body: JSON.stringify(data) }),
+  listMeetings: (projectId: string) => fetchApi<any[]>(`/meetings/${projectId}`),
+  analyzeMeetingLinks: (meetingId: string) => fetchApi<any>(`/meetings/${meetingId}/analyze-links`, { method: 'POST' }),
+  deleteMeeting: (meetingId: string) => fetchApi<any>(`/meetings/${meetingId}`, { method: 'DELETE' }),
 
   // Risks & DAG
   getDependencyDAG: (projectId: string) => fetchApi<any>(`/risks/dag/${projectId}`),

@@ -58,6 +58,18 @@ export const Navigation: React.FC<NavigationProps> = ({
     return () => window.removeEventListener('open-create-project-modal', handleOpen);
   }, []);
 
+  // Deduplicate projects by key and ID
+  const uniqueProjects = React.useMemo(() => {
+    const map = new Map<string, any>();
+    for (const p of projects || []) {
+      const k = (p.key || p.id || '').toUpperCase();
+      if (!map.has(k)) {
+        map.set(k, p);
+      }
+    }
+    return Array.from(map.values());
+  }, [projects]);
+
   const getFlashBadge = () => {
     if (flashStatus === "OFF_TRACK") {
       return (
@@ -122,12 +134,12 @@ export const Navigation: React.FC<NavigationProps> = ({
             {dropdownOpen && (
               <div className="absolute left-0 mt-1.5 w-88 rounded-xl bg-surface-900 border border-zinc-700 shadow-2xl p-2 z-50 space-y-1">
                 <div className="px-2 py-1 text-[10px] font-mono text-zinc-500 uppercase tracking-wider flex justify-between items-center border-b border-zinc-800 pb-1.5 mb-1">
-                  <span>Switch Workspace ({projects.length})</span>
+                  <span>Switch Workspace ({uniqueProjects.length})</span>
                   <span className="text-brand-400">GCP Firestore Retained</span>
                 </div>
 
                 <div className="max-h-72 overflow-y-auto space-y-1">
-                  {projects.map((proj) => (
+                  {uniqueProjects.map((proj) => (
                     <div
                       key={proj.id}
                       onClick={() => {

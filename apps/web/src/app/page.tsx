@@ -48,8 +48,14 @@ export default function CockpitPage() {
   useEffect(() => {
     api.getProjects().then((projs) => {
       if (projs && projs.length > 0) {
-        setProjects(projs);
-        setActiveProject(projs[0]);
+        const map = new Map<string, any>();
+        for (const p of projs) {
+          const k = (p.key || p.id || '').toUpperCase();
+          if (!map.has(k)) map.set(k, p);
+        }
+        const unique = Array.from(map.values());
+        setProjects(unique);
+        setActiveProject(unique[0]);
       }
     }).catch((err) => {
       console.warn("Could not fetch projects:", err);

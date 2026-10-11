@@ -8,7 +8,6 @@ import {
   Compass,
   Kanban,
   Mic,
-  GitMerge,
   CheckCheck,
   BookMarked,
   BarChart3,
@@ -137,13 +136,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <Mic className="w-4 h-4 text-violet-400" />
                 <span>Meeting Intelligence</span>
               </div>
-            </button>
-            <button onClick={() => onSwitchView('risks')} className={navItemClass('risks')}>
-              <div className="flex items-center space-x-2.5">
-                <GitMerge className="w-4 h-4 text-rose-400" />
-                <span>Dependency & DAG</span>
-              </div>
-              <span className="w-2 h-2 rounded-full bg-rose-500"></span>
             </button>
           </nav>
         </div>

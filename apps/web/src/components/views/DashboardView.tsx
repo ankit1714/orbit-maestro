@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Target, AlertOctagon, Zap, Play, UploadCloud, CheckCircle2, ExternalLink, Layers, CheckSquare } from 'lucide-react';
+import { Target, Zap, Play, UploadCloud, CheckCircle2, ExternalLink, Layers, CheckSquare } from 'lucide-react';
 
 interface DashboardViewProps {
   project: any;
@@ -214,33 +214,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <p className="text-[10px] text-zinc-400 mt-0.5">Live backlog estimation</p>
             </div>
           </div>
-
-          {/* Primary Risk / Blocker Card */}
-          {healthMatrix?.primary_risks && healthMatrix.primary_risks.length > 0 && (
-            <div className={`p-4 rounded-xl border space-y-3 ${isOffTrack ? 'border-rose-500/20 bg-rose-500/5' : 'border-zinc-800 bg-surface-900/40'}`}>
-              <div className="flex items-start justify-between">
-                <div className="flex items-start space-x-3">
-                  <div className={`p-2 rounded-lg mt-0.5 ${isOffTrack ? 'bg-rose-500/10 text-rose-400' : 'bg-brand-500/10 text-brand-400'}`}>
-                    <AlertOctagon className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <span className="text-xs font-bold text-white">Project Risk Advisory</span>
-                    <ul className="text-xs text-zinc-300 mt-1 list-disc list-inside space-y-1">
-                      {healthMatrix.primary_risks.map((r: string, idx: number) => (
-                        <li key={idx}>{r}</li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-                <button
-                  onClick={() => onSwitchView('risks')}
-                  className="px-2.5 py-1 text-xs rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-medium transition"
-                >
-                  View DAG Radar
-                </button>
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Right Col: AI Action Timeline Feed */}

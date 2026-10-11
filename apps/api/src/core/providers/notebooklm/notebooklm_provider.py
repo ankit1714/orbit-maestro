@@ -187,6 +187,9 @@ class NotebookLMKnowledgeProvider(BaseKnowledgeProvider):
             open_questions=len(q_docs)
         )
 
+        # 6. LOGGED MEETING MINUTES & DECISIONS
+        meeting_docs = [d.to_dict() for d in db.collection("meetings").where("project_id", "==", project_id).stream()]
+
         return {
             "project_name": proj_name,
             "project_key": proj_key,
@@ -196,8 +199,10 @@ class NotebookLMKnowledgeProvider(BaseKnowledgeProvider):
             "git_repos": git_repos,
             "requirements": req_data,
             "open_questions": q_docs,
+            "meetings": meeting_docs,
             "stats": stats
         }
+
 
     def sync_sources(self, project_id: str) -> ProjectKnowledgeSyncResponse:
         """Refreshes all source knowledge counts and records synchronization timestamp."""
@@ -425,8 +430,20 @@ class NotebookLMKnowledgeProvider(BaseKnowledgeProvider):
             q_text_parts.append(part)
         q_context = "\n".join(q_text_parts) if q_text_parts else "No open questions recorded."
 
+        meetings_text_parts = []
+        for m in sources.get("meetings", []):
+            part = f"- [{m.get('meeting_type', 'STANDUP')}] {m.get('title', 'Meeting')} (Date: {m.get('date')}, Entered By: {m.get('entered_by')})"
+            if m.get("verdict_message"):
+                part += f"\n  Relevance Verdict: {m.get('verdict_message')}"
+            if m.get("summary"):
+                part += f"\n  Summary: {m.get('summary')}"
+            if m.get("transcript_text") or m.get("transcript"):
+                part += f"\n  Minutes: {m.get('transcript_text') or m.get('transcript')}"
+            meetings_text_parts.append(part)
+        meetings_context = "\n\n".join(meetings_text_parts) if meetings_text_parts else "No meeting minutes recorded."
+
         prompt = f"""You are the Grounded Project AI Search Assistant for project '{proj_name}' (Key: {proj_key}).
-Your job is to answer the user query based THOROUGHLY AND STRICTLY on the project's verified records across Confluence, JIRA, Git, and PRD specifications provided below.
+Your job is to answer the user query based THOROUGHLY AND STRICTLY on the project's verified records across Confluence, JIRA, Git, PRD specifications, and logged Meeting Minutes provided below.
 
 ========================
 PROJECT SOURCE RECORDS:
@@ -447,7 +464,11 @@ PROJECT SOURCE RECORDS:
 ### 5. RESOLVED PRODUCT OWNER QUESTIONS:
 {q_context}
 
+### 6. LOGGED MEETING MINUTES & SCRUM DECISIONS:
+{meetings_context}
+
 ========================
+
 CRITICAL GROUNDING RULES:
 ========================
 1. Answer ONLY using the facts present in the source records above.
@@ -621,7 +642,21 @@ OUTPUT STRICTLY VALID JSON ONLY. NO OTHER TEXT. EXACT STRUCTURE:
                     snippet_text=ans[:140] if ans else q.get('question', '')
                 ))
 
-        # If NO matching records were found anywhere across Confluence, Jira, Git, PRD:
+        # Check Logged Meeting Minutes & Decisions
+        for m in sources.get("meetings", []):
+            m_str = f"{m.get('title', '')} {m.get('meeting_type', '')} {m.get('summary', '')} {m.get('transcript_text', '')} {m.get('transcript', '')} {m.get('entered_by', '')}".lower()
+            if any(tok in m_str for tok in tokens):
+                snip = m.get('summary') or (m.get('transcript_text') or '')[:140]
+                matched_answers.append(f"Meeting '{m.get('title')}' ({m.get('meeting_type')}) recorded by {m.get('entered_by')}: {snip}")
+                matched_citations.append(CitationSnippet(
+                    source_title=f"Meeting: {m.get('title')}",
+                    source_type="MEETING_DECISION",
+                    section_or_page=f"Type: {m.get('meeting_type')}",
+                    snippet_text=snip[:140],
+                    source_uri=f"/meetings/{m.get('meeting_id')}"
+                ))
+
+        # If NO matching records were found anywhere across Confluence, Jira, Git, PRD, Meetings:
         if not matched_citations:
             return KnowledgeSearchResponse(
                 project_id=project_id,

@@ -50,6 +50,10 @@ from apps.api.src.schemas.meeting import (
     ExtractedDecision,
     ExtractedBlocker,
     ExtractedAction,
+    LinkedJiraIssue,
+    LinkedGitArtifact,
+    LinkedConfluencePage,
+    MeetingDueDiligenceResult,
     MeetingIngestRequest,
     MeetingExtractResponse
 )

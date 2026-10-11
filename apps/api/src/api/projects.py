@@ -11,9 +11,23 @@ router = APIRouter(prefix="/projects", tags=["Projects"])
 
 @router.get("", response_model=List[Project])
 def list_projects():
-    """List all configured projects."""
+    """List all configured projects deduplicated by project key and ID."""
     docs = list(db.collection("projects").stream())
-    return [Project(**d.to_dict()) for d in docs]
+    projects = []
+    for d in docs:
+        try:
+            projects.append(Project(**d.to_dict()))
+        except Exception:
+            pass
+
+    # Deduplicate by key (and id), keeping the most recently updated/created
+    unique_map = {}
+    for p in sorted(projects, key=lambda x: str(x.updated_at or x.created_at or ""), reverse=True):
+        lookup_key = (p.key or p.id).upper()
+        if lookup_key not in unique_map:
+            unique_map[lookup_key] = p
+
+    return list(unique_map.values())
 
 @router.post("/clear-all")
 def clear_all_data():
@@ -40,8 +54,8 @@ def create_project(data: ProjectCreate):
     Create a new project.
     Automatically parses Jira project links, registers developer names,
     and persists the project into GCP Firestore.
+    Prevents creating duplicate projects with the same key.
     """
-    project_id = f"proj-{uuid.uuid4().hex[:8]}"
     project_key = data.key.strip().upper() if data.key else "SCRUM"
     jira_settings = data.jira_settings or JiraSettings()
     mode = data.mode
@@ -63,6 +77,15 @@ def create_project(data: ProjectCreate):
         jira_settings.user_email = jira_settings.user_email or settings.JIRA_USER_EMAIL
         jira_settings.api_token = jira_settings.api_token or settings.JIRA_API_TOKEN
         mode = ProjectMode.ENTERPRISE_SYNC
+
+    # Check if a project with the same key already exists in Firestore
+    for d in list(db.collection("projects").stream()):
+        p_dict = d.to_dict()
+        if p_dict.get("key", "").upper() == project_key:
+            logger.info(f"Project with key {project_key} already exists ({d.id}). Returning existing project.")
+            return Project(**p_dict)
+
+    project_id = f"proj-{uuid.uuid4().hex[:8]}"
 
     # 2. Parse developer profiles and technical skills
     team_members = list(data.team_members or [])
