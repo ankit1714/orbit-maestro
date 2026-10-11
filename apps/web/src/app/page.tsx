@@ -57,7 +57,16 @@ export default function CockpitPage() {
         }
         const unique = Array.from(map.values());
         setProjects(unique);
-        setActiveProject(unique.length > 0 ? unique[0] : null);
+
+        const savedId = typeof window !== 'undefined' ? localStorage.getItem('ai_scrum_active_project_id') : null;
+        const matched = savedId ? unique.find((p) => p.id === savedId) : null;
+        const hmProject = unique.find((p) => (p.key || '').toUpperCase() === 'HM' || p.id === 'proj-094bb3e8');
+        const target = matched || hmProject || unique[0];
+
+        setActiveProject(target);
+        if (typeof window !== 'undefined' && target?.id) {
+          localStorage.setItem('ai_scrum_active_project_id', target.id);
+        }
       }
     }).catch((err) => {
       console.warn("Could not fetch projects:", err);
@@ -130,8 +139,12 @@ export default function CockpitPage() {
       <Navigation
         projects={projects}
         activeProject={activeProject}
-        onSelectProject={(p) => setActiveProject(p)}
-        onCreateProject={handleCreateProject}
+        onSelectProject={(p) => {
+          setActiveProject(p);
+          if (typeof window !== 'undefined' && p?.id) {
+            localStorage.setItem('ai_scrum_active_project_id', p.id);
+          }
+        }}
         onDeleteProject={handleDeleteProject}
         onOpenSimulator={() => setSimulatorOpen(true)}
         onOpenCommandPalette={() => setCommandPaletteOpen(true)}
