@@ -1,9 +1,15 @@
 import base64
 import logging
+from typing import Optional, Dict, Any
 from fastapi import APIRouter, HTTPException
-from apps.api.src.schemas.requirement import PRDUploadRequest, PRDExtractResult
+from apps.api.src.schemas.requirement import (
+    PRDUploadRequest,
+    PRDExtractResult,
+    RequirementDecompositionResponse
+)
 from packages.agents.src.understanding_agent import understanding_agent
 from packages.agents.src.ambiguity_agent import ambiguity_agent
+from packages.agents.src.agile_scrum_agents import requirements_pipeline
 from apps.api.src.core.provider_factory import provider_factory
 from apps.api.src.core.storage_client import storage_service
 from apps.api.src.core.firestore_client import db
@@ -18,6 +24,44 @@ def get_ingested_requirements(project_id: str):
     if not doc.exists:
         raise HTTPException(status_code=404, detail="No requirement document found for this project.")
     return PRDExtractResult(**doc.to_dict())
+
+@router.get("/{project_id}/strategy")
+def get_project_strategy(project_id: str):
+    """Retrieve Lead Orchestrator strategy, PO decomposition, and Technical Sprint plan."""
+    doc = db.collection("project_strategies").document(project_id).get()
+    if not doc.exists:
+        return {}
+    return doc.to_dict()
+
+@router.post("/{project_id}/decompose", response_model=RequirementDecompositionResponse)
+def trigger_requirement_decomposition(project_id: str, payload: Optional[dict] = None):
+    """
+    On-demand execution of the 3-Agent Requirement Decomposition Pipeline:
+    - Agent 1: Lead Agile Scrum Orchestrator (Strategy & Sprint Guidelines)
+    - Agent 2: Agile Scrum Master & Product Owner (Epics & Gherkin User Stories)
+    - Agent 3: Technical Scrum Master (INVEST Validation, Fibonacci Story Points, and Jira export)
+    """
+    req_doc = db.collection("requirements").document(f"req-{project_id}").get()
+    req_data = req_doc.to_dict() if req_doc.exists else {}
+
+    proj_doc = db.collection("projects").document(project_id).get()
+    proj_data = proj_doc.to_dict() if proj_doc.exists else {}
+
+    raw_text = (
+        (payload and payload.get("raw_requirements"))
+        or req_data.get("business_goal")
+        or proj_data.get("business_objective")
+        or proj_data.get("description")
+        or "Core functional requirements."
+    )
+    sprint_goal = (payload and payload.get("sprint_goal")) or req_data.get("business_goal") or proj_data.get("business_objective")
+
+    return requirements_pipeline.run_pipeline(
+        project_id=project_id,
+        raw_requirements=raw_text,
+        sprint_goal=sprint_goal,
+        auto_create_backlog=True
+    )
 
 @router.post("", response_model=PRDExtractResult)
 def ingest_document(req: PRDUploadRequest):
@@ -77,7 +121,26 @@ def ingest_document(req: PRDUploadRequest):
     doc_provider = provider_factory.get_doc_provider(req.project_id)
     doc_provider.publish_prd_summary(req.project_id, result.document_title, result.business_goal)
 
-    # 6. Update project's business_objective and requirement in Firestore
+    # 6. Execute the 3-Agent Requirement Decomposition Pipeline
+    try:
+        raw_requirements_text = raw_text or result.business_goal or file_name
+        decomp_result = requirements_pipeline.run_pipeline(
+            project_id=req.project_id,
+            raw_requirements=raw_requirements_text,
+            sprint_goal=result.business_goal,
+            auto_create_backlog=True
+        )
+        result.orchestrator_strategy = decomp_result.orchestrator_strategy.dict()
+        result.decomposition_summary = {
+            "total_epics": decomp_result.total_epics,
+            "total_stories": decomp_result.total_stories,
+            "total_points": decomp_result.total_points
+        }
+        logger.info(f"3-Agent pipeline created {decomp_result.total_stories} stories ({decomp_result.total_points} pts) for {req.project_id}")
+    except Exception as e:
+        logger.warning(f"Could not run 3-Agent pipeline during document ingestion: {e}")
+
+    # 7. Update project's business_objective and requirement in Firestore
     try:
         p_ref = db.collection("projects").document(req.project_id)
         if p_ref.get().exists:

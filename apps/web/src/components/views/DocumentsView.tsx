@@ -11,6 +11,7 @@ import {
   FileText,
   CheckCircle2,
   Sparkles,
+  Workflow,
   X,
   Users,
   Layers,
@@ -100,6 +101,20 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
   const [aiSearchResult, setAiSearchResult] = useState<any>(null);
   const [isSyncingKnowledge, setIsSyncingKnowledge] = useState(false);
   const [syncNotice, setSyncNotice] = useState<string | null>(null);
+
+  // 3-Agent Decomposition & Strategy State
+  const [strategyData, setStrategyData] = useState<any>(null);
+  const [decomposing, setDecomposing] = useState(false);
+
+  useEffect(() => {
+    if (currentProject?.id) {
+      api.getProjectStrategy(currentProject.id)
+        .then((data) => {
+          if (data && Object.keys(data).length > 0) setStrategyData(data);
+        })
+        .catch(() => {});
+    }
+  }, [currentProject?.id]);
 
   const handleAiSearch = async (queryOverride?: string) => {
     const q = (queryOverride !== undefined ? queryOverride : aiSearchQuery).trim();
@@ -374,10 +389,35 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
     }
   };
 
+  const handleTriggerDecomposition = async () => {
+    if (!currentProject?.id) return;
+    setDecomposing(true);
+    setIngestStatus("Running 3-Agent pipeline (Lead Orchestrator -> Product Owner -> Technical Scrum Master)...");
+    try {
+      const res = await api.decomposeRequirements(currentProject.id, {
+        raw_requirements: requirements?.business_goal || pastedText,
+        sprint_goal: currentProject?.business_objective
+      });
+      setStrategyData({
+        orchestrator_strategy: res.orchestrator_strategy,
+        po_decomposition: res.po_decomposition,
+        technical_sprint_plan: res.technical_sprint_plan
+      });
+      setIngestStatus(`Success! Created ${res.total_stories} Jira stories (${res.total_points} pts).`);
+      setTimeout(() => setIngestStatus(null), 5000);
+      onRefresh();
+    } catch (e) {
+      console.error("Decomposition error:", e);
+      setIngestStatus("Decomposition error occurred.");
+    } finally {
+      setDecomposing(false);
+    }
+  };
+
   const handleProcessUpload = async () => {
     if (!selectedFile && !pastedText.trim()) return;
     setIngesting(true);
-    setIngestStatus("Parsing document layout with Document AI OCR...");
+    setIngestStatus("Step 1: Document AI extracting layout & clauses...");
 
     try {
       if (selectedFile) {
@@ -387,13 +427,13 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
         if (isText) {
           reader.onload = async (event) => {
             const textContent = event.target?.result as string;
-            setIngestStatus("Gemini reasoning agent analyzing functional clauses...");
+            setIngestStatus("Step 2: 3-Agent Pipeline generating Epics, Gherkin Stories & Fibonacci Points...");
             await api.ingestPRD({
               project_id: currentProject.id,
               file_name: selectedFile.name,
               file_text: textContent
             });
-            setIngestStatus("Complete! Backlog synthesis ready.");
+            setIngestStatus("Complete! Decomposed Jira Stories created in Backlog.");
             setIngesting(false);
             setSelectedFile(null);
             onRefresh();
@@ -403,13 +443,13 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
           reader.onload = async (event) => {
             const dataUrl = event.target?.result as string;
             const base64 = dataUrl.split(",")[1];
-            setIngestStatus("Gemini reasoning agent analyzing functional clauses...");
+            setIngestStatus("Step 2: 3-Agent Pipeline generating Epics, Gherkin Stories & Fibonacci Points...");
             await api.ingestPRD({
               project_id: currentProject.id,
               file_name: selectedFile.name,
               file_content_base64: base64
             });
-            setIngestStatus("Complete! Backlog synthesis ready.");
+            setIngestStatus("Complete! Decomposed Jira Stories created in Backlog.");
             setIngesting(false);
             setSelectedFile(null);
             onRefresh();
@@ -417,13 +457,13 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
           reader.readAsDataURL(selectedFile);
         }
       } else {
-        setIngestStatus("Gemini reasoning agent analyzing pasted requirements...");
+        setIngestStatus("Step 2: 3-Agent Pipeline generating Epics, Gherkin Stories & Fibonacci Points...");
         await api.ingestPRD({
           project_id: currentProject.id,
           file_name: `${currentProject.key}_Requirements.txt`,
           file_text: pastedText
         });
-        setIngestStatus("Complete! Backlog synthesis ready.");
+        setIngestStatus("Complete! Decomposed Jira Stories created in Backlog.");
         setIngesting(false);
         setPastedText('');
         onRefresh();
@@ -1494,6 +1534,159 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
                 <p>No open questions detected. Upload a PRD or paste requirements above to analyze ambiguities with Gemini.</p>
               </div>
             )}
+          </div>
+        </div>
+      </div>
+
+      {/* ========================================================================= */}
+      {/* 5. 3-AGENT AGILE REQUIREMENTS & JIRA STORY DECOMPOSITION WORKBENCH */}
+      {/* ========================================================================= */}
+      <div className="p-6 rounded-2xl border border-[#dadce0] bg-white shadow-sm space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-[#f1f3f4]">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-[#1a73e8]" />
+              <h3 className="text-sm font-bold text-[#202124]">
+                3-Agent Requirement Decomposition &amp; Jira Backlog Architecture
+              </h3>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#e8f0fe] text-[#1967d2] border border-[#d2e3fc] font-bold">
+                Multi-Agent Autonomous Pipeline
+              </span>
+            </div>
+            <p className="text-xs text-[#5f6368]">
+              Requirements are analyzed by three specialized AI personas: Lead Orchestrator (Strategy &amp; Guidelines), Product Owner (Epics &amp; Gherkin Stories), and Technical Scrum Master (INVEST &amp; Fibonacci Points).
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleTriggerDecomposition}
+              disabled={decomposing || (!requirements?.business_goal && !pastedText.trim())}
+              className="px-3.5 py-1.5 rounded-xl bg-white border border-[#dadce0] text-[#3c4043] hover:bg-[#f1f3f4] text-xs font-semibold flex items-center gap-1.5 transition shadow-sm disabled:opacity-50"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${decomposing ? 'animate-spin text-[#1a73e8]' : ''}`} />
+              <span>{decomposing ? 'Decomposing Scope...' : 'Run 3-Agent Decomposition'}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => onSwitchView('backlog')}
+              className="px-4 py-1.5 rounded-xl bg-[#1a73e8] hover:bg-[#1557b0] text-white text-xs font-bold flex items-center gap-1.5 transition shadow-sm"
+            >
+              <span>View Stories in Backlog</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+
+        {/* 3 Agents Cards Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+          {/* Agent 1 Card */}
+          <div className="p-4 rounded-xl border border-[#dadce0] bg-[#f8f9fa] space-y-3 flex flex-col">
+            <div className="flex items-center justify-between pb-2 border-b border-[#dadce0]">
+              <div className="flex items-center gap-1.5 font-bold text-[#202124]">
+                <Workflow className="w-4 h-4 text-[#1a73e8]" />
+                <span>Agent 1: Lead Orchestrator</span>
+              </div>
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#e8f0fe] text-[#1967d2] font-semibold">Strategy</span>
+            </div>
+            <div className="space-y-2 flex-1">
+              <div>
+                <span className="text-[10px] uppercase font-bold text-[#5f6368] block">Problem Statement &amp; Scope</span>
+                <p className="text-[11px] text-[#202124] mt-0.5 leading-relaxed">
+                  {strategyData?.orchestrator_strategy?.core_problem_statement || requirements?.business_goal || "Awaiting specification ingestion..."}
+                </p>
+              </div>
+              {strategyData?.orchestrator_strategy?.execution_strategy?.delivery_milestones && (
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-[#5f6368] block">Milestones</span>
+                  <ul className="list-disc list-inside text-[11px] text-[#5f6368] space-y-0.5 mt-0.5">
+                    {strategyData.orchestrator_strategy.execution_strategy.delivery_milestones.map((m: string, idx: number) => (
+                      <li key={idx} className="truncate">{m}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {strategyData?.orchestrator_strategy?.sprint_guidelines?.definition_of_ready && (
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-[#5f6368] block">Definition of Ready (DoR)</span>
+                  <ul className="list-disc list-inside text-[10px] text-[#137333] space-y-0.5 mt-0.5">
+                    {strategyData.orchestrator_strategy.sprint_guidelines.definition_of_ready.slice(0, 3).map((dor: string, idx: number) => (
+                      <li key={idx} className="truncate">{dor}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Agent 2 Card */}
+          <div className="p-4 rounded-xl border border-[#dadce0] bg-[#f8f9fa] space-y-3 flex flex-col">
+            <div className="flex items-center justify-between pb-2 border-b border-[#dadce0]">
+              <div className="flex items-center gap-1.5 font-bold text-[#202124]">
+                <Bookmark className="w-4 h-4 text-[#9334e6]" />
+                <span>Agent 2: Product Owner</span>
+              </div>
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#f3e8fd] text-[#7b1fa2] font-semibold">User Stories</span>
+            </div>
+            <div className="space-y-2 flex-1">
+              <div>
+                <span className="text-[10px] uppercase font-bold text-[#5f6368] block">Epic &amp; Story Decomposition</span>
+                <p className="text-[11px] text-[#202124] mt-0.5">
+                  Decomposes scope into persona-based user stories (`As a... I want... so that...`) with 2-4 concrete Gherkin Acceptance Criteria.
+                </p>
+              </div>
+              <div className="p-2.5 rounded-lg bg-white border border-[#dadce0] text-[11px] space-y-1">
+                <span className="text-[10px] font-bold text-[#9334e6] block uppercase">Gherkin Criteria Framework:</span>
+                <p className="text-[10px] font-mono text-[#5f6368]">Given [system precondition]</p>
+                <p className="text-[10px] font-mono text-[#5f6368]">When [user action executed]</p>
+                <p className="text-[10px] font-mono text-[#5f6368]">Then [verified expected result]</p>
+              </div>
+              <p className="text-[10px] text-[#5f6368] italic">
+                {strategyData?.po_decomposition?.epics?.length
+                  ? `Created ${strategyData.po_decomposition.epics.length} Epics ready for technical refinement.`
+                  : "Epics & user stories generated automatically on ingestion."}
+              </p>
+            </div>
+          </div>
+
+          {/* Agent 3 Card */}
+          <div className="p-4 rounded-xl border border-[#dadce0] bg-[#f8f9fa] space-y-3 flex flex-col">
+            <div className="flex items-center justify-between pb-2 border-b border-[#dadce0]">
+              <div className="flex items-center gap-1.5 font-bold text-[#202124]">
+                <CheckCircle2 className="w-4 h-4 text-[#137333]" />
+                <span>Agent 3: Technical Scrum Master</span>
+              </div>
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#e6f4ea] text-[#137333] font-semibold">INVEST &amp; Jira</span>
+            </div>
+            <div className="space-y-2 flex-1">
+              <div>
+                <span className="text-[10px] uppercase font-bold text-[#5f6368] block">INVEST Validation</span>
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {['Independent', 'Negotiable', 'Valuable', 'Estimable', 'Small', 'Testable'].map((tag) => (
+                    <span key={tag} className="text-[9px] px-1.5 py-0.2 rounded bg-white text-[#137333] border border-[#ceead6] font-mono">
+                      ✓ {tag}
+                    </span>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <span className="text-[10px] uppercase font-bold text-[#5f6368] block">Fibonacci Story Points</span>
+                <div className="flex items-center gap-1 mt-1 font-mono text-[11px] font-bold text-[#1a73e8]">
+                  <span className="px-1.5 py-0.5 rounded bg-white border border-[#dadce0]">1</span>
+                  <span className="px-1.5 py-0.5 rounded bg-white border border-[#dadce0]">2</span>
+                  <span className="px-1.5 py-0.5 rounded bg-white border border-[#dadce0]">3</span>
+                  <span className="px-1.5 py-0.5 rounded bg-white border border-[#dadce0]">5</span>
+                  <span className="px-1.5 py-0.5 rounded bg-white border border-[#dadce0]">8</span>
+                </div>
+              </div>
+              <div className="pt-1">
+                <span className="text-[10px] text-[#5f6368] block">
+                  Assigns DEV &amp; QA implementation tasks and formats stories for direct Jira export.
+                </span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
