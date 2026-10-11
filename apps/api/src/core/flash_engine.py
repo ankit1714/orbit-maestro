@@ -26,6 +26,30 @@ class FlashHealthEngine:
             elif status == "BLOCKED" or t.get("is_blocked"):
                 blocked_tasks.append(t)
 
+        if not in_progress_tasks and not blocked_tasks:
+            try:
+                from apps.api.src.core.provider_factory import provider_factory
+                jira_provider = provider_factory.get_jira_provider(project_id)
+                if jira_provider._is_configured():
+                    backlog = jira_provider.get_backlog(project_id)
+                    all_items = []
+                    for e in backlog.epics:
+                        for s in e.stories:
+                            if s.tasks:
+                                all_items.extend(s.tasks)
+                            else:
+                                all_items.append(s)
+                    for item in all_items:
+                        st = getattr(item, "status", "").lower()
+                        k = getattr(item, "key", "")
+                        tit = getattr(item, "title", "")
+                        if st in ["in progress", "in_progress", "active"]:
+                            in_progress_tasks.append({"key": k, "title": tit, "status": "IN_PROGRESS"})
+                        elif st in ["blocked", "impediment"] or getattr(item, "is_blocked", False):
+                            blocked_tasks.append({"key": k, "title": tit, "status": "BLOCKED", "blocker_reason": "Flagged in Jira"})
+            except Exception as e:
+                logger.warning(f"Could not load Jira tasks for flash health: {e}")
+
         # 2. Match commit timestamps to in-progress tasks
         commit_keys = set()
         recent_commit_count = 0

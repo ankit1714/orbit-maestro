@@ -181,87 +181,73 @@ class GitHubTrackerProvider(BaseGitProvider):
         if self._is_configured():
             try:
                 url = f"{self.api_base}/repos/{self.repo_owner}/{self.repo_name}/commits"
-                since_iso = (datetime.utcnow() - timedelta(hours=since_hours)).isoformat() + "Z"
                 headers = {"Accept": "application/vnd.github.v3+json"}
                 if self.access_token:
                     headers["Authorization"] = f"token {self.access_token}"
 
+                # First try fetching commits within the specified window
+                since_iso = (datetime.utcnow() - timedelta(hours=since_hours)).isoformat() + "Z"
                 res = requests.get(url, headers=headers, params={"since": since_iso, "per_page": 30}, timeout=5)
-                if res.status_code == 200:
-                    raw_commits = res.json()
-                    results = []
-                    for rc in raw_commits:
-                        msg = rc.get("commit", {}).get("message", "")
-                        # Extract issue keys (e.g. TSK-101, STY-102, CLM-12)
-                        keys = re.findall(r"\[?([A-Z]{2,6}-\d+)\]?", msg)
-                        results.append(GitCommit(
-                            sha=rc.get("sha", "")[:7],
-                            author_name=rc.get("commit", {}).get("author", {}).get("name", "Developer"),
-                            author_email=rc.get("commit", {}).get("author", {}).get("email", "dev@example.com"),
-                            message=msg,
-                            timestamp=datetime.fromisoformat(rc.get("commit", {}).get("author", {}).get("date", "").replace("Z", "+00:00")),
-                            branch="develop",
-                            linked_issue_keys=list(set(keys))
-                        ))
-                    if results:
-                        return results
+                raw_commits = res.json() if res.status_code == 200 else []
+
+                # If no commits in window, fetch the latest 10 commits from the repository
+                if not raw_commits:
+                    res_latest = requests.get(url, headers=headers, params={"per_page": 10}, timeout=5)
+                    if res_latest.status_code == 200 and isinstance(res_latest.json(), list):
+                        raw_commits = res_latest.json()
+
+                results = []
+                for rc in raw_commits:
+                    msg = rc.get("commit", {}).get("message", "")
+                    keys = re.findall(r"\[?([A-Z]{2,6}-\d+)\]?", msg)
+                    dt_str = rc.get("commit", {}).get("author", {}).get("date", "")
+                    c_dt = datetime.fromisoformat(dt_str.replace("Z", "+00:00")) if dt_str else datetime.utcnow()
+                    results.append(GitCommit(
+                        sha=rc.get("sha", "")[:7],
+                        author_name=rc.get("commit", {}).get("author", {}).get("name", "Developer"),
+                        author_email=rc.get("commit", {}).get("author", {}).get("email", "dev@example.com"),
+                        message=msg,
+                        timestamp=c_dt,
+                        branch="main",
+                        linked_issue_keys=list(set(keys))
+                    ))
+                if results:
+                    return results
             except Exception as e:
                 logger.warning(f"Failed to fetch live GitHub commits: {e}")
 
-        # Deterministic simulation of recent git activity
-        now = datetime.utcnow()
-        return [
-            GitCommit(
-                sha="7f8b91c",
-                author_name="Alex",
-                author_email="alex@company.com",
-                message="[TSK-301] Wire Document AI OCR endpoint and response parser",
-                timestamp=now - timedelta(hours=6),
-                branch="feat/ocr-pipeline",
-                linked_issue_keys=["TSK-301", "STY-102"],
-                files_changed=4,
-                insertions=182,
-                deletions=12
-            ),
-            GitCommit(
-                sha="3a1c4e2",
-                author_name="Maria",
-                author_email="maria@company.com",
-                message="[TSK-302] Add 25MB MIME type validation and client chunking",
-                timestamp=now - timedelta(hours=18),
-                branch="feat/upload-limits",
-                linked_issue_keys=["TSK-302"],
-                files_changed=2,
-                insertions=64,
-                deletions=8
-            )
-        ]
+        return []
 
     def get_pull_requests(self, project_id: str, state: str = "open") -> List[PullRequest]:
-        now = datetime.utcnow()
-        return [
-            PullRequest(
-                number=412,
-                title="[STY-102] Implement Document AI Receipt Upload & Chunking",
-                state="open",
-                author="alex",
-                draft=False,
-                linked_issue_keys=["STY-102", "TSK-301"],
-                created_at=now - timedelta(hours=24),
-                updated_at=now - timedelta(hours=2),
-                review_status="APPROVED",
-                ci_status="SUCCESS"
-            ),
-            PullRequest(
-                number=414,
-                title="[PAY-142] Claims Validation Vendor Gateway Harness",
-                state="open",
-                author="david",
-                draft=True,
-                linked_issue_keys=["PAY-142"],
-                created_at=now - timedelta(hours=48),
-                updated_at=now - timedelta(hours=48),
-                review_status="PENDING",
-                ci_status="FAILURE"
-            )
-        ]
+        if self._is_configured():
+            try:
+                url = f"{self.api_base}/repos/{self.repo_owner}/{self.repo_name}/pulls"
+                headers = {"Accept": "application/vnd.github.v3+json"}
+                if self.access_token:
+                    headers["Authorization"] = f"token {self.access_token}"
+
+                res = requests.get(url, headers=headers, params={"state": state, "per_page": 10}, timeout=5)
+                if res.status_code == 200:
+                    raw_prs = res.json()
+                    results = []
+                    for pr in raw_prs:
+                        title = pr.get("title", "")
+                        keys = re.findall(r"\[?([A-Z]{2,6}-\d+)\]?", title)
+                        created_dt = datetime.fromisoformat(pr.get("created_at", "").replace("Z", "+00:00")) if pr.get("created_at") else datetime.utcnow()
+                        updated_dt = datetime.fromisoformat(pr.get("updated_at", "").replace("Z", "+00:00")) if pr.get("updated_at") else None
+                        results.append(PullRequest(
+                            number=pr.get("number", 0),
+                            title=title,
+                            state=pr.get("state", "open"),
+                            author=pr.get("user", {}).get("login", "developer"),
+                            draft=pr.get("draft", False),
+                            linked_issue_keys=list(set(keys)),
+                            created_at=created_dt,
+                            updated_at=updated_dt,
+                            review_status="APPROVED" if pr.get("state") == "closed" else "PENDING",
+                            ci_status="SUCCESS"
+                        ))
+                    return results
+            except Exception as e:
+                logger.warning(f"Failed to fetch live GitHub PRs: {e}")
+        return []

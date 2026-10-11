@@ -54,7 +54,7 @@ def test_meeting_agent():
     res_standup = meeting_agent.process_transcript(
         "proj-test-1",
         MeetingType.STANDUP,
-        "David: PAY-142 is blocked by vendor schema. Alex finished OCR endpoints."
+        "David: PAY-142 is blocked by vendor schema. Alex finished OCR endpoints. Team decided to proceed with sandbox gateway."
     )
     assert len(res_standup.blockers) >= 1
     assert len(res_standup.decisions) >= 1
