@@ -20,13 +20,13 @@ class Settings(BaseSettings):
 
     # Atlassian Default Integrations (Can also be set per project)
     JIRA_INSTANCE_URL: Optional[str] = os.getenv("JIRA_INSTANCE_URL", "https://the-ai-scrum-master.atlassian.net")
-    JIRA_USER_EMAIL: Optional[str] = os.getenv("JIRA_USER_EMAIL", None)
-    JIRA_API_TOKEN: Optional[str] = os.getenv("JIRA_API_TOKEN", None)
+    JIRA_USER_EMAIL: Optional[str] = os.getenv("JIRA_USER_EMAIL", "ankit1714@gmail.com")
+    JIRA_API_TOKEN: Optional[str] = os.getenv("JIRA_API_TOKEN", "ATATT3xFfGF0C-l1wwGPGcOtChZUlGAAO-KsbKZcjsr6TcEg98vc1IRivp8axOhCDX625ZXDF6Vr3w1tWU2kfGbKa5vOwwK8xX0FUdpC88weUX25zCC7R178SlMqpjPTFUaE0GpKZzMe1xF3QPIaVdpZ3bkXoZUWqlGtZ7h2I940wnC3fA6NQtk=920948B3")
     JIRA_PROJECT_KEY: str = os.getenv("JIRA_PROJECT_KEY", "SCRUM")
     
     CONFLUENCE_INSTANCE_URL: Optional[str] = os.getenv("CONFLUENCE_INSTANCE_URL", "https://the-ai-scrum-master.atlassian.net/wiki")
-    CONFLUENCE_USER_EMAIL: Optional[str] = os.getenv("CONFLUENCE_USER_EMAIL", None)
-    CONFLUENCE_API_TOKEN: Optional[str] = os.getenv("CONFLUENCE_API_TOKEN", None)
+    CONFLUENCE_USER_EMAIL: Optional[str] = os.getenv("CONFLUENCE_USER_EMAIL", "ankit1714@gmail.com")
+    CONFLUENCE_API_TOKEN: Optional[str] = os.getenv("CONFLUENCE_API_TOKEN", "ATATT3xFfGF0C-l1wwGPGcOtChZUlGAAO-KsbKZcjsr6TcEg98vc1IRivp8axOhCDX625ZXDF6Vr3w1tWU2kfGbKa5vOwwK8xX0FUdpC88weUX25zCC7R178SlMqpjPTFUaE0GpKZzMe1xF3QPIaVdpZ3bkXoZUWqlGtZ7h2I940wnC3fA6NQtk=920948B3")
 
     # GitHub / GHE Integration
     GITHUB_API_BASE: str = os.getenv("GITHUB_API_BASE", "https://api.github.com")

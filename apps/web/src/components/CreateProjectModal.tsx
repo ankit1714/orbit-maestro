@@ -37,7 +37,7 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
   onClose,
   onProjectCreated,
 }) => {
-  const { can, activeUser, profile } = useRole();
+  const { can, currentUser: activeUser, profile } = useRole();
 
   // Wizard Step: 1 = Details, 2 = Team Selection, 3 = Summary Review, 4 = Final Success
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
@@ -153,7 +153,6 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
         setProjectKey(match[1].toUpperCase());
         setIsKeyManuallyEdited(true);
       }
-      setProjectMode('ENTERPRISE_SYNC');
     }
   };
 
