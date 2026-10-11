@@ -42,18 +42,18 @@ export const KnowledgeView: React.FC<KnowledgeViewProps> = ({
 
   return (
     <div className="p-6 max-w-7xl mx-auto w-full space-y-6 flex-1 flex flex-col">
-      <div className="flex items-center justify-between pb-3 border-b border-zinc-800">
+      <div className="flex items-center justify-between pb-3 border-b border-[#dadce0]">
         <div>
           <div className="flex items-center gap-2">
-            <span className="font-mono text-brand-400 font-bold text-sm">[{project?.key}]</span>
-            <h1 className="text-lg font-bold text-white">
+            <span className="font-mono text-[#1a73e8] font-bold text-sm">[{project?.key}]</span>
+            <h1 className="text-lg font-bold text-[#202124]">
               Google NotebookLM Living Knowledge Center
             </h1>
-            <span className="text-xs px-2 py-0.5 rounded bg-teal-500/10 text-teal-300 border border-teal-500/20 font-mono">
+            <span className="text-xs px-2 py-0.5 rounded bg-[#e8f0fe] text-[#1967d2] border border-[#d2e3fc] font-mono font-medium">
               Grounded AI Engine
             </span>
           </div>
-          <p className="text-xs text-zinc-400 mt-0.5">Project-specific grounded knowledge hub with exact source citations, architecture decisions, and NotebookLM workspace sync.</p>
+          <p className="text-xs text-[#5f6368] mt-0.5">Project-specific grounded knowledge hub with exact source citations, architecture decisions, and NotebookLM workspace sync.</p>
         </div>
         <div className="flex items-center gap-2">
           {nbUrl && (
@@ -61,7 +61,7 @@ export const KnowledgeView: React.FC<KnowledgeViewProps> = ({
               href={nbUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="px-3 py-1.5 rounded-lg bg-teal-600 hover:bg-teal-500 text-white text-xs font-semibold flex items-center gap-1.5 shadow-sm transition"
+              className="px-3.5 py-1.5 rounded-xl bg-[#1a73e8] hover:bg-[#1557b0] text-white text-xs font-semibold flex items-center gap-1.5 shadow-sm transition"
             >
               <span>Open in Google NotebookLM</span>
               <ExternalLink className="w-3.5 h-3.5" />
@@ -71,42 +71,42 @@ export const KnowledgeView: React.FC<KnowledgeViewProps> = ({
       </div>
 
       {/* Google NotebookLM Workspace Integration Card */}
-      <div className="p-4 rounded-xl border border-teal-500/30 bg-gradient-to-r from-teal-950/30 via-surface-900 to-surface-900 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      <div className="p-5 rounded-2xl border border-[#dadce0] bg-white shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
-            <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-teal-500/20 text-teal-300 font-bold border border-teal-500/30 flex items-center gap-1">
-              <BookMarked className="w-3 h-3" />
+            <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-[#e8f0fe] text-[#1967d2] font-bold border border-[#d2e3fc] flex items-center gap-1">
+              <BookMarked className="w-3 h-3 text-[#1a73e8]" />
               Connected NotebookLM Space
             </span>
-            <span className="text-xs text-zinc-400 font-mono">{knowledgeItems?.length || 1} Grounded Sources</span>
+            <span className="text-xs text-[#5f6368] font-mono">{knowledgeItems?.length || 1} Grounded Sources</span>
           </div>
-          <h3 className="text-sm font-semibold text-white">{workspaceTitle}</h3>
-          <p className="text-xs text-zinc-400 flex items-center gap-1.5">
-            <Headphones className="w-3.5 h-3.5 text-teal-400 shrink-0" />
+          <h3 className="text-sm font-semibold text-[#202124]">{workspaceTitle}</h3>
+          <p className="text-xs text-[#5f6368] flex items-center gap-1.5">
+            <Headphones className="w-3.5 h-3.5 text-[#1a73e8] shrink-0" />
             <span>
-              <strong>NotebookLM Audio Overview:</strong> {notebookInfo?.audio_briefing_summary || `Audio deep dive ready for ${project?.name} requirements and sprint progress.`}
+              <strong className="text-[#202124]">NotebookLM Audio Overview:</strong> {notebookInfo?.audio_briefing_summary || `Audio deep dive ready for ${project?.name} requirements and sprint progress.`}
             </span>
           </p>
         </div>
       </div>
 
       {/* Search Input Bar */}
-      <div className="p-4 rounded-xl border border-zinc-800 bg-surface-900/60 space-y-3">
+      <div className="p-5 rounded-2xl border border-[#dadce0] bg-white shadow-sm space-y-3">
         <form onSubmit={handleSearch} className="flex items-center space-x-2">
           <div className="relative flex-1">
-            <Search className="w-4 h-4 text-zinc-400 absolute left-3 top-3" />
+            <Search className="w-4 h-4 text-[#80868b] absolute left-3 top-3" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Ask anything about PRD requirements, decisions, or blockers with grounded citations..."
-              className="w-full bg-surface-950 border border-zinc-800 rounded-lg pl-9 pr-3 py-2.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-teal-500 transition"
+              className="w-full bg-[#f8f9fa] border border-[#dadce0] rounded-xl pl-9 pr-3 py-2.5 text-xs text-[#202124] placeholder-[#80868b] focus:outline-none focus:border-[#1a73e8] focus:bg-white transition font-sans"
             />
           </div>
           <button
             type="submit"
             disabled={searching}
-            className="px-4 py-2.5 rounded-lg bg-teal-600 hover:bg-teal-500 text-white font-semibold text-xs flex items-center gap-1.5 shadow-sm transition"
+            className="px-4 py-2.5 rounded-xl bg-[#1a73e8] hover:bg-[#1557b0] text-white font-semibold text-xs flex items-center gap-1.5 shadow-sm transition"
           >
             <Sparkles className="w-4 h-4" />
             <span>{searching ? "Searching..." : "Grounded Search"}</span>
@@ -117,32 +117,32 @@ export const KnowledgeView: React.FC<KnowledgeViewProps> = ({
         {searchResult && (
           <div className="mt-3">
             {searchResult.has_details && searchResult.answer !== "No details available anywhere" ? (
-              <div className="p-4 rounded-xl bg-surface-950 border border-teal-500/40 space-y-3 shadow-lg shadow-teal-950/20">
-                <div className="flex items-center justify-between text-xs pb-2 border-b border-zinc-800">
-                  <span className="font-bold text-white flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-teal-400" />
+              <div className="p-4 rounded-xl bg-[#f8f9fa] border border-[#dadce0] space-y-3 shadow-xs">
+                <div className="flex items-center justify-between text-xs pb-2 border-b border-[#dadce0]">
+                  <span className="font-bold text-[#202124] flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-[#1a73e8]" />
                     Grounded AI Answer
                   </span>
-                  <span className="text-[10px] text-teal-400 font-mono px-2 py-0.5 rounded bg-teal-500/10 border border-teal-500/20">
+                  <span className="text-[10px] text-[#137333] font-mono px-2 py-0.5 rounded bg-[#e6f4ea] border border-[#ceead6] font-semibold">
                     {Math.round((searchResult.confidence_score || 0.96) * 100)}% Grounded Confidence
                   </span>
                 </div>
-                <p className="text-xs text-zinc-200 leading-relaxed whitespace-pre-line font-sans">{searchResult.answer}</p>
+                <p className="text-xs text-[#202124] leading-relaxed whitespace-pre-line font-sans">{searchResult.answer}</p>
 
                 {/* Citations List */}
                 {searchResult.citations && searchResult.citations.length > 0 && (
-                  <div className="pt-2 border-t border-zinc-800/80 space-y-2">
-                    <span className="text-[10px] font-mono uppercase text-zinc-400 font-semibold block">Grounded Evidence & Source Citations:</span>
+                  <div className="pt-2 border-t border-[#dadce0] space-y-2">
+                    <span className="text-[10px] font-mono uppercase text-[#5f6368] font-semibold block">Grounded Evidence & Source Citations:</span>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                       {searchResult.citations.map((c: any, idx: number) => (
-                        <div key={idx} className="p-2.5 rounded-lg bg-surface-900 border border-zinc-800 text-[11px] space-y-1.5 flex flex-col justify-between">
+                        <div key={idx} className="p-2.5 rounded-lg bg-white border border-[#dadce0] text-[11px] space-y-1.5 flex flex-col justify-between shadow-2xs">
                           <div>
-                            <div className="flex justify-between text-teal-300 font-semibold text-[10px]">
+                            <div className="flex justify-between text-[#1a73e8] font-semibold text-[10px]">
                               <span className="truncate pr-1">[{idx + 1}] {c.source_title}</span>
-                              <span className="font-mono text-zinc-500 shrink-0">{c.section_or_page}</span>
+                              <span className="font-mono text-[#5f6368] shrink-0">{c.section_or_page}</span>
                             </div>
                             {c.snippet_text && (
-                              <p className="text-zinc-400 italic line-clamp-2 mt-0.5">"{c.snippet_text}"</p>
+                              <p className="text-[#5f6368] italic line-clamp-2 mt-0.5">"{c.snippet_text}"</p>
                             )}
                           </div>
                           {c.source_uri && (
@@ -150,7 +150,7 @@ export const KnowledgeView: React.FC<KnowledgeViewProps> = ({
                               href={c.source_uri}
                               target="_blank"
                               rel="noreferrer"
-                              className="text-[10px] font-semibold text-teal-400 hover:text-teal-300 flex items-center gap-1 pt-1 border-t border-zinc-800/60 transition truncate"
+                              className="text-[10px] font-semibold text-[#1a73e8] hover:text-[#1557b0] flex items-center gap-1 pt-1 border-t border-[#dadce0] transition truncate"
                             >
                               <span className="truncate">Open Source</span>
                               <ExternalLink className="w-2.5 h-2.5 shrink-0" />
@@ -163,12 +163,12 @@ export const KnowledgeView: React.FC<KnowledgeViewProps> = ({
                 )}
               </div>
             ) : (
-              <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200 space-y-2">
-                <div className="flex items-center gap-2 font-bold text-xs text-amber-300">
-                  <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
+              <div className="p-4 rounded-xl bg-[#fef7e0] border border-[#feefc3] text-[#b06000] space-y-2">
+                <div className="flex items-center gap-2 font-bold text-xs text-[#b06000]">
+                  <Sparkles className="w-4 h-4 text-[#b06000] shrink-0" />
                   <span>No details available anywhere</span>
                 </div>
-                <p className="text-xs text-amber-200/90 leading-relaxed">
+                <p className="text-xs text-[#5f6368] leading-relaxed">
                   The AI bot thoroughly scanned your project's connected Confluence pages, JIRA tasks/stories/bugs, Git repositories, and PRD specifications, but found no matching records for this query.
                 </p>
               </div>
@@ -179,24 +179,24 @@ export const KnowledgeView: React.FC<KnowledgeViewProps> = ({
 
       {/* Decision Register */}
       <div className="space-y-3">
-        <div className="flex items-center justify-between text-xs font-semibold text-zinc-300">
-          <span>Architecture Decision Records (ADRs) & Logged Decisions</span>
-          <span className="text-[10px] font-mono text-zinc-500">{knowledgeItems?.length || 0} recorded</span>
+        <div className="flex items-center justify-between text-xs font-semibold text-[#5f6368]">
+          <span className="text-[#202124]">Architecture Decision Records (ADRs) & Logged Decisions</span>
+          <span className="text-[10px] font-mono text-[#5f6368]">{knowledgeItems?.length || 0} recorded</span>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="p-4 rounded-xl border border-zinc-800 bg-surface-900/60 space-y-2">
+          <div className="p-5 rounded-2xl border border-[#dadce0] bg-white shadow-sm space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-mono text-teal-400 font-bold">DECISION-01</span>
-              <span className="text-[10px] text-zinc-500 font-mono">Sprint 1</span>
+              <span className="text-xs font-mono text-[#1a73e8] font-bold">DECISION-01</span>
+              <span className="text-[10px] text-[#5f6368] font-mono">Sprint 1</span>
             </div>
-            <h3 className="text-sm font-semibold text-white">Operating Mode & Authentication Baseline</h3>
-            <p className="text-xs text-zinc-300 leading-relaxed">
-              <strong>Context:</strong> Established project baseline with {project?.mode === 'STANDALONE' ? 'Standalone Native mode and direct GitHub activity monitoring' : 'Enterprise Jira & Confluence bidirectional sync'}.
+            <h3 className="text-sm font-semibold text-[#202124]">Operating Mode & Authentication Baseline</h3>
+            <p className="text-xs text-[#5f6368] leading-relaxed">
+              <strong className="text-[#202124]">Context:</strong> Established project baseline with Enterprise Jira & Confluence bidirectional sync.
             </p>
-            <div className="flex items-center justify-between pt-2 border-t border-zinc-800 text-[10px] text-zinc-400">
+            <div className="flex items-center justify-between pt-2 border-t border-[#dadce0] text-[10px] text-[#5f6368]">
               <span>Project Key: {project?.key}</span>
-              <span className="text-emerald-400">Active</span>
+              <span className="text-[#137333] font-semibold">Active</span>
             </div>
           </div>
         </div>

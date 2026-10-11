@@ -47,7 +47,6 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({ project, onSwitchVie
   const [enteredBy, setEnteredBy] = useState(profile?.name || 'Alok Kumar Maurya');
   const [meetingDate, setMeetingDate] = useState(() => {
     const now = new Date();
-    // format as YYYY-MM-DDTHH:mm
     const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
     return local.toISOString().slice(0, 16);
   });
@@ -140,7 +139,6 @@ Product Owner: Approved priority for HM-3 and will unblock API access today.`);
       });
 
       setLatestProcessed(res);
-      // Prepend to meetings list and expand
       setMeetings((prev) => [res, ...prev.filter((m) => m.meeting_id !== res.meeting_id)]);
       setExpandedMeetingId(res.meeting_id);
       setTranscript('');
@@ -160,7 +158,6 @@ Product Owner: Approved priority for HM-3 and will unblock API access today.`);
     setActiveAnalysisId(meetingId);
     try {
       const ddResult = await api.analyzeMeetingLinks(meetingId);
-      // Update item in local list
       setMeetings((prev) =>
         prev.map((m) =>
           m.meeting_id === meetingId
@@ -229,17 +226,17 @@ Product Owner: Approved priority for HM-3 and will unblock API access today.`);
   const getMeetingTypeBadgeColor = (type: string) => {
     switch (type) {
       case 'STANDUP':
-        return 'bg-purple-500/10 text-purple-300 border-purple-500/30';
+        return 'bg-[#e8f0fe] text-[#1967d2] border-[#d2e3fc]';
       case 'REVIEW':
-        return 'bg-blue-500/10 text-blue-300 border-blue-500/30';
+        return 'bg-[#e6f4ea] text-[#137333] border-[#ceead6]';
       case 'RETROSPECTIVE':
-        return 'bg-amber-500/10 text-amber-300 border-amber-500/30';
+        return 'bg-[#fef7e0] text-[#b06000] border-[#feefc3]';
       case 'ARCHITECTURE':
-        return 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30';
+        return 'bg-[#f3e8fd] text-[#7b1fa2] border-[#e1bee7]';
       case 'TRIAGE':
-        return 'bg-rose-500/10 text-rose-300 border-rose-500/30';
+        return 'bg-[#fce8e6] text-[#c5221f] border-[#fad2cf]';
       default:
-        return 'bg-zinc-800 text-zinc-300 border-zinc-700';
+        return 'bg-[#f1f3f4] text-[#3c4043] border-[#dadce0]';
     }
   };
 
@@ -250,53 +247,53 @@ Product Owner: Approved priority for HM-3 and will unblock API access today.`);
     <div className="p-6 max-w-7xl mx-auto w-full space-y-6 flex-1 flex flex-col">
       {/* Observer Mode Persona Banner */}
       {!can('canProcessMeetings') && (
-        <div className="p-3 rounded-xl border border-zinc-700/60 bg-zinc-800/60 flex items-center justify-between text-xs text-zinc-300">
+        <div className="p-3.5 rounded-xl border border-[#dadce0] bg-[#f8f9fa] flex items-center justify-between text-xs text-[#3c4043] shadow-sm">
           <div className="flex items-center gap-2">
-            <Lock className="w-4 h-4 text-purple-400 shrink-0" />
+            <Lock className="w-4 h-4 text-[#1a73e8] shrink-0" />
             <span>
-              Viewing as <strong>{profile.title}</strong> — Meeting intelligence processing is restricted to Scrum Master, Product Owner, and Workspace Admin.
+              Viewing as <strong className="text-[#202124]">{profile.title}</strong> — Meeting intelligence processing is restricted to Scrum Master, Product Owner, and Workspace Admin.
             </span>
           </div>
-          <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-zinc-800 text-zinc-400 border border-zinc-700 font-bold">
+          <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-white text-[#5f6368] border border-[#dadce0] font-bold shadow-sm">
             Observer Mode
           </span>
         </div>
       )}
 
       {/* Top Header & Stats */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-zinc-800">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-[#dadce0]">
         <div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-mono text-brand-400 font-bold text-sm">[{project?.key}]</span>
-            <h1 className="text-xl font-bold text-white">
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <span className="font-mono text-[#1a73e8] font-bold text-sm">[{project?.key}]</span>
+            <h1 className="text-xl font-bold text-[#202124]">
               Meeting Intelligence & Decision Extractor
             </h1>
-            <span className="text-xs px-2.5 py-0.5 rounded-full bg-purple-500/10 text-purple-300 border border-purple-500/20 font-mono">
+            <span className="text-xs px-2.5 py-0.5 rounded-full bg-[#e8f0fe] text-[#1967d2] border border-[#d2e3fc] font-medium">
               Live Cross-Artifact Due Diligence
             </span>
           </div>
-          <p className="text-xs text-zinc-400 mt-1">
+          <p className="text-xs text-[#5f6368] mt-1 max-w-3xl leading-relaxed">
             Log meeting minutes at any time, persist notes by author and timestamp, and run AI due diligence to correlate discussions with JIRA tickets, Git codebase files, and Confluence specifications.
           </p>
         </div>
 
         {/* Counters & Quick Controls */}
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 bg-surface-900/80 border border-zinc-800 rounded-lg px-3 py-1.5 text-xs">
-            <span className="text-zinc-400">Total Minutes:</span>
-            <span className="font-bold text-white font-mono">{meetings.length}</span>
-            <span className="text-zinc-600">|</span>
-            <span className="text-emerald-400 font-semibold">{linkedCount} Linked</span>
-            <span className="text-zinc-600">|</span>
-            <span className="text-zinc-400">{unlinkedCount} Unlinked</span>
+          <div className="flex items-center gap-2 bg-white border border-[#dadce0] rounded-xl px-3.5 py-2 text-xs shadow-sm">
+            <span className="text-[#5f6368]">Total Minutes:</span>
+            <span className="font-bold text-[#202124] font-mono">{meetings.length}</span>
+            <span className="text-[#dadce0]">|</span>
+            <span className="text-[#137333] font-semibold">{linkedCount} Linked</span>
+            <span className="text-[#dadce0]">|</span>
+            <span className="text-[#5f6368]">{unlinkedCount} Unlinked</span>
           </div>
 
           <button
             onClick={() => setIsFormOpen(!isFormOpen)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition ${
+            className={`px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition shadow-sm ${
               isFormOpen
-                ? 'bg-zinc-800 text-zinc-300 border border-zinc-700 hover:text-white'
-                : 'bg-purple-600 hover:bg-purple-500 text-white shadow-sm shadow-purple-500/20'
+                ? 'bg-white text-[#3c4043] border border-[#dadce0] hover:bg-[#f1f3f4]'
+                : 'bg-[#1a73e8] hover:bg-[#1557b0] text-white'
             }`}
           >
             <Plus className="w-3.5 h-3.5" />
@@ -307,44 +304,44 @@ Product Owner: Approved priority for HM-3 and will unblock API access today.`);
             onClick={loadMeetings}
             disabled={loadingList}
             title="Refresh Meeting Records"
-            className="p-1.5 rounded-lg bg-surface-900 border border-zinc-800 text-zinc-400 hover:text-white transition"
+            className="p-2 rounded-xl bg-white border border-[#dadce0] text-[#5f6368] hover:text-[#202124] hover:bg-[#f1f3f4] transition shadow-sm"
           >
-            <RefreshCw className={`w-4 h-4 ${loadingList ? 'animate-spin text-purple-400' : ''}`} />
+            <RefreshCw className={`w-4 h-4 ${loadingList ? 'animate-spin text-[#1a73e8]' : ''}`} />
           </button>
         </div>
       </div>
 
       {/* Meeting Minutes Input Form */}
       {isFormOpen && (
-        <div className="p-5 rounded-2xl border border-purple-500/30 bg-surface-900/80 backdrop-blur-sm space-y-4 shadow-xl shadow-purple-950/10">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-zinc-800/80 text-xs">
+        <div className="p-5 rounded-2xl border border-[#dadce0] bg-white space-y-4 shadow-sm">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-[#f1f3f4] text-xs">
             <div className="flex items-center gap-2">
-              <AlignLeft className="w-4 h-4 text-purple-400" />
-              <span className="font-bold text-white text-sm">New Meeting Minutes</span>
-              <span className="text-[11px] text-zinc-400">· Input as many meeting notes as needed any day</span>
+              <AlignLeft className="w-4 h-4 text-[#1a73e8]" />
+              <span className="font-bold text-[#202124] text-sm">New Meeting Minutes</span>
+              <span className="text-[11px] text-[#5f6368]">· Input as many meeting notes as needed any day</span>
             </div>
 
             {/* Template Buttons */}
             <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="text-[10px] uppercase font-mono text-zinc-500 font-bold mr-1">Templates:</span>
+              <span className="text-[10px] uppercase font-mono text-[#5f6368] font-bold mr-1">Templates:</span>
               <button
                 type="button"
                 onClick={() => fillSample('STANDUP')}
-                className="px-2 py-0.5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-[11px] border border-zinc-700 transition"
+                className="px-2.5 py-1 rounded-lg bg-[#f1f3f4] hover:bg-[#e8eaed] text-[#3c4043] text-[11px] border border-[#dadce0] transition font-medium"
               >
                 Daily Scrum
               </button>
               <button
                 type="button"
                 onClick={() => fillSample('ARCH')}
-                className="px-2 py-0.5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-[11px] border border-zinc-700 transition"
+                className="px-2.5 py-1 rounded-lg bg-[#f1f3f4] hover:bg-[#e8eaed] text-[#3c4043] text-[11px] border border-[#dadce0] transition font-medium"
               >
                 Architecture Sync
               </button>
               <button
                 type="button"
                 onClick={() => fillSample('UNLINKED')}
-                className="px-2 py-0.5 rounded bg-zinc-800 hover:bg-zinc-700 text-amber-300 text-[11px] border border-zinc-700 transition"
+                className="px-2.5 py-1 rounded-lg bg-[#fef7e0] hover:bg-[#feefc3] text-[#b06000] text-[11px] border border-[#feefc3] transition font-medium"
               >
                 Casual / Off-Topic Test
               </button>
@@ -355,8 +352,8 @@ Product Owner: Approved priority for HM-3 and will unblock API access today.`);
           <div className="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs">
             {/* Title */}
             <div className="space-y-1 md:col-span-1">
-              <label className="text-[11px] font-medium text-zinc-400 flex items-center gap-1">
-                <FileText className="w-3.5 h-3.5 text-zinc-400" />
+              <label className="text-[11px] font-medium text-[#5f6368] flex items-center gap-1">
+                <FileText className="w-3.5 h-3.5 text-[#5f6368]" />
                 Meeting Title / Topic
               </label>
               <input
@@ -364,20 +361,20 @@ Product Owner: Approved priority for HM-3 and will unblock API access today.`);
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="e.g. Daily Scrum - Oct 11"
-                className="w-full bg-surface-950 border border-zinc-800 rounded-lg px-3 py-2 text-white placeholder-zinc-600 focus:outline-none focus:border-purple-500"
+                className="w-full bg-[#f8f9fa] border border-[#dadce0] rounded-xl px-3 py-2 text-[#202124] placeholder-[#80868b] focus:bg-white focus:outline-none focus:border-[#1a73e8] focus:ring-1 focus:ring-[#1a73e8] transition"
               />
             </div>
 
             {/* Type */}
             <div className="space-y-1">
-              <label className="text-[11px] font-medium text-zinc-400 flex items-center gap-1">
-                <Tag className="w-3.5 h-3.5 text-zinc-400" />
+              <label className="text-[11px] font-medium text-[#5f6368] flex items-center gap-1">
+                <Tag className="w-3.5 h-3.5 text-[#5f6368]" />
                 Meeting Type
               </label>
               <select
                 value={meetingType}
                 onChange={(e) => setMeetingType(e.target.value)}
-                className="w-full bg-surface-950 border border-zinc-800 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-purple-500"
+                className="w-full bg-[#f8f9fa] border border-[#dadce0] rounded-xl px-3 py-2 text-[#202124] focus:bg-white focus:outline-none focus:border-[#1a73e8] focus:ring-1 focus:ring-[#1a73e8] transition"
               >
                 <option value="STANDUP">Daily Scrum</option>
                 <option value="ARCHITECTURE">Architecture & Tech Sync</option>
@@ -390,22 +387,22 @@ Product Owner: Approved priority for HM-3 and will unblock API access today.`);
 
             {/* Date and Time */}
             <div className="space-y-1">
-              <label className="text-[11px] font-medium text-zinc-400 flex items-center gap-1">
-                <Clock className="w-3.5 h-3.5 text-zinc-400" />
+              <label className="text-[11px] font-medium text-[#5f6368] flex items-center gap-1">
+                <Clock className="w-3.5 h-3.5 text-[#5f6368]" />
                 Date & Time
               </label>
               <input
                 type="datetime-local"
                 value={meetingDate}
                 onChange={(e) => setMeetingDate(e.target.value)}
-                className="w-full bg-surface-950 border border-zinc-800 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-purple-500 font-mono text-[11px]"
+                className="w-full bg-[#f8f9fa] border border-[#dadce0] rounded-xl px-3 py-2 text-[#202124] focus:bg-white focus:outline-none focus:border-[#1a73e8] focus:ring-1 focus:ring-[#1a73e8] font-mono text-[11px] transition"
               />
             </div>
 
             {/* Entered By */}
             <div className="space-y-1">
-              <label className="text-[11px] font-medium text-zinc-400 flex items-center gap-1">
-                <User className="w-3.5 h-3.5 text-zinc-400" />
+              <label className="text-[11px] font-medium text-[#5f6368] flex items-center gap-1">
+                <User className="w-3.5 h-3.5 text-[#5f6368]" />
                 Entered By (Author)
               </label>
               <input
@@ -413,7 +410,7 @@ Product Owner: Approved priority for HM-3 and will unblock API access today.`);
                 value={enteredBy}
                 onChange={(e) => setEnteredBy(e.target.value)}
                 placeholder="Author Name"
-                className="w-full bg-surface-950 border border-zinc-800 rounded-lg px-3 py-2 text-white placeholder-zinc-600 focus:outline-none focus:border-purple-500"
+                className="w-full bg-[#f8f9fa] border border-[#dadce0] rounded-xl px-3 py-2 text-[#202124] placeholder-[#80868b] focus:bg-white focus:outline-none focus:border-[#1a73e8] focus:ring-1 focus:ring-[#1a73e8] transition"
               />
             </div>
           </div>
@@ -421,10 +418,10 @@ Product Owner: Approved priority for HM-3 and will unblock API access today.`);
           {/* Transcript / Minutes Area */}
           <div className="space-y-1 text-xs">
             <div className="flex items-center justify-between">
-              <label className="text-[11px] font-medium text-zinc-400">
+              <label className="text-[11px] font-medium text-[#5f6368]">
                 Meeting Minutes / Discussion Points
               </label>
-              <span className="text-[10px] text-zinc-500">
+              <span className="text-[10px] text-[#80868b]">
                 AI will cross-correlate against JIRA issues, Git code files/commits, and Confluence docs
               </span>
             </div>
@@ -433,14 +430,14 @@ Product Owner: Approved priority for HM-3 and will unblock API access today.`);
               onChange={(e) => setTranscript(e.target.value)}
               placeholder={`Enter raw meeting notes, attendee remarks, blockers, or decisions for ${project?.name || "the project"}...`}
               rows={6}
-              className="w-full bg-surface-950 border border-zinc-800 rounded-xl p-3 text-xs text-white placeholder-zinc-600 focus:outline-none focus:border-purple-500 font-mono resize-y leading-relaxed transition"
+              className="w-full bg-[#f8f9fa] border border-[#dadce0] rounded-xl p-3 text-xs text-[#202124] placeholder-[#80868b] focus:bg-white focus:outline-none focus:border-[#1a73e8] focus:ring-1 focus:ring-[#1a73e8] font-mono resize-y leading-relaxed transition"
             />
           </div>
 
           {/* Action Footer */}
           <div className="flex items-center justify-between pt-2">
-            <p className="text-[11px] text-zinc-500 flex items-center gap-1.5">
-              <ShieldAlert className="w-3.5 h-3.5 text-purple-400" />
+            <p className="text-[11px] text-[#5f6368] flex items-center gap-1.5">
+              <ShieldAlert className="w-3.5 h-3.5 text-[#1a73e8]" />
               <span>
                 Due diligence strict guardrail: Responds <em>"Not linked to any GIT/JIRA/Confluence"</em> if topics are unrelated.
               </span>
@@ -451,10 +448,10 @@ Product Owner: Approved priority for HM-3 and will unblock API access today.`);
                 type="button"
                 onClick={handleProcess}
                 disabled={processing || !transcript.trim()}
-                className={`px-5 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 shadow-lg transition ${
+                className={`px-5 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 shadow-sm transition ${
                   processing || !transcript.trim()
-                    ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed border border-zinc-700/50'
-                    : 'bg-purple-600 hover:bg-purple-500 text-white shadow-purple-600/30 hover:scale-[1.01]'
+                    ? 'bg-[#f1f3f4] text-[#80868b] cursor-not-allowed border border-[#dadce0]'
+                    : 'bg-[#1a73e8] hover:bg-[#1557b0] text-white hover:shadow-md'
                 }`}
               >
                 <Sparkles className={`w-4 h-4 ${processing ? 'animate-spin' : ''}`} />
@@ -462,10 +459,10 @@ Product Owner: Approved priority for HM-3 and will unblock API access today.`);
               </button>
             ) : (
               <div
-                className="px-4 py-2 rounded-xl bg-zinc-800/80 border border-zinc-700/50 text-zinc-500 font-bold text-xs flex items-center gap-2 cursor-not-allowed opacity-75"
+                className="px-4 py-2 rounded-xl bg-[#f1f3f4] border border-[#dadce0] text-[#80868b] font-bold text-xs flex items-center gap-2 cursor-not-allowed opacity-75"
                 title={`Role "${profile.title}" cannot process meetings (Requires SM, PO, or Admin)`}
               >
-                <Lock className="w-4 h-4 text-zinc-500" />
+                <Lock className="w-4 h-4 text-[#80868b]" />
                 <span>Process Decisions (SM/PO Only)</span>
               </div>
             )}
@@ -476,30 +473,30 @@ Product Owner: Approved priority for HM-3 and will unblock API access today.`);
       {/* Historical Meeting Minutes Section */}
       <div className="space-y-4 flex-1 flex flex-col">
         {/* Search & Filter Controls */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-surface-900/60 border border-zinc-800 p-3 rounded-xl text-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white border border-[#dadce0] p-3 rounded-xl text-xs shadow-sm">
           <div className="flex items-center gap-2 flex-1 max-w-md">
             <div className="relative flex-1">
-              <Search className="w-3.5 h-3.5 text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2" />
+              <Search className="w-3.5 h-3.5 text-[#80868b] absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search meeting minutes, author, decisions, or ticket keys..."
-                className="w-full bg-surface-950 border border-zinc-800 rounded-lg pl-9 pr-3 py-1.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-purple-500"
+                className="w-full bg-[#f8f9fa] border border-[#dadce0] rounded-xl pl-9 pr-3 py-2 text-xs text-[#202124] placeholder-[#80868b] focus:bg-white focus:outline-none focus:border-[#1a73e8] focus:ring-1 focus:ring-[#1a73e8] transition"
               />
             </div>
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-[11px] text-zinc-500 font-medium">Filter Type:</span>
+            <span className="text-[11px] text-[#5f6368] font-medium">Filter Type:</span>
             {['ALL', 'STANDUP', 'ARCHITECTURE', 'REVIEW', 'RETROSPECTIVE', 'TRIAGE', 'ADHOC'].map((t) => (
               <button
                 key={t}
                 onClick={() => setFilterType(t)}
-                className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition ${
+                className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold transition ${
                   filterType === t
-                    ? 'bg-purple-600 text-white shadow-sm'
-                    : 'bg-zinc-800/70 text-zinc-400 hover:text-white'
+                    ? 'bg-[#1a73e8] text-white shadow-sm'
+                    : 'bg-[#f1f3f4] text-[#5f6368] hover:text-[#202124] border border-[#dadce0]'
                 }`}
               >
                 {t === 'ALL'
@@ -522,15 +519,15 @@ Product Owner: Approved priority for HM-3 and will unblock API access today.`);
 
         {/* Meeting Minutes Cards */}
         {loadingList ? (
-          <div className="p-12 text-center text-zinc-500 text-xs space-y-2 flex flex-col items-center justify-center">
-            <RefreshCw className="w-6 h-6 animate-spin text-purple-400" />
+          <div className="p-12 text-center text-[#5f6368] text-xs space-y-2 flex flex-col items-center justify-center">
+            <RefreshCw className="w-6 h-6 animate-spin text-[#1a73e8]" />
             <p>Loading meeting records from database...</p>
           </div>
         ) : filteredMeetings.length === 0 ? (
-          <div className="p-12 text-center rounded-2xl border border-dashed border-zinc-800 bg-surface-900/30 space-y-3">
-            <FileSearch className="w-10 h-10 text-zinc-600 mx-auto" />
-            <p className="text-zinc-300 font-semibold text-sm">No meeting minutes recorded yet</p>
-            <p className="text-xs text-zinc-500 max-w-md mx-auto">
+          <div className="p-12 text-center rounded-2xl border border-dashed border-[#dadce0] bg-white shadow-sm space-y-3">
+            <FileSearch className="w-10 h-10 text-[#80868b] mx-auto" />
+            <p className="text-[#202124] font-semibold text-sm">No meeting minutes recorded yet</p>
+            <p className="text-xs text-[#5f6368] max-w-md mx-auto">
               Any user can input meeting minutes at any time above. Notes will be stored in the database with timestamps, author attribution, and correlated with JIRA, Git, and Confluence.
             </p>
           </div>
@@ -548,8 +545,8 @@ Product Owner: Approved priority for HM-3 and will unblock API access today.`);
                   key={m.meeting_id}
                   className={`rounded-2xl border transition-all ${
                     isExpanded
-                      ? 'border-purple-500/50 bg-surface-900 shadow-xl shadow-purple-950/20'
-                      : 'border-zinc-800/80 bg-surface-900/60 hover:border-zinc-700/80 hover:bg-surface-900'
+                      ? 'border-[#1a73e8]/40 bg-white shadow-md'
+                      : 'border-[#dadce0] bg-white hover:border-[#1a73e8]/30 hover:shadow-sm'
                   }`}
                 >
                   {/* Card Header */}
@@ -557,7 +554,7 @@ Product Owner: Approved priority for HM-3 and will unblock API access today.`);
                     onClick={() => setExpandedMeetingId(isExpanded ? null : m.meeting_id)}
                     className="p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-3 cursor-pointer select-none"
                   >
-                    <div className="space-y-1.5 flex-1 min-w-0">
+                    <div className="space-y-2 flex-1 min-w-0">
                       <div className="flex items-center gap-2.5 flex-wrap">
                         {/* Type badge */}
                         <span
@@ -568,41 +565,41 @@ Product Owner: Approved priority for HM-3 and will unblock API access today.`);
                           {m.meeting_type}
                         </span>
 
-                        <h3 className="text-sm sm:text-base font-bold text-white truncate">
+                        <h3 className="text-sm sm:text-base font-bold text-[#202124] truncate">
                           {m.title || 'Team Meeting'}
                         </h3>
 
                         {/* Due Diligence Verdict Pill */}
                         {isLinked ? (
-                          <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 flex items-center gap-1 font-semibold">
-                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                          <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-[#e6f4ea] text-[#137333] border border-[#ceead6] flex items-center gap-1 font-semibold">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-[#137333] shrink-0" />
                             <span>Linked to Project Work</span>
                           </span>
                         ) : (
-                          <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-zinc-800 text-zinc-400 border border-zinc-700 flex items-center gap-1 font-semibold">
-                            <ShieldAlert className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+                          <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-[#f1f3f4] text-[#5f6368] border border-[#dadce0] flex items-center gap-1 font-semibold">
+                            <ShieldAlert className="w-3.5 h-3.5 text-[#80868b] shrink-0" />
                             <span>Not linked to any GIT/JIRA/Confluence</span>
                           </span>
                         )}
                       </div>
 
                       {/* Meta bar: Date, Time, Author */}
-                      <div className="flex items-center gap-4 text-xs text-zinc-400 flex-wrap">
-                        <span className="flex items-center gap-1 text-zinc-300">
-                          <Calendar className="w-3.5 h-3.5 text-purple-400" />
+                      <div className="flex items-center gap-4 text-xs text-[#5f6368] flex-wrap">
+                        <span className="flex items-center gap-1 text-[#3c4043] font-medium">
+                          <Calendar className="w-3.5 h-3.5 text-[#1a73e8]" />
                           {formatMeetingDate(m.date || m.created_at)}
                         </span>
                         <span className="flex items-center gap-1">
-                          <User className="w-3.5 h-3.5 text-zinc-400" />
-                          Entered by: <strong className="text-zinc-200">{m.entered_by || 'Team Member'}</strong>
+                          <User className="w-3.5 h-3.5 text-[#5f6368]" />
+                          Entered by: <strong className="text-[#202124]">{m.entered_by || 'Team Member'}</strong>
                         </span>
                         {m.decisions && m.decisions.length > 0 && (
-                          <span className="text-emerald-400 text-[11px]">
+                          <span className="text-[#137333] text-[11px] font-semibold">
                             {m.decisions.length} Decisions Logged
                           </span>
                         )}
                         {m.blockers && m.blockers.length > 0 && (
-                          <span className="text-rose-400 text-[11px]">
+                          <span className="text-[#c5221f] text-[11px] font-semibold">
                             {m.blockers.length} Blockers Flagged
                           </span>
                         )}
@@ -616,9 +613,9 @@ Product Owner: Approved priority for HM-3 and will unblock API access today.`);
                         onClick={(e) => handleRunDueDiligence(m.meeting_id, e)}
                         disabled={isAnalyzing}
                         title="Re-run AI Due Diligence across JIRA, Git, and Confluence"
-                        className="px-3 py-1.5 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 border border-purple-500/30 text-xs font-semibold flex items-center gap-1.5 transition"
+                        className="px-3 py-1.5 rounded-xl bg-[#e8f0fe] hover:bg-[#d2e3fc] text-[#1967d2] border border-[#d2e3fc] text-xs font-semibold flex items-center gap-1.5 transition shadow-sm"
                       >
-                        <Sparkles className={`w-3.5 h-3.5 ${isAnalyzing ? 'animate-spin text-purple-400' : ''}`} />
+                        <Sparkles className={`w-3.5 h-3.5 ${isAnalyzing ? 'animate-spin text-[#1a73e8]' : ''}`} />
                         <span>{isAnalyzing ? 'Analyzing...' : 'Run Due Diligence'}</span>
                       </button>
 
@@ -626,12 +623,12 @@ Product Owner: Approved priority for HM-3 and will unblock API access today.`);
                         type="button"
                         onClick={(e) => handleDelete(m.meeting_id, e)}
                         title="Delete meeting record"
-                        className="p-1.5 rounded-lg text-zinc-500 hover:text-rose-400 hover:bg-rose-500/10 transition"
+                        className="p-2 rounded-xl text-[#80868b] hover:text-[#c5221f] hover:bg-[#fce8e6] transition"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
 
-                      <div className="p-1.5 text-zinc-400">
+                      <div className="p-1.5 text-[#5f6368]">
                         {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                       </div>
                     </div>
@@ -639,27 +636,27 @@ Product Owner: Approved priority for HM-3 and will unblock API access today.`);
 
                   {/* Expanded Body */}
                   {isExpanded && (
-                    <div className="px-5 pb-5 pt-2 border-t border-zinc-800/80 space-y-5 text-xs">
-                      {/* AI Due Diligence Section (Crucial Requirement) */}
+                    <div className="px-5 pb-5 pt-3 border-t border-[#f1f3f4] space-y-5 text-xs">
+                      {/* AI Due Diligence Section */}
                       <div
                         className={`p-4 rounded-xl border ${
                           isLinked
-                            ? 'bg-emerald-950/20 border-emerald-500/40'
-                            : 'bg-zinc-950/60 border-zinc-800'
+                            ? 'bg-[#e6f4ea]/30 border-[#ceead6]'
+                            : 'bg-[#f8f9fa] border-[#dadce0]'
                         } space-y-3`}
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
-                            <Workflow className={`w-4 h-4 ${isLinked ? 'text-emerald-400' : 'text-zinc-400'}`} />
-                            <span className="font-bold text-white uppercase text-[11px] tracking-wide">
+                            <Workflow className={`w-4 h-4 ${isLinked ? 'text-[#137333]' : 'text-[#5f6368]'}`} />
+                            <span className="font-bold text-[#202124] uppercase text-[11px] tracking-wide">
                               AI Cross-Artifact Due Diligence Report
                             </span>
                           </div>
                           <span
-                            className={`text-[10px] font-mono px-2 py-0.5 rounded font-bold ${
+                            className={`text-[10px] font-mono px-2.5 py-0.5 rounded-full font-bold ${
                               isLinked
-                                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                                : 'bg-zinc-800 text-zinc-400 border border-zinc-700'
+                                ? 'bg-[#e6f4ea] text-[#137333] border border-[#ceead6]'
+                                : 'bg-[#f1f3f4] text-[#5f6368] border border-[#dadce0]'
                             }`}
                           >
                             {isLinked ? 'LINKED TO PROJECT WORK' : 'NOT LINKED'}
@@ -667,16 +664,16 @@ Product Owner: Approved priority for HM-3 and will unblock API access today.`);
                         </div>
 
                         {/* Verdict Headline */}
-                        <div className="p-3 rounded-lg bg-surface-950 border border-zinc-800/80">
+                        <div className="p-3.5 rounded-xl bg-white border border-[#dadce0] shadow-sm">
                           <p
                             className={`font-semibold ${
-                              isLinked ? 'text-emerald-300' : 'text-zinc-300'
+                              isLinked ? 'text-[#137333]' : 'text-[#202124]'
                             }`}
                           >
                             {verdict}
                           </p>
                           {dd?.detailed_analysis && (
-                            <p className="text-zinc-400 mt-1.5 text-[11px] leading-relaxed">
+                            <p className="text-[#5f6368] mt-1.5 text-[11px] leading-relaxed">
                               {dd.detailed_analysis}
                             </p>
                           )}
@@ -686,9 +683,9 @@ Product Owner: Approved priority for HM-3 and will unblock API access today.`);
                         {isLinked && (
                           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
                             {/* Linked JIRA Issues */}
-                            <div className="p-3 rounded-lg bg-surface-950 border border-blue-500/30 space-y-2">
-                              <span className="text-[10px] font-mono text-blue-300 uppercase font-bold flex items-center gap-1.5">
-                                <Layers className="w-3.5 h-3.5 text-blue-400" />
+                            <div className="p-3.5 rounded-xl bg-white border border-[#d2e3fc] space-y-2 shadow-sm">
+                              <span className="text-[10px] font-mono text-[#1967d2] uppercase font-bold flex items-center gap-1.5">
+                                <Layers className="w-3.5 h-3.5 text-[#1a73e8]" />
                                 Linked JIRA Tickets ({dd?.linked_jira_issues?.length || 0})
                               </span>
                               {dd?.linked_jira_issues && dd.linked_jira_issues.length > 0 ? (
@@ -696,35 +693,35 @@ Product Owner: Approved priority for HM-3 and will unblock API access today.`);
                                   {dd.linked_jira_issues.map((ji: any, idx: number) => (
                                     <div
                                       key={idx}
-                                      className="p-2 rounded bg-surface-900 border border-zinc-800 text-[11px] space-y-1"
+                                      className="p-2.5 rounded-lg bg-[#f8f9fa] border border-[#dadce0] text-[11px] space-y-1"
                                     >
                                       <div className="flex items-center justify-between">
-                                        <span className="font-bold text-brand-400 font-mono">
+                                        <span className="font-bold text-[#1a73e8] font-mono">
                                           {ji.key}
                                         </span>
-                                        <span className="text-[9px] px-1.5 py-0.2 rounded bg-zinc-800 text-zinc-300 border border-zinc-700">
+                                        <span className="text-[9px] px-1.5 py-0.2 rounded bg-white text-[#3c4043] border border-[#dadce0]">
                                           {ji.status || 'To Do'}
                                         </span>
                                       </div>
-                                      <p className="text-white font-medium">{ji.title}</p>
-                                      <p className="text-[10px] text-zinc-400">
+                                      <p className="text-[#202124] font-medium">{ji.title}</p>
+                                      <p className="text-[10px] text-[#5f6368]">
                                         <strong>Relation:</strong> {ji.relationship}
                                       </p>
-                                      <p className="text-[10px] text-zinc-500">
+                                      <p className="text-[10px] text-[#80868b]">
                                         {ji.relevance_reason}
                                       </p>
                                     </div>
                                   ))}
                                 </div>
                               ) : (
-                                <p className="text-[11px] text-zinc-500 italic">No specific JIRA tickets identified</p>
+                                <p className="text-[11px] text-[#80868b] italic">No specific JIRA tickets identified</p>
                               )}
                             </div>
 
                             {/* Linked Git Artifacts */}
-                            <div className="p-3 rounded-lg bg-surface-950 border border-purple-500/30 space-y-2">
-                              <span className="text-[10px] font-mono text-purple-300 uppercase font-bold flex items-center gap-1.5">
-                                <GitBranch className="w-3.5 h-3.5 text-purple-400" />
+                            <div className="p-3.5 rounded-xl bg-white border border-[#e1bee7] space-y-2 shadow-sm">
+                              <span className="text-[10px] font-mono text-[#7b1fa2] uppercase font-bold flex items-center gap-1.5">
+                                <GitBranch className="w-3.5 h-3.5 text-[#7b1fa2]" />
                                 Linked Git Artifacts ({dd?.linked_git_artifacts?.length || 0})
                               </span>
                               {dd?.linked_git_artifacts && dd.linked_git_artifacts.length > 0 ? (
@@ -732,35 +729,35 @@ Product Owner: Approved priority for HM-3 and will unblock API access today.`);
                                   {dd.linked_git_artifacts.map((ga: any, idx: number) => (
                                     <div
                                       key={idx}
-                                      className="p-2 rounded bg-surface-900 border border-zinc-800 text-[11px] space-y-1"
+                                      className="p-2.5 rounded-lg bg-[#f8f9fa] border border-[#dadce0] text-[11px] space-y-1"
                                     >
                                       <div className="flex items-center justify-between">
-                                        <span className="font-mono text-purple-300 font-bold truncate">
+                                        <span className="font-mono text-[#7b1fa2] font-bold truncate">
                                           {ga.path_or_identifier || ga.repo_name}
                                         </span>
-                                        <span className="text-[9px] px-1.5 py-0.2 rounded bg-zinc-800 text-zinc-400 font-mono">
+                                        <span className="text-[9px] px-1.5 py-0.2 rounded bg-white text-[#5f6368] font-mono border border-[#dadce0]">
                                           {ga.artifact_type}
                                         </span>
                                       </div>
-                                      <p className="text-white font-medium">{ga.repo_name}</p>
-                                      <p className="text-[10px] text-zinc-400">
+                                      <p className="text-[#202124] font-medium">{ga.repo_name}</p>
+                                      <p className="text-[10px] text-[#5f6368]">
                                         <strong>Impact:</strong> {ga.relationship}
                                       </p>
-                                      <p className="text-[10px] text-zinc-500">
+                                      <p className="text-[10px] text-[#80868b]">
                                         {ga.relevance_reason}
                                       </p>
                                     </div>
                                   ))}
                                 </div>
                               ) : (
-                                <p className="text-[11px] text-zinc-500 italic">No Git files/scripts referenced</p>
+                                <p className="text-[11px] text-[#80868b] italic">No Git files/scripts referenced</p>
                               )}
                             </div>
 
                             {/* Linked Confluence Documentation */}
-                            <div className="p-3 rounded-lg bg-surface-950 border border-emerald-500/30 space-y-2">
-                              <span className="text-[10px] font-mono text-emerald-300 uppercase font-bold flex items-center gap-1.5">
-                                <BookOpen className="w-3.5 h-3.5 text-emerald-400" />
+                            <div className="p-3.5 rounded-xl bg-white border border-[#ceead6] space-y-2 shadow-sm">
+                              <span className="text-[10px] font-mono text-[#137333] uppercase font-bold flex items-center gap-1.5">
+                                <BookOpen className="w-3.5 h-3.5 text-[#137333]" />
                                 Linked Confluence Specs ({dd?.linked_confluence_pages?.length || 0})
                               </span>
                               {dd?.linked_confluence_pages && dd.linked_confluence_pages.length > 0 ? (
@@ -768,35 +765,35 @@ Product Owner: Approved priority for HM-3 and will unblock API access today.`);
                                   {dd.linked_confluence_pages.map((cp: any, idx: number) => (
                                     <div
                                       key={idx}
-                                      className="p-2 rounded bg-surface-900 border border-zinc-800 text-[11px] space-y-1"
+                                      className="p-2.5 rounded-lg bg-[#f8f9fa] border border-[#dadce0] text-[11px] space-y-1"
                                     >
-                                      <p className="text-white font-bold">{cp.title}</p>
-                                      <p className="text-[10px] text-emerald-400">
+                                      <p className="text-[#202124] font-bold">{cp.title}</p>
+                                      <p className="text-[10px] text-[#137333]">
                                         <strong>Space:</strong> {cp.space_key || 'Project Wiki'}
                                       </p>
-                                      <p className="text-[10px] text-zinc-400">
+                                      <p className="text-[10px] text-[#5f6368]">
                                         <strong>Relation:</strong> {cp.relationship}
                                       </p>
-                                      <p className="text-[10px] text-zinc-500">
+                                      <p className="text-[10px] text-[#80868b]">
                                         {cp.relevance_reason}
                                       </p>
                                     </div>
                                   ))}
                                 </div>
                               ) : (
-                                <p className="text-[11px] text-zinc-500 italic">No Confluence pages referenced</p>
+                                <p className="text-[11px] text-[#80868b] italic">No Confluence pages referenced</p>
                               )}
                             </div>
                           </div>
                         )}
 
-                        {/* If NOT Linked: Prominent Anti-Hallucination Explanatory Callout */}
+                        {/* If NOT Linked: Explanatory Callout */}
                         {!isLinked && (
-                          <div className="p-3 rounded-lg bg-zinc-900 border border-zinc-800 flex items-start gap-2.5 text-xs text-zinc-400">
-                            <ShieldAlert className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                          <div className="p-3.5 rounded-xl bg-white border border-[#dadce0] flex items-start gap-2.5 text-xs text-[#5f6368] shadow-sm">
+                            <ShieldAlert className="w-4 h-4 text-[#b06000] shrink-0 mt-0.5" />
                             <div>
-                              <p className="text-zinc-200 font-medium">Due Diligence Audit Result</p>
-                              <p className="text-[11px] text-zinc-400 mt-0.5">
+                              <p className="text-[#202124] font-medium">Due Diligence Audit Result</p>
+                              <p className="text-[11px] text-[#5f6368] mt-0.5 leading-relaxed">
                                 The AI evaluated this transcript against all active JIRA tickets (Epics, Stories, Bugs, Tasks), Git repositories (README, file hierarchy tree, build scripts), and Confluence product specifications. No overlapping entities or tasks were found.
                               </p>
                             </div>
@@ -807,23 +804,23 @@ Product Owner: Approved priority for HM-3 and will unblock API access today.`);
                       {/* Executive Summary & Raw Notes */}
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {/* Executive Summary */}
-                        <div className="p-4 rounded-xl bg-surface-950 border border-zinc-800 space-y-2">
-                          <span className="text-[10px] font-mono text-zinc-400 uppercase font-bold flex items-center gap-1.5">
-                            <FileSearch className="w-3.5 h-3.5 text-purple-400" />
+                        <div className="p-4 rounded-xl bg-white border border-[#dadce0] space-y-2 shadow-sm">
+                          <span className="text-[10px] font-mono text-[#5f6368] uppercase font-bold flex items-center gap-1.5">
+                            <FileSearch className="w-3.5 h-3.5 text-[#1a73e8]" />
                             AI Executive Summary
                           </span>
-                          <p className="text-zinc-200 leading-relaxed">
+                          <p className="text-[#202124] leading-relaxed">
                             {m.summary || 'Summary generated from meeting transcript.'}
                           </p>
                         </div>
 
                         {/* Raw User Minutes */}
-                        <div className="p-4 rounded-xl bg-surface-950 border border-zinc-800 space-y-2">
-                          <span className="text-[10px] font-mono text-zinc-400 uppercase font-bold flex items-center gap-1.5">
-                            <AlignLeft className="w-3.5 h-3.5 text-zinc-400" />
+                        <div className="p-4 rounded-xl bg-white border border-[#dadce0] space-y-2 shadow-sm">
+                          <span className="text-[10px] font-mono text-[#5f6368] uppercase font-bold flex items-center gap-1.5">
+                            <AlignLeft className="w-3.5 h-3.5 text-[#5f6368]" />
                             Raw Minutes Entered by {m.entered_by || 'User'}
                           </span>
-                          <pre className="text-zinc-300 font-mono text-[11px] whitespace-pre-wrap leading-relaxed max-h-48 overflow-y-auto bg-surface-900 p-2.5 rounded-lg border border-zinc-800/80">
+                          <pre className="text-[#3c4043] font-mono text-[11px] whitespace-pre-wrap leading-relaxed max-h-48 overflow-y-auto bg-[#f8f9fa] p-3 rounded-lg border border-[#dadce0]">
                             {m.transcript_text || m.transcript || 'No raw transcript recorded.'}
                           </pre>
                         </div>
@@ -832,79 +829,79 @@ Product Owner: Approved priority for HM-3 and will unblock API access today.`);
                       {/* Decisions, Blockers & Actions */}
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                         {/* Decisions */}
-                        <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 space-y-2">
-                          <span className="text-[10px] font-mono text-emerald-300 uppercase font-bold flex items-center gap-1.5">
-                            <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
+                        <div className="p-4 rounded-xl bg-[#e6f4ea]/30 border border-[#ceead6] space-y-2.5">
+                          <span className="text-[10px] font-mono text-[#137333] uppercase font-bold flex items-center gap-1.5">
+                            <CheckCircle className="w-3.5 h-3.5 text-[#137333]" />
                             Decisions ({m.decisions?.length || 0})
                           </span>
                           {m.decisions && m.decisions.length > 0 ? (
-                            <div className="space-y-1.5">
+                            <div className="space-y-2">
                               {m.decisions.map((d: any, idx: number) => (
                                 <div
                                   key={idx}
-                                  className="p-2 rounded bg-surface-950 border border-emerald-500/40 text-[11px] text-zinc-200"
+                                  className="p-2.5 rounded-lg bg-white border border-[#ceead6] text-[11px] text-[#202124] shadow-sm"
                                 >
-                                  <p className="font-semibold">{d.decision_text || d.summary}</p>
+                                  <p className="font-semibold text-[#137333]">{d.decision_text || d.summary}</p>
                                   {d.speaker && (
-                                    <p className="text-[10px] text-zinc-400 mt-0.5">By: {d.speaker}</p>
+                                    <p className="text-[10px] text-[#5f6368] mt-0.5">By: {d.speaker}</p>
                                   )}
                                 </div>
                               ))}
                             </div>
                           ) : (
-                            <p className="text-[11px] text-zinc-500 italic">No formal decisions logged</p>
+                            <p className="text-[11px] text-[#80868b] italic">No formal decisions logged</p>
                           )}
                         </div>
 
                         {/* Blockers */}
-                        <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 space-y-2">
-                          <span className="text-[10px] font-mono text-rose-300 uppercase font-bold flex items-center gap-1.5">
-                            <AlertOctagon className="w-3.5 h-3.5 text-rose-400" />
+                        <div className="p-4 rounded-xl bg-[#fce8e6]/30 border border-[#fad2cf] space-y-2.5">
+                          <span className="text-[10px] font-mono text-[#c5221f] uppercase font-bold flex items-center gap-1.5">
+                            <AlertOctagon className="w-3.5 h-3.5 text-[#c5221f]" />
                             Blockers ({m.blockers?.length || 0})
                           </span>
                           {m.blockers && m.blockers.length > 0 ? (
-                            <div className="space-y-1.5">
+                            <div className="space-y-2">
                               {m.blockers.map((b: any, idx: number) => (
                                 <div
                                   key={idx}
-                                  className="p-2 rounded bg-surface-950 border border-rose-500/40 text-[11px] text-zinc-200"
+                                  className="p-2.5 rounded-lg bg-white border border-[#fad2cf] text-[11px] text-[#202124] shadow-sm"
                                 >
-                                  <p className="font-semibold text-rose-200">
+                                  <p className="font-semibold text-[#c5221f]">
                                     {b.blocker_description || b.description}
                                   </p>
-                                  <p className="text-[10px] text-rose-300 mt-0.5">
+                                  <p className="text-[10px] text-[#b06000] mt-0.5">
                                     <strong>Impact:</strong> {b.impact || 'Requires resolution'}
                                   </p>
                                 </div>
                               ))}
                             </div>
                           ) : (
-                            <p className="text-[11px] text-zinc-500 italic">No active blockers flagged</p>
+                            <p className="text-[11px] text-[#80868b] italic">No active blockers flagged</p>
                           )}
                         </div>
 
                         {/* Action items */}
-                        <div className="p-3.5 rounded-xl bg-purple-500/10 border border-purple-500/30 space-y-2">
-                          <span className="text-[10px] font-mono text-purple-300 uppercase font-bold flex items-center gap-1.5">
-                            <Workflow className="w-3.5 h-3.5 text-purple-400" />
+                        <div className="p-4 rounded-xl bg-[#e8f0fe]/30 border border-[#d2e3fc] space-y-2.5">
+                          <span className="text-[10px] font-mono text-[#1967d2] uppercase font-bold flex items-center gap-1.5">
+                            <Workflow className="w-3.5 h-3.5 text-[#1a73e8]" />
                             Action Items ({m.actions?.length || 0})
                           </span>
                           {m.actions && m.actions.length > 0 ? (
-                            <div className="space-y-1.5">
+                            <div className="space-y-2">
                               {m.actions.map((a: any, idx: number) => (
                                 <div
                                   key={idx}
-                                  className="p-2 rounded bg-surface-950 border border-purple-500/40 text-[11px] text-zinc-200"
+                                  className="p-2.5 rounded-lg bg-white border border-[#d2e3fc] text-[11px] text-[#202124] shadow-sm"
                                 >
-                                  <p className="font-semibold text-purple-200">{a.description}</p>
-                                  <p className="text-[10px] text-zinc-400 mt-0.5">
-                                    Assignee: <strong className="text-zinc-300">{a.assignee || 'Developer'}</strong>
+                                  <p className="font-semibold text-[#1967d2]">{a.description}</p>
+                                  <p className="text-[10px] text-[#5f6368] mt-0.5">
+                                    Assignee: <strong className="text-[#202124]">{a.assignee || 'Developer'}</strong>
                                   </p>
                                 </div>
                               ))}
                             </div>
                           ) : (
-                            <p className="text-[11px] text-zinc-500 italic">No action items assigned</p>
+                            <p className="text-[11px] text-[#80868b] italic">No action items assigned</p>
                           )}
                         </div>
                       </div>

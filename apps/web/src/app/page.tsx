@@ -37,6 +37,7 @@ export default function CockpitPage() {
   const [activityLogs, setActivityLogs] = useState<any[]>([]);
   const [notebookInfo, setNotebookInfo] = useState<any>(null);
   const [knowledgeItems, setKnowledgeItems] = useState<any[]>([]);
+  const [actionsDecisionsCount, setActionsDecisionsCount] = useState<number>(0);
 
   // Modals & Drawers
   const [simulatorOpen, setSimulatorOpen] = useState(false);
@@ -48,14 +49,15 @@ export default function CockpitPage() {
   useEffect(() => {
     api.getProjects().then((projs) => {
       if (projs && projs.length > 0) {
+        const filtered = projs.filter((p: any) => p.mode !== 'STANDALONE');
         const map = new Map<string, any>();
-        for (const p of projs) {
+        for (const p of filtered) {
           const k = (p.key || p.id || '').toUpperCase();
           if (!map.has(k)) map.set(k, p);
         }
         const unique = Array.from(map.values());
         setProjects(unique);
-        setActiveProject(unique[0]);
+        setActiveProject(unique.length > 0 ? unique[0] : null);
       }
     }).catch((err) => {
       console.warn("Could not fetch projects:", err);
@@ -68,15 +70,18 @@ export default function CockpitPage() {
 
     api.getRequirements(projectId).then(setRequirements).catch(() => setRequirements(null));
     api.getBacklog(projectId).then(setBacklog).catch(() => setBacklog({ epics: [], total_points: 0 }));
-    api.getActiveSprint(projectId).then(setSprint).catch(() => {});
+    api.getActiveSprint(projectId).then(setSprint).catch(() => { });
     api.getOpenQuestions(projectId).then(setQuestions).catch(() => setQuestions([]));
     api.getPendingApprovals(projectId).then(setApprovals).catch(() => setApprovals([]));
-    api.getDependencyDAG(projectId).then(setDag).catch(() => {});
-    api.getHealthMatrix(projectId).then(setHealthMatrix).catch(() => {});
-    api.getFlashHealth(projectId).then(setFlashHealth).catch(() => {});
+    api.getDependencyDAG(projectId).then(setDag).catch(() => { });
+    api.getHealthMatrix(projectId).then(setHealthMatrix).catch(() => { });
+    api.getFlashHealth(projectId).then(setFlashHealth).catch(() => { });
     api.getActivityLog(projectId).then(setActivityLogs).catch(() => setActivityLogs([]));
-    api.getNotebookLMDetails(projectId).then(setNotebookInfo).catch(() => {});
+    api.getNotebookLMDetails(projectId).then(setNotebookInfo).catch(() => { });
     api.getKnowledgeItems(projectId).then(setKnowledgeItems).catch(() => setKnowledgeItems([]));
+    api.getActionsAndDecisions(projectId)
+      .then((items) => setActionsDecisionsCount(Array.isArray(items) ? items.length : 0))
+      .catch(() => setActionsDecisionsCount(0));
   }, []);
 
   useEffect(() => {
@@ -120,7 +125,7 @@ export default function CockpitPage() {
   const approvalsCount = (approvals || []).filter((a) => a.status === "PENDING").length;
 
   return (
-    <div className="flex-1 flex flex-col min-h-screen bg-surface-950">
+    <div className="flex-1 flex flex-col min-h-screen bg-[#f8f9fa] text-[#202124]">
       {/* Top Header */}
       <Navigation
         projects={projects}
@@ -144,13 +149,14 @@ export default function CockpitPage() {
           onSwitchView={(v) => setCurrentView(v)}
           openQuestionsCount={openQuestionsCount}
           approvalsCount={approvalsCount}
+          actionsDecisionsCount={actionsDecisionsCount}
           hasBlocker={flashHealth?.status === "OFF_TRACK"}
           sprint={sprint}
           project={activeProject}
         />
 
         {/* Center Workspace Canvas */}
-        <main className="flex-1 overflow-y-auto bg-surface-950 flex flex-col">
+        <main className="flex-1 overflow-y-auto bg-[#f8f9fa] flex flex-col">
           {currentView === 'dashboard' && (
             <DashboardView
               project={activeProject}
@@ -232,6 +238,7 @@ export default function CockpitPage() {
               approvals={approvals}
               activityLogs={activityLogs}
               onRefresh={handleRefresh}
+              onActionsDecisionsCountChange={setActionsDecisionsCount}
               onSwitchView={(v) => setCurrentView(v)}
             />
           )}

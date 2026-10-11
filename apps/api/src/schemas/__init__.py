@@ -73,7 +73,10 @@ from apps.api.src.schemas.git_telemetry import (
 from apps.api.src.schemas.governance import (
     GovernanceApproval,
     ApprovalActionRequest,
-    ActivityLogEntry
+    ActivityLogEntry,
+    ActionDecisionItem,
+    ActionDecisionCreate,
+    ActionDecisionUpdate
 )
 from apps.api.src.schemas.knowledge import (
     NotebookLMReference,

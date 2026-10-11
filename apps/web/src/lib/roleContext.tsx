@@ -25,6 +25,7 @@ export interface RolePermissions {
   canProcessMeetings: boolean;
   canActOnApprovals: boolean;
   canClearDatabase: boolean;
+  canManageActionsAndDecisions: boolean;
   isReadOnly: boolean;
 }
 
@@ -49,9 +50,9 @@ export const ROLE_PROFILES: Record<UserRole, RoleProfile> = {
     title: 'Product Owner',
     description: 'Scope definition, PRD ingestion, ambiguity resolution & backlog synthesis.',
     avatarBg: 'from-purple-600 via-indigo-600 to-purple-700',
-    badgeBg: 'bg-purple-500/15',
-    badgeBorder: 'border-purple-500/30',
-    badgeText: 'text-purple-300',
+    badgeBg: 'bg-purple-50',
+    badgeBorder: 'border-purple-200',
+    badgeText: 'text-purple-700 font-semibold',
     permissions: {
       canCreateProject: true,
       canDeleteProject: true,
@@ -67,6 +68,7 @@ export const ROLE_PROFILES: Record<UserRole, RoleProfile> = {
       canProcessMeetings: true,
       canActOnApprovals: true,
       canClearDatabase: true,
+      canManageActionsAndDecisions: true,
       isReadOnly: false,
     },
   },
@@ -77,9 +79,9 @@ export const ROLE_PROFILES: Record<UserRole, RoleProfile> = {
     title: 'Scrum Master',
     description: 'Sprint planning, capacity allocation, meeting intelligence & risk triage.',
     avatarBg: 'from-indigo-600 via-blue-600 to-indigo-700',
-    badgeBg: 'bg-blue-500/15',
-    badgeBorder: 'border-blue-500/30',
-    badgeText: 'text-blue-300',
+    badgeBg: 'bg-blue-50',
+    badgeBorder: 'border-blue-200',
+    badgeText: 'text-blue-700 font-semibold',
     permissions: {
       canCreateProject: true,
       canDeleteProject: false,
@@ -95,6 +97,7 @@ export const ROLE_PROFILES: Record<UserRole, RoleProfile> = {
       canProcessMeetings: true,
       canActOnApprovals: true,
       canClearDatabase: false,
+      canManageActionsAndDecisions: true,
       isReadOnly: false,
     },
   },
@@ -105,9 +108,9 @@ export const ROLE_PROFILES: Record<UserRole, RoleProfile> = {
     title: 'Senior Developer',
     description: 'Sprint task delivery, status transitions, blocker flagging & Copilot access.',
     avatarBg: 'from-emerald-600 via-teal-600 to-emerald-700',
-    badgeBg: 'bg-emerald-500/15',
-    badgeBorder: 'border-emerald-500/30',
-    badgeText: 'text-emerald-300',
+    badgeBg: 'bg-emerald-50',
+    badgeBorder: 'border-emerald-200',
+    badgeText: 'text-emerald-700 font-semibold',
     permissions: {
       canCreateProject: false,
       canDeleteProject: false,
@@ -123,6 +126,7 @@ export const ROLE_PROFILES: Record<UserRole, RoleProfile> = {
       canProcessMeetings: false,
       canActOnApprovals: false,
       canClearDatabase: false,
+      canManageActionsAndDecisions: false,
       isReadOnly: false,
     },
   },
@@ -133,9 +137,9 @@ export const ROLE_PROFILES: Record<UserRole, RoleProfile> = {
     title: 'QA Engineer',
     description: 'Acceptance criteria verification, QA task tracking & defect reporting.',
     avatarBg: 'from-amber-600 via-orange-600 to-amber-700',
-    badgeBg: 'bg-amber-500/15',
-    badgeBorder: 'border-amber-500/30',
-    badgeText: 'text-amber-300',
+    badgeBg: 'bg-amber-50',
+    badgeBorder: 'border-amber-200',
+    badgeText: 'text-amber-800 font-semibold',
     permissions: {
       canCreateProject: false,
       canDeleteProject: false,
@@ -151,6 +155,7 @@ export const ROLE_PROFILES: Record<UserRole, RoleProfile> = {
       canProcessMeetings: false,
       canActOnApprovals: false,
       canClearDatabase: false,
+      canManageActionsAndDecisions: false,
       isReadOnly: false,
     },
   },
@@ -161,9 +166,9 @@ export const ROLE_PROFILES: Record<UserRole, RoleProfile> = {
     title: 'Executive / Stakeholder',
     description: 'High-level executive briefs, BigQuery cycle analytics & Flash Health audit.',
     avatarBg: 'from-rose-600 via-pink-600 to-rose-700',
-    badgeBg: 'bg-rose-500/15',
-    badgeBorder: 'border-rose-500/30',
-    badgeText: 'text-rose-300',
+    badgeBg: 'bg-rose-50',
+    badgeBorder: 'border-rose-200',
+    badgeText: 'text-rose-700 font-semibold',
     permissions: {
       canCreateProject: false,
       canDeleteProject: false,
@@ -179,6 +184,7 @@ export const ROLE_PROFILES: Record<UserRole, RoleProfile> = {
       canProcessMeetings: false,
       canActOnApprovals: false,
       canClearDatabase: false,
+      canManageActionsAndDecisions: false,
       isReadOnly: true,
     },
   },
@@ -189,9 +195,9 @@ export const ROLE_PROFILES: Record<UserRole, RoleProfile> = {
     title: 'Workspace Admin',
     description: 'Full governance override, integration credentials & project management.',
     avatarBg: 'from-red-600 via-orange-600 to-red-700',
-    badgeBg: 'bg-red-500/15',
-    badgeBorder: 'border-red-500/30',
-    badgeText: 'text-red-300',
+    badgeBg: 'bg-red-50',
+    badgeBorder: 'border-red-200',
+    badgeText: 'text-red-700 font-semibold',
     permissions: {
       canCreateProject: true,
       canDeleteProject: true,
@@ -207,6 +213,7 @@ export const ROLE_PROFILES: Record<UserRole, RoleProfile> = {
       canProcessMeetings: true,
       canActOnApprovals: true,
       canClearDatabase: true,
+      canManageActionsAndDecisions: true,
       isReadOnly: false,
     },
   },

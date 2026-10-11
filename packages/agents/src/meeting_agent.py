@@ -496,6 +496,54 @@ Only output raw JSON.
         # 6. Save to Firestore in 'meetings' collection
         db.collection("meetings").document(meeting_id).set(response.dict())
 
+        # 6b. Log all Decisions and Action Items into 'actions_and_decisions' central collection
+        try:
+            for d in decisions:
+                ad_id = f"dec-{uuid.uuid4().hex[:8]}"
+                db.collection("actions_and_decisions").document(ad_id).set({
+                    "id": ad_id,
+                    "project_id": project_id,
+                    "type": "DECISION",
+                    "title": d.decision_text[:90] + ("..." if len(d.decision_text) > 90 else ""),
+                    "description": d.decision_text,
+                    "status": "APPROVED",
+                    "meeting_id": meeting_id,
+                    "meeting_title": title,
+                    "meeting_date": meeting_date.isoformat(),
+                    "meeting_type": m_type_val,
+                    "decision_maker": d.speaker or entered_by or "Meeting Participants",
+                    "assignee": None,
+                    "due_date": None,
+                    "created_at": meeting_date.isoformat(),
+                    "created_by": entered_by or "Meeting Intelligence",
+                    "updated_at": datetime.utcnow().isoformat(),
+                    "notes": f"Extracted from {title} ({m_type_val})"
+                })
+
+            for a in actions:
+                ad_id = f"act-{uuid.uuid4().hex[:8]}"
+                db.collection("actions_and_decisions").document(ad_id).set({
+                    "id": ad_id,
+                    "project_id": project_id,
+                    "type": "ACTION_ITEM",
+                    "title": a.description[:90] + ("..." if len(a.description) > 90 else ""),
+                    "description": a.description,
+                    "status": "PENDING",
+                    "meeting_id": meeting_id,
+                    "meeting_title": title,
+                    "meeting_date": meeting_date.isoformat(),
+                    "meeting_type": m_type_val,
+                    "decision_maker": None,
+                    "assignee": a.assignee or "Unassigned",
+                    "due_date": None,
+                    "created_at": meeting_date.isoformat(),
+                    "created_by": entered_by or "Meeting Intelligence",
+                    "updated_at": datetime.utcnow().isoformat(),
+                    "notes": f"Extracted from {title} ({m_type_val})"
+                })
+        except Exception as e:
+            logger.warning(f"Could not log decisions and actions to actions_and_decisions: {e}")
+
         # 7. Index in 'knowledge_items' so AI Search Bot can immediately retrieve meeting insights
         try:
             decisions_str = "\n".join([f"- {d.decision_text}" for d in decisions]) if decisions else "None"

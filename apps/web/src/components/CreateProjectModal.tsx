@@ -47,7 +47,7 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
   const [projectKey, setProjectKey] = useState('');
   const [projectDesc, setProjectDesc] = useState('');
   const [jiraLink, setJiraLink] = useState('');
-  const [projectMode, setProjectMode] = useState<'ENTERPRISE_SYNC' | 'STANDALONE'>('ENTERPRISE_SYNC');
+  const [projectMode] = useState<'ENTERPRISE_SYNC'>('ENTERPRISE_SYNC');
   const [isKeyManuallyEdited, setIsKeyManuallyEdited] = useState(false);
 
   // Step 2: Team Members from Firestore DB
@@ -324,23 +324,23 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
   const isEligible = can('canCreateProject');
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4 overflow-y-auto">
-      <div className="w-full max-w-2xl bg-surface-900 border border-zinc-700/80 rounded-2xl shadow-2xl overflow-hidden flex flex-col my-8">
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+      <div className="w-full max-w-2xl bg-white border border-[#dadce0] rounded-2xl shadow-[0_4px_24px_rgba(60,64,67,0.2)] overflow-hidden flex flex-col my-8 text-[#202124]">
         
         {/* Modal Header & Progress Indicator */}
-        <div className="px-6 py-4 border-b border-zinc-800 bg-surface-950/70 flex items-center justify-between">
+        <div className="px-6 py-4 border-b border-[#dadce0] bg-[#f8f9fa] flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-brand-600 via-indigo-600 to-purple-600 flex items-center justify-center shadow-lg shadow-brand-500/20">
-              <Layers className="w-5 h-5 text-white" />
+            <div className="w-9 h-9 rounded-xl bg-[#e8f0fe] border border-[#d2e3fc] flex items-center justify-center text-[#1a73e8] shadow-sm">
+              <Layers className="w-5 h-5 text-[#1a73e8]" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-white flex items-center gap-2">
+              <h3 className="text-base font-bold text-[#202124] flex items-center gap-2">
                 Create New Scrum Project
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#e6f4ea] text-[#137333] border border-[#ceead6] font-semibold">
                   Firestore Live
                 </span>
               </h3>
-              <p className="text-xs text-zinc-400">
+              <p className="text-xs text-[#5f6368]">
                 {step === 1 && "Step 1 of 3: Project Essentials & Jira Integration"}
                 {step === 2 && "Step 2 of 3: Select Associated Team from Firestore DB"}
                 {step === 3 && "Step 3 of 3: Comprehensive Summary & Firestore Persistence"}
@@ -351,33 +351,33 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
 
           <button
             onClick={step === 4 ? handleFinish : onClose}
-            className="text-zinc-400 hover:text-white p-1.5 rounded-lg hover:bg-zinc-800 transition text-sm"
+            className="text-[#5f6368] hover:text-[#202124] p-1.5 rounded-lg hover:bg-[#f1f3f4] transition text-sm"
           >
             ✕
           </button>
         </div>
 
         {/* Step Wizard Progress Bar */}
-        <div className="px-6 pt-3 pb-2 bg-surface-900 border-b border-zinc-800/80">
+        <div className="px-6 pt-3 pb-2.5 bg-[#f8f9fa] border-b border-[#dadce0]">
           <div className="flex items-center justify-between text-xs font-medium">
-            <div className={`flex items-center gap-1.5 ${step >= 1 ? 'text-brand-400 font-semibold' : 'text-zinc-500'}`}>
-              <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${step >= 1 ? 'bg-brand-500 text-white' : 'bg-zinc-800 text-zinc-500'}`}>
+            <div className={`flex items-center gap-1.5 ${step >= 1 ? 'text-[#1a73e8] font-bold' : 'text-[#5f6368]'}`}>
+              <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${step >= 1 ? 'bg-[#1a73e8] text-white' : 'bg-[#e8eaed] text-[#5f6368]'}`}>
                 1
               </span>
               <span>Project Details</span>
             </div>
-            <div className={`h-[1px] flex-1 mx-3 ${step >= 2 ? 'bg-brand-500/60' : 'bg-zinc-800'}`} />
+            <div className={`h-[2px] flex-1 mx-3 ${step >= 2 ? 'bg-[#1a73e8]' : 'bg-[#dadce0]'}`} />
 
-            <div className={`flex items-center gap-1.5 ${step >= 2 ? 'text-brand-400 font-semibold' : 'text-zinc-500'}`}>
-              <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${step >= 2 ? 'bg-brand-500 text-white' : 'bg-zinc-800 text-zinc-500'}`}>
+            <div className={`flex items-center gap-1.5 ${step >= 2 ? 'text-[#1a73e8] font-bold' : 'text-[#5f6368]'}`}>
+              <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${step >= 2 ? 'bg-[#1a73e8] text-white' : 'bg-[#e8eaed] text-[#5f6368]'}`}>
                 2
               </span>
               <span>Team Selection</span>
             </div>
-            <div className={`h-[1px] flex-1 mx-3 ${step >= 3 ? 'bg-brand-500/60' : 'bg-zinc-800'}`} />
+            <div className={`h-[2px] flex-1 mx-3 ${step >= 3 ? 'bg-[#1a73e8]' : 'bg-[#dadce0]'}`} />
 
-            <div className={`flex items-center gap-1.5 ${step >= 3 ? 'text-brand-400 font-semibold' : 'text-zinc-500'}`}>
-              <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${step >= 3 ? 'bg-brand-500 text-white' : 'bg-zinc-800 text-zinc-500'}`}>
+            <div className={`flex items-center gap-1.5 ${step >= 3 ? 'text-[#1a73e8] font-bold' : 'text-[#5f6368]'}`}>
+              <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${step >= 3 ? 'bg-[#1a73e8] text-white' : 'bg-[#e8eaed] text-[#5f6368]'}`}>
                 3
               </span>
               <span>Summary & Confirm</span>
@@ -386,17 +386,17 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
         </div>
 
         {/* Creator Eligibility Notification */}
-        <div className="px-6 py-2.5 bg-surface-950/40 border-b border-zinc-800/60 flex items-center justify-between text-xs">
-          <div className="flex items-center gap-2 text-zinc-400">
+        <div className="px-6 py-2.5 bg-[#f8f9fa] border-b border-[#dadce0] flex items-center justify-between text-xs">
+          <div className="flex items-center gap-2 text-[#5f6368]">
             <span>👤 Initiating as:</span>
-            <span className="font-semibold text-white">{activeUser ? activeUser.name : profile.name}</span>
-            <span className={`px-2 py-0.5 rounded text-[10px] font-mono uppercase ${profile.badgeBg} ${profile.badgeText} border ${profile.badgeBorder}`}>
+            <span className="font-semibold text-[#202124]">{activeUser ? activeUser.name : profile.name}</span>
+            <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono uppercase ${profile.badgeBg} ${profile.badgeText} border ${profile.badgeBorder}`}>
               {profile.title}
             </span>
           </div>
 
           {!isEligible && (
-            <div className="flex items-center gap-1.5 text-rose-400 font-medium bg-rose-500/10 px-2.5 py-0.5 rounded border border-rose-500/20 text-[11px]">
+            <div className="flex items-center gap-1.5 text-[#c5221f] font-medium bg-[#fce8e6] px-2.5 py-0.5 rounded-full border border-[#fad2cf] text-[11px]">
               <Lock className="w-3 h-3" />
               <span>Creation Restricted: Requires PO, SM, or Admin</span>
             </div>
@@ -408,15 +408,15 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
 
           {/* Ineligible State Alert */}
           {!isEligible && (
-            <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 space-y-2">
+            <div className="p-4 rounded-xl bg-[#fce8e6] border border-[#fad2cf] text-[#c5221f] space-y-2 shadow-sm">
               <div className="flex items-center gap-2 font-bold text-sm">
-                <ShieldAlert className="w-4 h-4 text-rose-400" />
+                <ShieldAlert className="w-4 h-4 text-[#c5221f]" />
                 <span>Eligibility Restriction</span>
               </div>
-              <p className="text-xs text-zinc-300">
+              <p className="text-xs text-[#3c4043]">
                 Only users with the role of <strong>Product Owner</strong>, <strong>Scrum Master</strong>, or <strong>Admin</strong> are permitted to initiate and configure new Scrum Projects.
               </p>
-              <p className="text-xs text-zinc-400">
+              <p className="text-xs text-[#5f6368]">
                 Please switch to an eligible account using the Role Switcher at the top right before continuing.
               </p>
             </div>
@@ -429,8 +429,8 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
             <div className="space-y-4">
               {/* Project Name */}
               <div>
-                <label className="block text-zinc-300 mb-1.5 font-medium text-xs">
-                  Project Name <span className="text-rose-400">*</span>
+                <label className="block text-[#202124] mb-1.5 font-medium text-xs">
+                  Project Name <span className="text-[#c5221f]">*</span>
                 </label>
                 <input
                   type="text"
@@ -438,17 +438,17 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
                   value={projectName}
                   onChange={(e) => handleNameChange(e.target.value)}
                   placeholder="e.g. Claims Automation Platform, AI Scrum Master"
-                  className="w-full bg-surface-950 border border-zinc-800 rounded-lg p-3 text-white text-sm focus:outline-none focus:border-brand-500 transition shadow-inner"
+                  className="w-full bg-[#f8f9fa] border border-[#dadce0] rounded-xl p-3 text-[#202124] text-sm focus:bg-white focus:outline-none focus:border-[#1a73e8] focus:ring-1 focus:ring-[#1a73e8] transition shadow-sm"
                 />
-                <span className="text-[11px] text-zinc-500 mt-1 block">
+                <span className="text-[11px] text-[#5f6368] mt-1 block">
                   The primary workspace title visible across sprint boards, reports, and AI telemetry.
                 </span>
               </div>
 
               {/* Jira Project Link */}
               <div>
-                <label className="block text-zinc-300 mb-1.5 font-medium text-xs flex items-center gap-1.5">
-                  <LinkIcon className="w-3.5 h-3.5 text-blue-400" />
+                <label className="block text-[#202124] mb-1.5 font-medium text-xs flex items-center gap-1.5">
+                  <LinkIcon className="w-3.5 h-3.5 text-[#1a73e8]" />
                   <span>Jira Project Link (Auto-detects Key & Configures Sync)</span>
                 </label>
                 <div className="relative">
@@ -457,19 +457,19 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
                     value={jiraLink}
                     onChange={(e) => handleJiraLinkChange(e.target.value)}
                     placeholder="https://company.atlassian.net/jira/software/projects/SCRUM/summary"
-                    className="w-full bg-surface-950 border border-zinc-800 rounded-lg p-3 text-white font-mono text-xs focus:outline-none focus:border-brand-500 transition shadow-inner pl-3 pr-8"
+                    className="w-full bg-[#f8f9fa] border border-[#dadce0] rounded-xl p-3 text-[#202124] font-mono text-xs focus:bg-white focus:outline-none focus:border-[#1a73e8] focus:ring-1 focus:ring-[#1a73e8] transition shadow-sm pl-3 pr-8"
                   />
                   {jiraLink && (
                     <button
                       type="button"
                       onClick={() => setJiraLink('')}
-                      className="absolute right-2.5 top-3 text-zinc-500 hover:text-zinc-300 text-xs"
+                      className="absolute right-2.5 top-3 text-[#80868b] hover:text-[#202124] text-xs"
                     >
                       ✕
                     </button>
                   )}
                 </div>
-                <span className="text-[11px] text-zinc-500 mt-1 block">
+                <span className="text-[11px] text-[#5f6368] mt-1 block">
                   Optional: Paste Jira board or summary link. The system extracts the project key prefix and enables bi-directional ticket synchronization.
                 </span>
               </div>
@@ -477,10 +477,10 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
               {/* Project Key Prefix & Operating Mode */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-zinc-300 mb-1.5 font-medium text-xs flex items-center justify-between">
-                    <span>Project Key Prefix <span className="text-rose-400">*</span></span>
+                  <label className="block text-[#202124] mb-1.5 font-medium text-xs flex items-center justify-between">
+                    <span>Project Key Prefix <span className="text-[#c5221f]">*</span></span>
                     {projectKey && (
-                      <span className="font-mono text-[10px] text-brand-400 bg-brand-500/10 px-1.5 py-0.5 rounded border border-brand-500/20">
+                      <span className="font-mono text-[10px] text-[#1967d2] bg-[#e8f0fe] px-2 py-0.5 rounded-full border border-[#d2e3fc]">
                         [{projectKey}-101]
                       </span>
                     )}
@@ -495,40 +495,38 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
                       setIsKeyManuallyEdited(true);
                     }}
                     placeholder="e.g. SCRUM, CLM, PAY"
-                    className="w-full bg-surface-950 border border-zinc-800 rounded-lg p-3 text-white font-mono uppercase text-sm focus:outline-none focus:border-brand-500 transition shadow-inner"
+                    className="w-full bg-[#f8f9fa] border border-[#dadce0] rounded-xl p-3 text-[#202124] font-mono uppercase text-sm focus:bg-white focus:outline-none focus:border-[#1a73e8] focus:ring-1 focus:ring-[#1a73e8] transition shadow-sm"
                   />
-                  <span className="text-[11px] text-zinc-500 mt-1 block">
+                  <span className="text-[11px] text-[#5f6368] mt-1 block">
                     1-10 uppercase alphanumeric characters used for task and story identifiers.
                   </span>
                 </div>
 
                 <div>
-                  <label className="block text-zinc-300 mb-1.5 font-medium text-xs">Operating Mode</label>
-                  <select
-                    value={projectMode}
-                    onChange={(e) => setProjectMode(e.target.value as any)}
-                    className="w-full bg-surface-950 border border-zinc-800 rounded-lg p-3 text-white text-xs focus:outline-none focus:border-brand-500 transition shadow-inner"
-                  >
-                    <option value="ENTERPRISE_SYNC">Enterprise Sync (Jira Cloud Direct)</option>
-                    <option value="STANDALONE">Standalone (Native Cloud Firestore)</option>
-                  </select>
-                  <span className="text-[11px] text-zinc-500 mt-1 block">
-                    Choose whether epics and tasks sync directly with Atlassian Jira or remain native in Firestore.
+                  <label className="block text-[#202124] mb-1.5 font-medium text-xs">Operating Mode</label>
+                  <div className="w-full bg-[#f8f9fa] border border-[#dadce0] rounded-xl p-3 text-[#202124] text-xs shadow-sm flex items-center justify-between">
+                    <span className="font-semibold text-[#1a73e8] flex items-center gap-1.5">
+                      <span>⚡ Enterprise Sync (Jira Cloud Direct)</span>
+                    </span>
+                    <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-[#e8f0fe] text-[#1967d2] border border-[#d2e3fc]">Required</span>
+                  </div>
+                  <span className="text-[11px] text-[#5f6368] mt-1 block">
+                    All projects synchronize directly with Atlassian Jira Cloud and Jira Backlog.
                   </span>
                 </div>
               </div>
 
               {/* Description (Optional) */}
               <div>
-                <label className="block text-zinc-300 mb-1.5 font-medium text-xs">
-                  Description <span className="text-zinc-500 font-normal">(Optional)</span>
+                <label className="block text-[#202124] mb-1.5 font-medium text-xs">
+                  Description <span className="text-[#5f6368] font-normal">(Optional)</span>
                 </label>
                 <textarea
                   rows={2}
                   value={projectDesc}
                   onChange={(e) => setProjectDesc(e.target.value)}
                   placeholder="Outline the project scope, business objectives, and key delivery milestones..."
-                  className="w-full bg-surface-950 border border-zinc-800 rounded-lg p-3 text-white text-xs focus:outline-none focus:border-brand-500 transition shadow-inner"
+                  className="w-full bg-[#f8f9fa] border border-[#dadce0] rounded-xl p-3 text-[#202124] text-xs focus:bg-white focus:outline-none focus:border-[#1a73e8] focus:ring-1 focus:ring-[#1a73e8] transition shadow-sm"
                 />
               </div>
             </div>
@@ -540,13 +538,13 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
           {step === 2 && isEligible && (
             <div className="space-y-5">
               {/* Header Banner */}
-              <div className="flex items-center justify-between pb-3 border-b border-zinc-800">
+              <div className="flex items-center justify-between pb-3 border-b border-[#dadce0]">
                 <div>
-                  <h4 className="text-sm font-bold text-white flex items-center gap-2">
-                    <Users className="w-4 h-4 text-emerald-400" />
+                  <h4 className="text-sm font-bold text-[#202124] flex items-center gap-2">
+                    <Users className="w-4 h-4 text-[#1a73e8]" />
                     <span>Scrum Master: Select Project Team</span>
                   </h4>
-                  <p className="text-xs text-zinc-400 mt-0.5">
+                  <p className="text-xs text-[#5f6368] mt-0.5">
                     Associate the Product Owner, Scrum Master, Developers, and QA Engineers from your Firestore DB.
                   </p>
                 </div>
@@ -556,17 +554,17 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
                     type="button"
                     onClick={fetchUsers}
                     disabled={isLoadingUsers}
-                    className="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs flex items-center gap-1 transition"
+                    className="px-2.5 py-1.5 rounded-lg bg-[#f1f3f4] hover:bg-[#e8eaed] text-[#3c4043] border border-[#dadce0] text-xs flex items-center gap-1 transition"
                     title="Refresh users from Firestore"
                   >
-                    <RefreshCw className={`w-3.5 h-3.5 ${isLoadingUsers ? 'animate-spin text-brand-400' : ''}`} />
-                    <span className="text-[11px]">Sync DB</span>
+                    <RefreshCw className={`w-3.5 h-3.5 ${isLoadingUsers ? 'animate-spin text-[#1a73e8]' : ''}`} />
+                    <span className="text-[11px] font-medium">Sync DB</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => setShowQuickAddUser(!showQuickAddUser)}
-                    className="px-2.5 py-1.5 rounded-lg bg-brand-600/20 hover:bg-brand-600/30 text-brand-300 border border-brand-500/30 text-xs flex items-center gap-1.5 transition font-semibold"
+                    className="px-3 py-1.5 rounded-lg bg-[#e8f0fe] hover:bg-[#d2e3fc] text-[#1967d2] border border-[#d2e3fc] text-xs flex items-center gap-1.5 transition font-semibold"
                   >
                     <Plus className="w-3.5 h-3.5" />
                     <span>Quick Add User</span>
@@ -576,31 +574,31 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
 
               {/* Status info & helper banner */}
               {isLoadingUsers && (
-                <div className="p-4 rounded-xl bg-zinc-900 border border-zinc-800 text-center space-y-2">
-                  <div className="inline-block animate-spin rounded-full h-5 w-5 border-2 border-brand-500 border-t-transparent" />
-                  <p className="text-xs text-zinc-400">Querying Firestore collection <code>users</code>...</p>
+                <div className="p-4 rounded-xl bg-[#f8f9fa] border border-[#dadce0] text-center space-y-2">
+                  <div className="inline-block animate-spin rounded-full h-5 w-5 border-2 border-[#1a73e8] border-t-transparent" />
+                  <p className="text-xs text-[#5f6368]">Querying Firestore collection <code>users</code>...</p>
                 </div>
               )}
 
               {usersError && (
-                <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs flex items-center justify-between">
+                <div className="p-3 rounded-xl bg-[#fce8e6] border border-[#fad2cf] text-[#c5221f] text-xs flex items-center justify-between">
                   <span>{usersError}</span>
-                  <button onClick={fetchUsers} className="underline text-rose-200">Retry</button>
+                  <button onClick={fetchUsers} className="underline text-[#c5221f] font-semibold">Retry</button>
                 </div>
               )}
 
               {/* Inline Quick Add User Form */}
               {showQuickAddUser && (
-                <form onSubmit={handleCreateQuickUser} className="p-4 rounded-xl bg-surface-950 border border-brand-500/30 space-y-3">
-                  <div className="flex items-center justify-between pb-1.5 border-b border-zinc-800">
-                    <span className="text-xs font-bold text-white flex items-center gap-1.5">
-                      <Sparkles className="w-3.5 h-3.5 text-brand-400" />
+                <form onSubmit={handleCreateQuickUser} className="p-4 rounded-2xl bg-[#f8f9fa] border border-[#dadce0] space-y-3 shadow-sm">
+                  <div className="flex items-center justify-between pb-1.5 border-b border-[#dadce0]">
+                    <span className="text-xs font-bold text-[#202124] flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-[#1a73e8]" />
                       Add New Team Member to Firestore DB
                     </span>
                     <button
                       type="button"
                       onClick={() => setShowQuickAddUser(false)}
-                      className="text-zinc-500 hover:text-zinc-300 text-xs"
+                      className="text-[#5f6368] hover:text-[#202124] text-xs"
                     >
                       ✕
                     </button>
@@ -608,36 +606,36 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
                     <div>
-                      <label className="block text-zinc-400 mb-1">Full Name *</label>
+                      <label className="block text-[#5f6368] mb-1 font-medium">Full Name *</label>
                       <input
                         type="text"
                         required
                         value={quickName}
                         onChange={(e) => setQuickName(e.target.value)}
                         placeholder="e.g. Sarah Chen"
-                        className="w-full bg-zinc-900 border border-zinc-800 rounded p-2 text-white"
+                        className="w-full bg-white border border-[#dadce0] rounded-xl p-2 text-[#202124] focus:outline-none focus:border-[#1a73e8]"
                       />
                     </div>
                     <div>
-                      <label className="block text-zinc-400 mb-1">Email *</label>
+                      <label className="block text-[#5f6368] mb-1 font-medium">Email *</label>
                       <input
                         type="email"
                         required
                         value={quickEmail}
                         onChange={(e) => setQuickEmail(e.target.value)}
                         placeholder="sarah.chen@company.com"
-                        className="w-full bg-zinc-900 border border-zinc-800 rounded p-2 text-white"
+                        className="w-full bg-white border border-[#dadce0] rounded-xl p-2 text-[#202124] focus:outline-none focus:border-[#1a73e8]"
                       />
                     </div>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
                     <div>
-                      <label className="block text-zinc-400 mb-1">Role *</label>
+                      <label className="block text-[#5f6368] mb-1 font-medium">Role *</label>
                       <select
                         value={quickRole}
                         onChange={(e) => setQuickRole(e.target.value as any)}
-                        className="w-full bg-zinc-900 border border-zinc-800 rounded p-2 text-white"
+                        className="w-full bg-white border border-[#dadce0] rounded-xl p-2 text-[#202124] focus:outline-none focus:border-[#1a73e8]"
                       >
                         <option value="DEVELOPER">DEVELOPER</option>
                         <option value="QA_ENGINEER">QA_ENGINEER</option>
@@ -646,13 +644,13 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
                       </select>
                     </div>
                     <div>
-                      <label className="block text-zinc-400 mb-1">Job Title (Optional)</label>
+                      <label className="block text-[#5f6368] mb-1 font-medium">Job Title (Optional)</label>
                       <input
                         type="text"
                         value={quickTitle}
                         onChange={(e) => setQuickTitle(e.target.value)}
                         placeholder="e.g. Lead Frontend Engineer"
-                        className="w-full bg-zinc-900 border border-zinc-800 rounded p-2 text-white"
+                        className="w-full bg-white border border-[#dadce0] rounded-xl p-2 text-[#202124] focus:outline-none focus:border-[#1a73e8]"
                       />
                     </div>
                   </div>
@@ -661,14 +659,14 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
                     <button
                       type="button"
                       onClick={() => setShowQuickAddUser(false)}
-                      className="px-3 py-1 rounded bg-zinc-800 text-zinc-300 text-xs"
+                      className="px-3.5 py-1.5 rounded-lg border border-[#dadce0] bg-[#f1f3f4] text-[#3c4043] text-xs font-medium"
                     >
                       Cancel
                     </button>
                     <button
                       type="submit"
                       disabled={isSubmittingQuickUser}
-                      className="px-3 py-1 rounded bg-brand-600 hover:bg-brand-500 text-white font-semibold text-xs flex items-center gap-1.5"
+                      className="px-4 py-1.5 rounded-lg bg-[#1a73e8] hover:bg-[#1557b0] text-white font-semibold text-xs flex items-center gap-1.5 shadow-sm"
                     >
                       {isSubmittingQuickUser ? "Saving to Firestore..." : "Save to DB"}
                     </button>
@@ -678,15 +676,15 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
 
               {/* Seed Demo Team Prompt if few users */}
               {dbUsers.length < 3 && !isLoadingUsers && (
-                <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs flex items-center justify-between">
-                  <div className="text-zinc-300">
-                    <span className="font-semibold text-amber-300">Tip: </span>
+                <div className="p-3.5 rounded-xl bg-[#fef7e0] border border-[#feefc3] text-xs flex items-center justify-between shadow-sm">
+                  <div className="text-[#3c4043]">
+                    <span className="font-semibold text-[#b06000]">Tip: </span>
                     Firestore DB currently contains only {dbUsers.length} user(s). You can seed standard team profiles with 1 click.
                   </div>
                   <button
                     type="button"
                     onClick={handleSeedDefaults}
-                    className="px-2.5 py-1 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-500/30 font-semibold text-[11px] whitespace-nowrap ml-2"
+                    className="px-3 py-1 rounded-lg bg-[#b06000] hover:bg-[#8d4d00] text-white font-semibold text-[11px] whitespace-nowrap ml-2 shadow-sm"
                   >
                     ⚡ Seed Starter Team
                   </button>
@@ -695,12 +693,12 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
 
               {/* 1. PRODUCT OWNER SELECTION */}
               <div className="space-y-2">
-                <label className="block text-xs font-bold text-white flex items-center justify-between">
+                <label className="block text-xs font-bold text-[#202124] flex items-center justify-between">
                   <span className="flex items-center gap-1.5">
-                    <Crown className="w-3.5 h-3.5 text-purple-400" />
+                    <Crown className="w-3.5 h-3.5 text-[#7b1fa2]" />
                     <span>Project Owner / Product Owner</span>
                   </span>
-                  <span className="text-[10px] text-zinc-400 font-mono">1 Required</span>
+                  <span className="text-[10px] text-[#5f6368] font-mono">1 Required</span>
                 </label>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -712,26 +710,26 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
                       <div
                         key={`po-${user.id}`}
                         onClick={() => setSelectedPO(user)}
-                        className={`p-2.5 rounded-xl border text-xs cursor-pointer transition flex items-center justify-between ${
+                        className={`p-3 rounded-xl border text-xs cursor-pointer transition flex items-center justify-between ${
                           isSelected
-                            ? 'bg-purple-950/40 border-purple-500 shadow-md shadow-purple-500/10'
-                            : 'bg-surface-950 border-zinc-800 hover:border-zinc-700 hover:bg-zinc-800/40'
+                            ? 'bg-[#f3e8fd]/60 border-[#7b1fa2] shadow-sm'
+                            : 'bg-[#f8f9fa] border-[#dadce0] hover:border-[#7b1fa2]/40 hover:bg-white'
                         }`}
                       >
                         <div className="truncate pr-2">
-                          <div className="flex items-center gap-1.5 font-semibold text-white">
+                          <div className="flex items-center gap-1.5 font-semibold text-[#202124]">
                             <span className="truncate">{user.name}</span>
                             {isRecommended && (
-                              <span className="text-[9px] px-1 py-0.2 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 font-mono">
+                              <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-[#f3e8fd] text-[#7b1fa2] border border-[#e1bee7] font-mono font-medium">
                                 {user.role}
                               </span>
                             )}
                           </div>
-                          <div className="text-[10px] text-zinc-400 truncate mt-0.5">{user.email}</div>
+                          <div className="text-[10px] text-[#5f6368] truncate mt-0.5">{user.email}</div>
                         </div>
 
                         <div className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${
-                          isSelected ? 'border-purple-400 bg-purple-500 text-white' : 'border-zinc-700'
+                          isSelected ? 'border-[#7b1fa2] bg-[#7b1fa2] text-white' : 'border-[#dadce0]'
                         }`}>
                           {isSelected && <Check className="w-2.5 h-2.5" />}
                         </div>
@@ -743,12 +741,12 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
 
               {/* 2. SCRUM MASTER SELECTION */}
               <div className="space-y-2">
-                <label className="block text-xs font-bold text-white flex items-center justify-between">
+                <label className="block text-xs font-bold text-[#202124] flex items-center justify-between">
                   <span className="flex items-center gap-1.5">
-                    <Briefcase className="w-3.5 h-3.5 text-blue-400" />
+                    <Briefcase className="w-3.5 h-3.5 text-[#1a73e8]" />
                     <span>Scrum Master (Facilitator & Flow Lead)</span>
                   </span>
-                  <span className="text-[10px] text-zinc-400 font-mono">1 Required</span>
+                  <span className="text-[10px] text-[#5f6368] font-mono">1 Required</span>
                 </label>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -760,26 +758,26 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
                       <div
                         key={`sm-${user.id}`}
                         onClick={() => setSelectedSM(user)}
-                        className={`p-2.5 rounded-xl border text-xs cursor-pointer transition flex items-center justify-between ${
+                        className={`p-3 rounded-xl border text-xs cursor-pointer transition flex items-center justify-between ${
                           isSelected
-                            ? 'bg-blue-950/40 border-blue-500 shadow-md shadow-blue-500/10'
-                            : 'bg-surface-950 border-zinc-800 hover:border-zinc-700 hover:bg-zinc-800/40'
+                            ? 'bg-[#e8f0fe] border-[#1a73e8] shadow-sm'
+                            : 'bg-[#f8f9fa] border-[#dadce0] hover:border-[#1a73e8]/40 hover:bg-white'
                         }`}
                       >
                         <div className="truncate pr-2">
-                          <div className="flex items-center gap-1.5 font-semibold text-white">
+                          <div className="flex items-center gap-1.5 font-semibold text-[#202124]">
                             <span className="truncate">{user.name}</span>
                             {isRecommended && (
-                              <span className="text-[9px] px-1 py-0.2 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30 font-mono">
+                              <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-[#e8f0fe] text-[#1967d2] border border-[#d2e3fc] font-mono font-medium">
                                 {user.role}
                               </span>
                             )}
                           </div>
-                          <div className="text-[10px] text-zinc-400 truncate mt-0.5">{user.email}</div>
+                          <div className="text-[10px] text-[#5f6368] truncate mt-0.5">{user.email}</div>
                         </div>
 
                         <div className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${
-                          isSelected ? 'border-blue-400 bg-blue-500 text-white' : 'border-zinc-700'
+                          isSelected ? 'border-[#1a73e8] bg-[#1a73e8] text-white' : 'border-[#dadce0]'
                         }`}>
                           {isSelected && <Check className="w-2.5 h-2.5" />}
                         </div>
@@ -791,12 +789,12 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
 
               {/* 3. DEVELOPERS SELECTION */}
               <div className="space-y-2">
-                <label className="block text-xs font-bold text-white flex items-center justify-between">
+                <label className="block text-xs font-bold text-[#202124] flex items-center justify-between">
                   <span className="flex items-center gap-1.5">
-                    <Code className="w-3.5 h-3.5 text-emerald-400" />
+                    <Code className="w-3.5 h-3.5 text-[#137333]" />
                     <span>Developers</span>
                   </span>
-                  <span className="text-[10px] text-emerald-400 font-mono font-semibold">
+                  <span className="text-[10px] text-[#137333] font-mono font-semibold">
                     {selectedDevIds.length} Selected
                   </span>
                 </label>
@@ -810,26 +808,26 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
                       <div
                         key={`dev-${user.id}`}
                         onClick={() => toggleDeveloper(user.id)}
-                        className={`p-2.5 rounded-xl border text-xs cursor-pointer transition flex items-center justify-between ${
+                        className={`p-3 rounded-xl border text-xs cursor-pointer transition flex items-center justify-between ${
                           isSelected
-                            ? 'bg-emerald-950/40 border-emerald-500 shadow-md shadow-emerald-500/10'
-                            : 'bg-surface-950 border-zinc-800 hover:border-zinc-700 hover:bg-zinc-800/40'
+                            ? 'bg-[#e6f4ea] border-[#137333] shadow-sm'
+                            : 'bg-[#f8f9fa] border-[#dadce0] hover:border-[#137333]/40 hover:bg-white'
                         }`}
                       >
                         <div className="truncate pr-2">
-                          <div className="flex items-center gap-1.5 font-semibold text-white">
+                          <div className="flex items-center gap-1.5 font-semibold text-[#202124]">
                             <span className="truncate">{user.name}</span>
-                            <span className={`text-[9px] px-1 py-0.2 rounded font-mono ${
-                              isDevRole ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-zinc-800 text-zinc-400'
+                            <span className={`text-[9px] px-1.5 py-0.2 rounded-full font-mono font-medium ${
+                              isDevRole ? 'bg-[#e6f4ea] text-[#137333] border border-[#ceead6]' : 'bg-[#f1f3f4] text-[#5f6368]'
                             }`}>
                               {user.role}
                             </span>
                           </div>
-                          <div className="text-[10px] text-zinc-400 truncate mt-0.5">{user.email}</div>
+                          <div className="text-[10px] text-[#5f6368] truncate mt-0.5">{user.email}</div>
                         </div>
 
                         <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${
-                          isSelected ? 'border-emerald-400 bg-emerald-500 text-white' : 'border-zinc-700'
+                          isSelected ? 'border-[#137333] bg-[#137333] text-white' : 'border-[#dadce0]'
                         }`}>
                           {isSelected && <Check className="w-2.5 h-2.5" />}
                         </div>
@@ -841,12 +839,12 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
 
               {/* 4. QA ENGINEERS SELECTION */}
               <div className="space-y-2">
-                <label className="block text-xs font-bold text-white flex items-center justify-between">
+                <label className="block text-xs font-bold text-[#202124] flex items-center justify-between">
                   <span className="flex items-center gap-1.5">
-                    <Bug className="w-3.5 h-3.5 text-amber-400" />
+                    <Bug className="w-3.5 h-3.5 text-[#b06000]" />
                     <span>QA Engineers</span>
                   </span>
-                  <span className="text-[10px] text-amber-400 font-mono font-semibold">
+                  <span className="text-[10px] text-[#b06000] font-mono font-semibold">
                     {selectedQAIds.length} Selected
                   </span>
                 </label>
@@ -860,26 +858,26 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
                       <div
                         key={`qa-${user.id}`}
                         onClick={() => toggleQA(user.id)}
-                        className={`p-2.5 rounded-xl border text-xs cursor-pointer transition flex items-center justify-between ${
+                        className={`p-3 rounded-xl border text-xs cursor-pointer transition flex items-center justify-between ${
                           isSelected
-                            ? 'bg-amber-950/40 border-amber-500 shadow-md shadow-amber-500/10'
-                            : 'bg-surface-950 border-zinc-800 hover:border-zinc-700 hover:bg-zinc-800/40'
+                            ? 'bg-[#fef7e0] border-[#b06000] shadow-sm'
+                            : 'bg-[#f8f9fa] border-[#dadce0] hover:border-[#b06000]/40 hover:bg-white'
                         }`}
                       >
                         <div className="truncate pr-2">
-                          <div className="flex items-center gap-1.5 font-semibold text-white">
+                          <div className="flex items-center gap-1.5 font-semibold text-[#202124]">
                             <span className="truncate">{user.name}</span>
-                            <span className={`text-[9px] px-1 py-0.2 rounded font-mono ${
-                              isQARole ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'bg-zinc-800 text-zinc-400'
+                            <span className={`text-[9px] px-1.5 py-0.2 rounded-full font-mono font-medium ${
+                              isQARole ? 'bg-[#fef7e0] text-[#b06000] border border-[#feefc3]' : 'bg-[#f1f3f4] text-[#5f6368]'
                             }`}>
                               {user.role}
                             </span>
                           </div>
-                          <div className="text-[10px] text-zinc-400 truncate mt-0.5">{user.email}</div>
+                          <div className="text-[10px] text-[#5f6368] truncate mt-0.5">{user.email}</div>
                         </div>
 
                         <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${
-                          isSelected ? 'border-amber-400 bg-amber-500 text-white' : 'border-zinc-700'
+                          isSelected ? 'border-[#b06000] bg-[#b06000] text-white' : 'border-[#dadce0]'
                         }`}>
                           {isSelected && <Check className="w-2.5 h-2.5" />}
                         </div>
@@ -897,104 +895,104 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
           {/* ========================================================================= */}
           {step === 3 && isEligible && (
             <div className="space-y-4">
-              <div className="pb-2 border-b border-zinc-800">
-                <h4 className="text-sm font-bold text-white flex items-center gap-2">
-                  <Database className="w-4 h-4 text-brand-400" />
+              <div className="pb-2 border-b border-[#dadce0]">
+                <h4 className="text-sm font-bold text-[#202124] flex items-center gap-2">
+                  <Database className="w-4 h-4 text-[#1a73e8]" />
                   <span>Project Blueprint & Firestore Summary</span>
                 </h4>
-                <p className="text-xs text-zinc-400 mt-0.5">
+                <p className="text-xs text-[#5f6368] mt-0.5">
                   Confirm all details below. Upon confirmation, the project and associated team records will be saved into GCP Firestore.
                 </p>
               </div>
 
               {submitError && (
-                <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs">
+                <div className="p-3 rounded-xl bg-[#fce8e6] border border-[#fad2cf] text-[#c5221f] text-xs">
                   {submitError}
                 </div>
               )}
 
               {/* Project Card */}
-              <div className="p-4 rounded-xl bg-surface-950 border border-zinc-800 space-y-3">
+              <div className="p-4 rounded-2xl bg-[#f8f9fa] border border-[#dadce0] space-y-3 shadow-sm">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className="px-2 py-0.5 rounded font-mono font-bold text-xs bg-brand-500/20 text-brand-300 border border-brand-500/30">
+                    <span className="px-2.5 py-0.5 rounded-full font-mono font-bold text-xs bg-[#e8f0fe] text-[#1967d2] border border-[#d2e3fc]">
                       [{projectKey}]
                     </span>
-                    <span className="font-bold text-sm text-white">{projectName}</span>
+                    <span className="font-bold text-sm text-[#202124]">{projectName}</span>
                   </div>
-                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-800 text-zinc-300 border border-zinc-700">
-                    {projectMode === 'ENTERPRISE_SYNC' ? '⚡ Jira Enterprise Sync' : '📦 Standalone Firestore'}
+                  <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-white text-[#3c4043] border border-[#dadce0] shadow-sm font-medium">
+                    ⚡ Jira Enterprise Sync
                   </span>
                 </div>
 
                 {jiraLink ? (
-                  <div className="flex items-center gap-1.5 text-xs text-blue-400">
+                  <div className="flex items-center gap-1.5 text-xs text-[#1a73e8] font-mono font-medium">
                     <LinkIcon className="w-3.5 h-3.5" />
                     <span className="truncate">{jiraLink}</span>
                   </div>
                 ) : (
-                  <div className="text-[11px] text-zinc-500">
-                    No Jira link specified • Native Firestore storage mode active.
+                  <div className="text-[11px] text-[#5f6368]">
+                    Jira Project Key: [{projectKey}] • Live Jira Cloud Integration active.
                   </div>
                 )}
 
                 {projectDesc && (
-                  <p className="text-xs text-zinc-300 italic border-l-2 border-brand-500/50 pl-2.5 py-0.5">
+                  <p className="text-xs text-[#3c4043] italic border-l-2 border-[#1a73e8] pl-2.5 py-0.5">
                     "{projectDesc}"
                   </p>
                 )}
               </div>
 
               {/* Team Roster Summary Card */}
-              <div className="p-4 rounded-xl bg-surface-950 border border-zinc-800 space-y-3">
-                <div className="text-xs font-bold text-zinc-300 uppercase tracking-wider flex items-center justify-between border-b border-zinc-800/80 pb-2">
+              <div className="p-4 rounded-2xl bg-[#f8f9fa] border border-[#dadce0] space-y-3 shadow-sm">
+                <div className="text-xs font-bold text-[#202124] uppercase tracking-wider flex items-center justify-between border-b border-[#dadce0] pb-2">
                   <span className="flex items-center gap-1.5">
-                    <Users className="w-3.5 h-3.5 text-emerald-400" />
+                    <Users className="w-3.5 h-3.5 text-[#137333]" />
                     <span>Assigned Scrum Team Roster</span>
                   </span>
-                  <span className="text-brand-400 font-mono text-[11px]">
+                  <span className="text-[#1a73e8] font-mono text-[11px] font-bold">
                     {1 + 1 + selectedDevIds.length + selectedQAIds.length} Members
                   </span>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
                   {/* PO */}
-                  <div className="p-2.5 rounded-lg bg-zinc-900/60 border border-zinc-800">
-                    <div className="text-[10px] font-mono text-purple-400 uppercase font-semibold flex items-center gap-1">
+                  <div className="p-3 rounded-xl bg-white border border-[#dadce0] shadow-sm">
+                    <div className="text-[10px] font-mono text-[#7b1fa2] uppercase font-semibold flex items-center gap-1">
                       <Crown className="w-3 h-3" /> Product Owner
                     </div>
-                    <div className="font-bold text-white mt-1">{selectedPO ? selectedPO.name : 'Unassigned'}</div>
-                    <div className="text-[10px] text-zinc-400">{selectedPO ? selectedPO.email : '-'}</div>
+                    <div className="font-bold text-[#202124] mt-1">{selectedPO ? selectedPO.name : 'Unassigned'}</div>
+                    <div className="text-[10px] text-[#5f6368]">{selectedPO ? selectedPO.email : '-'}</div>
                   </div>
 
                   {/* SM */}
-                  <div className="p-2.5 rounded-lg bg-zinc-900/60 border border-zinc-800">
-                    <div className="text-[10px] font-mono text-blue-400 uppercase font-semibold flex items-center gap-1">
+                  <div className="p-3 rounded-xl bg-white border border-[#dadce0] shadow-sm">
+                    <div className="text-[10px] font-mono text-[#1967d2] uppercase font-semibold flex items-center gap-1">
                       <Briefcase className="w-3 h-3" /> Scrum Master
                     </div>
-                    <div className="font-bold text-white mt-1">{selectedSM ? selectedSM.name : 'Unassigned'}</div>
-                    <div className="text-[10px] text-zinc-400">{selectedSM ? selectedSM.email : '-'}</div>
+                    <div className="font-bold text-[#202124] mt-1">{selectedSM ? selectedSM.name : 'Unassigned'}</div>
+                    <div className="text-[10px] text-[#5f6368]">{selectedSM ? selectedSM.email : '-'}</div>
                   </div>
                 </div>
 
                 {/* Developers Roster */}
-                <div className="p-2.5 rounded-lg bg-zinc-900/60 border border-zinc-800 space-y-1.5">
-                  <div className="text-[10px] font-mono text-emerald-400 uppercase font-semibold flex items-center justify-between">
+                <div className="p-3 rounded-xl bg-white border border-[#dadce0] space-y-1.5 shadow-sm">
+                  <div className="text-[10px] font-mono text-[#137333] uppercase font-semibold flex items-center justify-between">
                     <span className="flex items-center gap-1">
                       <Code className="w-3 h-3" /> Assigned Developers ({selectedDevIds.length})
                     </span>
                     <span>40h / dev</span>
                   </div>
                   {selectedDevIds.length === 0 ? (
-                    <div className="text-xs text-zinc-500 italic">No developers selected.</div>
+                    <div className="text-xs text-[#80868b] italic">No developers selected.</div>
                   ) : (
                     <div className="flex flex-wrap gap-1.5 pt-1">
                       {dbUsers.filter(u => selectedDevIds.includes(u.id)).map(dev => (
                         <span
                           key={dev.id}
-                          className="px-2 py-1 rounded bg-zinc-800 text-zinc-200 text-[11px] border border-zinc-700 flex items-center gap-1"
+                          className="px-2.5 py-1 rounded-full bg-[#f8f9fa] text-[#202124] text-[11px] border border-[#dadce0] flex items-center gap-1.5 font-medium"
                         >
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                          <span className="w-1.5 h-1.5 rounded-full bg-[#137333]" />
                           <span>{dev.name}</span>
                         </span>
                       ))}
@@ -1003,23 +1001,23 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
                 </div>
 
                 {/* QA Engineers Roster */}
-                <div className="p-2.5 rounded-lg bg-zinc-900/60 border border-zinc-800 space-y-1.5">
-                  <div className="text-[10px] font-mono text-amber-400 uppercase font-semibold flex items-center justify-between">
+                <div className="p-3 rounded-xl bg-white border border-[#dadce0] space-y-1.5 shadow-sm">
+                  <div className="text-[10px] font-mono text-[#b06000] uppercase font-semibold flex items-center justify-between">
                     <span className="flex items-center gap-1">
                       <Bug className="w-3 h-3" /> Assigned QA Engineers ({selectedQAIds.length})
                     </span>
                     <span>40h / QA</span>
                   </div>
                   {selectedQAIds.length === 0 ? (
-                    <div className="text-xs text-zinc-500 italic">No QA engineers selected.</div>
+                    <div className="text-xs text-[#80868b] italic">No QA engineers selected.</div>
                   ) : (
                     <div className="flex flex-wrap gap-1.5 pt-1">
                       {dbUsers.filter(u => selectedQAIds.includes(u.id)).map(qa => (
                         <span
                           key={qa.id}
-                          className="px-2 py-1 rounded bg-zinc-800 text-zinc-200 text-[11px] border border-zinc-700 flex items-center gap-1"
+                          className="px-2.5 py-1 rounded-full bg-[#f8f9fa] text-[#202124] text-[11px] border border-[#dadce0] flex items-center gap-1.5 font-medium"
                         >
-                          <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                          <span className="w-1.5 h-1.5 rounded-full bg-[#b06000]" />
                           <span>{qa.name}</span>
                         </span>
                       ))}
@@ -1029,10 +1027,10 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
               </div>
 
               {/* Firestore Destination Confirmation Badge */}
-              <div className="p-3 rounded-xl bg-brand-500/10 border border-brand-500/20 text-xs text-brand-300 flex items-center gap-2.5">
-                <Database className="w-4 h-4 text-brand-400 shrink-0" />
+              <div className="p-3.5 rounded-xl bg-[#e8f0fe] border border-[#d2e3fc] text-xs text-[#174ea6] flex items-center gap-2.5 shadow-sm">
+                <Database className="w-4 h-4 text-[#1a73e8] shrink-0" />
                 <div>
-                  <strong>Firestore Persistence:</strong> This project will be saved into the <code className="text-white bg-surface-900 px-1 py-0.5 rounded">projects</code> collection in Google Cloud Project <code className="text-white bg-surface-900 px-1 py-0.5 rounded">ai-scrum-master-510116</code>, and user documents in <code className="text-white bg-surface-900 px-1 py-0.5 rounded">users</code> will be updated with this project's ID.
+                  <strong>Firestore Persistence:</strong> This project will be saved into the <code className="text-[#1a73e8] bg-white px-1.5 py-0.5 rounded border border-[#d2e3fc]">projects</code> collection in Google Cloud Project <code className="text-[#1a73e8] bg-white px-1.5 py-0.5 rounded border border-[#d2e3fc]">ai-scrum-master-510116</code>, and user documents in <code className="text-[#1a73e8] bg-white px-1.5 py-0.5 rounded border border-[#d2e3fc]">users</code> will be updated with this project's ID.
                 </div>
               </div>
             </div>
@@ -1043,31 +1041,31 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
           {/* ========================================================================= */}
           {step === 4 && (
             <div className="space-y-5 text-center py-2">
-              <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-400 text-white flex items-center justify-center mx-auto shadow-xl shadow-emerald-500/20 animate-bounce">
+              <div className="w-14 h-14 rounded-2xl bg-[#e6f4ea] text-[#137333] border border-[#ceead6] flex items-center justify-center mx-auto shadow-md">
                 <CheckCircle2 className="w-8 h-8" />
               </div>
 
               <div className="space-y-1">
-                <h4 className="text-lg font-bold text-white">
+                <h4 className="text-lg font-bold text-[#202124]">
                   Scrum Project Successfully Created!
                 </h4>
-                <p className="text-xs text-zinc-400">
+                <p className="text-xs text-[#5f6368]">
                   All configuration parameters and team rosters have been permanently persisted to GCP Firestore.
                 </p>
               </div>
 
               {/* Final Summary Card */}
-              <div className="p-5 rounded-2xl bg-surface-950 border border-zinc-800 text-left space-y-3.5 shadow-xl">
-                <div className="flex items-center justify-between border-b border-zinc-800 pb-2.5">
+              <div className="p-5 rounded-2xl bg-[#f8f9fa] border border-[#dadce0] text-left space-y-3.5 shadow-sm">
+                <div className="flex items-center justify-between border-b border-[#dadce0] pb-2.5">
                   <div>
-                    <span className="text-[10px] font-mono text-zinc-500 uppercase">Firestore Document ID</span>
-                    <div className="font-mono text-sm text-brand-400 font-bold">
+                    <span className="text-[10px] font-mono text-[#5f6368] uppercase">Firestore Document ID</span>
+                    <div className="font-mono text-sm text-[#1a73e8] font-bold">
                       {createdProjectSummary?.id || 'proj-generated'}
                     </div>
                   </div>
                   <div className="text-right">
-                    <span className="text-[10px] font-mono text-zinc-500 uppercase">Project Key Prefix</span>
-                    <div className="font-mono text-sm text-emerald-400 font-bold">
+                    <span className="text-[10px] font-mono text-[#5f6368] uppercase">Project Key Prefix</span>
+                    <div className="font-mono text-sm text-[#137333] font-bold">
                       [{createdProjectSummary?.key || projectKey}]
                     </div>
                   </div>
@@ -1075,33 +1073,33 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
 
                 <div className="grid grid-cols-2 gap-3 text-xs">
                   <div>
-                    <span className="text-zinc-500 text-[10px] block uppercase font-mono">Workspace Name</span>
-                    <span className="font-bold text-white">{createdProjectSummary?.name || projectName}</span>
+                    <span className="text-[#5f6368] text-[10px] block uppercase font-mono">Workspace Name</span>
+                    <span className="font-bold text-[#202124]">{createdProjectSummary?.name || projectName}</span>
                   </div>
                   <div>
-                    <span className="text-zinc-500 text-[10px] block uppercase font-mono">Collection Name</span>
-                    <span className="font-mono text-brand-300">projects</span>
+                    <span className="text-[#5f6368] text-[10px] block uppercase font-mono">Collection Name</span>
+                    <span className="font-mono text-[#1a73e8] font-semibold">projects</span>
                   </div>
                   <div>
-                    <span className="text-zinc-500 text-[10px] block uppercase font-mono">Product Owner</span>
-                    <span className="text-zinc-200">{selectedPO ? selectedPO.name : 'None'}</span>
+                    <span className="text-[#5f6368] text-[10px] block uppercase font-mono">Product Owner</span>
+                    <span className="text-[#202124] font-medium">{selectedPO ? selectedPO.name : 'None'}</span>
                   </div>
                   <div>
-                    <span className="text-zinc-500 text-[10px] block uppercase font-mono">Scrum Master</span>
-                    <span className="text-zinc-200">{selectedSM ? selectedSM.name : 'None'}</span>
+                    <span className="text-[#5f6368] text-[10px] block uppercase font-mono">Scrum Master</span>
+                    <span className="text-[#202124] font-medium">{selectedSM ? selectedSM.name : 'None'}</span>
                   </div>
                   <div>
-                    <span className="text-zinc-500 text-[10px] block uppercase font-mono">Developers Roster</span>
-                    <span className="text-zinc-200">{selectedDevIds.length} Assigned</span>
+                    <span className="text-[#5f6368] text-[10px] block uppercase font-mono">Developers Roster</span>
+                    <span className="text-[#202124] font-medium">{selectedDevIds.length} Assigned</span>
                   </div>
                   <div>
-                    <span className="text-zinc-500 text-[10px] block uppercase font-mono">QA Engineers</span>
-                    <span className="text-zinc-200">{selectedQAIds.length} Assigned</span>
+                    <span className="text-[#5f6368] text-[10px] block uppercase font-mono">QA Engineers</span>
+                    <span className="text-[#202124] font-medium">{selectedQAIds.length} Assigned</span>
                   </div>
                 </div>
 
                 {jiraLink && (
-                  <div className="p-2.5 rounded-lg bg-blue-500/10 border border-blue-500/20 text-xs text-blue-300 flex items-center gap-2">
+                  <div className="p-2.5 rounded-lg bg-[#e8f0fe] border border-[#d2e3fc] text-xs text-[#1967d2] flex items-center gap-2">
                     <LinkIcon className="w-3.5 h-3.5 shrink-0" />
                     <span className="truncate">{jiraLink}</span>
                   </div>
@@ -1113,12 +1111,12 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
         </div>
 
         {/* Modal Footer Controls */}
-        <div className="px-6 py-4 border-t border-zinc-800 bg-surface-950/70 flex items-center justify-between">
+        <div className="px-6 py-4 border-t border-[#dadce0] bg-[#f8f9fa] flex items-center justify-between">
           {step === 4 ? (
             <button
               type="button"
               onClick={handleFinish}
-              className="w-full py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-500 hover:from-emerald-500 hover:to-teal-400 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 transition"
+              className="w-full py-2.5 rounded-xl bg-[#1a73e8] hover:bg-[#1557b0] text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm transition"
             >
               <span>Open Project Workspace</span>
               <ArrowRight className="w-4 h-4" />
@@ -1130,7 +1128,7 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
                 <button
                   type="button"
                   onClick={() => setStep((step - 1) as any)}
-                  className="px-4 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-semibold flex items-center gap-1.5 transition"
+                  className="px-4 py-2 rounded-xl border border-[#dadce0] bg-[#f1f3f4] hover:bg-[#e8eaed] text-[#3c4043] text-xs font-semibold flex items-center gap-1.5 transition"
                 >
                   <ArrowLeft className="w-3.5 h-3.5" />
                   <span>Back</span>
@@ -1139,7 +1137,7 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
                 <button
                   type="button"
                   onClick={onClose}
-                  className="px-4 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-semibold transition"
+                  className="px-4 py-2 rounded-xl border border-[#dadce0] bg-[#f1f3f4] hover:bg-[#e8eaed] text-[#3c4043] text-xs font-semibold transition"
                 >
                   Cancel
                 </button>
@@ -1151,7 +1149,7 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
                   type="button"
                   disabled={!isEligible || !projectName.trim() || !projectKey.trim()}
                   onClick={() => setStep(2)}
-                  className="px-5 py-2 rounded-lg bg-brand-600 hover:bg-brand-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold flex items-center gap-1.5 shadow-md shadow-brand-500/20 transition"
+                  className="px-5 py-2.5 rounded-xl bg-[#1a73e8] hover:bg-[#1557b0] disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition"
                 >
                   <span>Next: Team Selection</span>
                   <ArrowRight className="w-3.5 h-3.5" />
@@ -1163,7 +1161,7 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
                   type="button"
                   disabled={!isEligible || (!selectedPO && !selectedSM && selectedDevIds.length === 0)}
                   onClick={() => setStep(3)}
-                  className="px-5 py-2 rounded-lg bg-brand-600 hover:bg-brand-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold flex items-center gap-1.5 shadow-md shadow-brand-500/20 transition"
+                  className="px-5 py-2.5 rounded-xl bg-[#1a73e8] hover:bg-[#1557b0] disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition"
                 >
                   <span>Next: Review Summary</span>
                   <ArrowRight className="w-3.5 h-3.5" />
@@ -1175,7 +1173,7 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
                   type="button"
                   disabled={!isEligible || isSubmitting}
                   onClick={handleFinalSubmit}
-                  className="px-6 py-2.5 rounded-lg bg-gradient-to-r from-brand-600 via-indigo-600 to-purple-600 hover:from-brand-500 hover:to-purple-500 disabled:opacity-50 text-white text-xs font-bold flex items-center gap-2 shadow-lg shadow-brand-500/30 transition"
+                  className="px-6 py-2.5 rounded-xl bg-[#1a73e8] hover:bg-[#1557b0] disabled:opacity-50 text-white text-xs font-bold flex items-center gap-2 shadow-sm transition"
                 >
                   {isSubmitting ? (
                     <>

@@ -11,12 +11,16 @@ router = APIRouter(prefix="/projects", tags=["Projects"])
 
 @router.get("", response_model=List[Project])
 def list_projects():
-    """List all configured projects deduplicated by project key and ID."""
+    """List all configured projects deduplicated by project key and ID, excluding native standalone projects."""
     docs = list(db.collection("projects").stream())
     projects = []
     for d in docs:
         try:
-            projects.append(Project(**d.to_dict()))
+            p = Project(**d.to_dict())
+            # Exclude Native Storage / Standalone non-Jira projects
+            if p.mode == ProjectMode.STANDALONE:
+                continue
+            projects.append(p)
         except Exception:
             pass
 

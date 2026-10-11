@@ -116,6 +116,15 @@ export const api = {
     fetchApi<any>('/governance/approvals/action', { method: 'POST', body: JSON.stringify({ approval_id: approvalId, action, review_notes: notes }) }),
   getActivityLog: (projectId: string) => fetchApi<any[]>(`/governance/activity/${projectId}`),
 
+  // Action & Decisions Hub
+  getActionsAndDecisions: (projectId: string) => fetchApi<any[]>(`/governance/actions-decisions/${projectId}`),
+  createActionOrDecision: (data: any) =>
+    fetchApi<any>('/governance/actions-decisions', { method: 'POST', body: JSON.stringify(data) }),
+  updateActionOrDecision: (id: string, data: any) =>
+    fetchApi<any>(`/governance/actions-decisions/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteActionOrDecision: (id: string) =>
+    fetchApi<any>(`/governance/actions-decisions/${id}`, { method: 'DELETE' }),
+
   // Knowledge & NotebookLM
   searchKnowledge: (projectId: string, query: string) =>
     fetchApi<any>('/knowledge/search', { method: 'POST', body: JSON.stringify({ project_id: projectId, query }) }),
