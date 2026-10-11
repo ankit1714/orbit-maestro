@@ -12,7 +12,8 @@ import {
   Check,
   Trash2,
   Users,
-  Link as LinkIcon
+  Link as LinkIcon,
+  Lock
 } from 'lucide-react';
 import { useRole } from '@/lib/roleContext';
 import { RoleSwitcher } from '@/components/RoleSwitcher';

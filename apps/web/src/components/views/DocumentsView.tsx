@@ -93,6 +93,7 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
   const [showJiraModal, setShowJiraModal] = useState(false);
   const [jiraInstanceUrl, setJiraInstanceUrl] = useState('');
   const [jiraProjectKey, setJiraProjectKey] = useState('');
+  const [isSavingJira, setIsSavingJira] = useState(false);
   // AI Knowledge Search Bot State
   const [aiSearchQuery, setAiSearchQuery] = useState('');
   const [isAiSearching, setIsAiSearching] = useState(false);

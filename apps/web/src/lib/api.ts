@@ -101,6 +101,42 @@ export const api = {
   analyzeMeetingLinks: (meetingId: string) => fetchApi<any>(`/meetings/${meetingId}/analyze-links`, { method: 'POST' }),
   deleteMeeting: (meetingId: string) => fetchApi<any>(`/meetings/${meetingId}`, { method: 'DELETE' }),
 
+  // Google Calendar & Gemini Notes Integration
+  getCalendarStatus: (userEmail?: string, accessToken?: string) => {
+    const params = new URLSearchParams();
+    if (userEmail) params.append('user_email', userEmail);
+    if (accessToken) params.append('access_token', accessToken);
+    const qs = params.toString();
+    return fetchApi<any>(`/meetings/calendar/status${qs ? `?${qs}` : ''}`);
+  },
+  connectCalendar: (data: { user_email?: string; access_token?: string; refresh_token?: string }) =>
+    fetchApi<any>('/meetings/calendar/connect', { method: 'POST', body: JSON.stringify(data) }),
+  disconnectCalendar: () =>
+    fetchApi<any>('/meetings/calendar/disconnect', { method: 'POST' }),
+  getCalendarEvents: (projectId: string, userEmail?: string, accessToken?: string) => {
+    const params = new URLSearchParams({ project_id: projectId });
+    if (userEmail) params.append('user_email', userEmail);
+    if (accessToken) params.append('access_token', accessToken);
+    return fetchApi<any>(`/meetings/calendar/events?${params.toString()}`);
+  },
+  previewCalendarNotes: (eventId: string, projectId: string, docId?: string, accessToken?: string) => {
+    const params = new URLSearchParams({ project_id: projectId });
+    if (docId) params.append('doc_id', docId);
+    if (accessToken) params.append('access_token', accessToken);
+    return fetchApi<any>(`/meetings/calendar/events/${encodeURIComponent(eventId)}/notes?${params.toString()}`);
+  },
+  pullAndProcessCalendarMeeting: (data: { event_id: string; project_id: string; doc_id?: string; access_token?: string }) =>
+    fetchApi<any>('/meetings/calendar/pull-and-process', { method: 'POST', body: JSON.stringify(data) }),
+  getGoogleOAuthUrl: (redirectUri?: string, projectId?: string) => {
+    const params = new URLSearchParams();
+    if (redirectUri) params.append('redirect_uri', redirectUri);
+    if (projectId) params.append('project_id', projectId);
+    const qs = params.toString();
+    return fetchApi<any>(`/meetings/calendar/oauth/url${qs ? `?${qs}` : ''}`);
+  },
+  exchangeOAuthCallback: (data: { code: string; redirect_uri: string; project_id?: string }) =>
+    fetchApi<any>('/meetings/calendar/oauth/callback', { method: 'POST', body: JSON.stringify(data) }),
+
   // Risks & DAG
   getDependencyDAG: (projectId: string) => fetchApi<any>(`/risks/dag/${projectId}`),
   getHealthMatrix: (projectId: string) => fetchApi<any>(`/risks/health/${projectId}`),

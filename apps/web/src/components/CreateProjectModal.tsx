@@ -37,7 +37,7 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
   onClose,
   onProjectCreated,
 }) => {
-  const { can, activeUser, profile } = useRole();
+  const { can, currentUser: activeUser, profile } = useRole();
 
   // Wizard Step: 1 = Details, 2 = Team Selection, 3 = Summary Review, 4 = Final Success
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
@@ -47,7 +47,7 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
   const [projectKey, setProjectKey] = useState('');
   const [projectDesc, setProjectDesc] = useState('');
   const [jiraLink, setJiraLink] = useState('');
-  const [projectMode] = useState<'ENTERPRISE_SYNC'>('ENTERPRISE_SYNC');
+  const [projectMode, setProjectMode] = useState<'ENTERPRISE_SYNC'>('ENTERPRISE_SYNC');
   const [isKeyManuallyEdited, setIsKeyManuallyEdited] = useState(false);
 
   // Step 2: Team Members from Firestore DB

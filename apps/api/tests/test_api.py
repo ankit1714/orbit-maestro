@@ -16,18 +16,21 @@ def test_root():
     assert res.json()["service"] == "AI Scrum Master Core API"
 
 def test_projects_crud():
+    import uuid
+    test_key = f"T{uuid.uuid4().hex[:4].upper()}"
     payload = {
         "name": "E2E Test Project",
-        "key": "TST",
+        "key": test_key,
         "description": "Integration test project",
-        "mode": "STANDALONE",
+        "mode": "ENTERPRISE_SYNC",
+        "jira_settings": {"enabled": True, "instance_url": "https://test.atlassian.net", "project_key": test_key},
         "git_settings": {"enabled": True, "repo_url": "https://github.com/org/test-repo"},
         "notebooklm_settings": {"enabled": True, "notebook_id": "nb-test-01"}
     }
     create_res = client.post("/v1/projects", json=payload)
     assert create_res.status_code == 200
     created = create_res.json()
-    assert created["key"] == "TST"
+    assert created["key"] == test_key
     project_id = created["id"]
 
     get_res = client.get(f"/v1/projects/{project_id}")
@@ -99,7 +102,7 @@ def test_meeting_intelligence():
     payload = {
         "project_id": p_id,
         "meeting_type": "STANDUP",
-        "transcript_text": "Alex finished OCR. David is blocked on PAY-142."
+        "transcript_text": "Alex finished OCR. David is blocked on PAY-142. Team agreed to deploy hotfix tomorrow."
     }
     res = client.post("/v1/meetings/extract", json=payload)
     assert res.status_code == 200
