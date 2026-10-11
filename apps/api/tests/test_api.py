@@ -152,6 +152,16 @@ def test_governance_and_audit():
 
 def test_knowledge_and_notebooklm():
     p_id = "proj-claims-auto"
+    # Ensure a knowledge item is indexed for the test
+    client.post("/v1/knowledge/items", json={
+        "id": "know-test-1",
+        "project_id": p_id,
+        "title": "Vendor API Integration Notes",
+        "content": "PAY-142 is blocked because the vendor API schema contract was delayed by 3 days.",
+        "source_type": "MEETING_DECISION",
+        "source_uri": "https://notebooklm.google.com/notebook/nb-claims-auto-01"
+    })
+
     nb_res = client.get(f"/v1/knowledge/notebooklm/{p_id}")
     assert nb_res.status_code == 200
     assert "notebooklm.google.com" in nb_res.json()["notebook_url"]

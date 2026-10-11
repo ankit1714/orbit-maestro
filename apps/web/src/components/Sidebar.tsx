@@ -15,6 +15,7 @@ import {
   Bot,
   Users
 } from 'lucide-react';
+import { useRole } from '@/lib/roleContext';
 
 interface SidebarProps {
   currentView: string;
@@ -35,6 +36,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   sprint,
   project,
 }) => {
+  const { profile } = useRole();
   const navItemClass = (view: string) => `
     w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-xs font-medium transition
     ${currentView === view ? 'text-white bg-zinc-800/80 shadow-sm' : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/40'}
@@ -42,9 +44,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const capacity = sprint?.capacity;
   const devAllocs = capacity?.developer_allocations || [];
-  const overallLoad = capacity?.overall_load_pct ?? 78.0;
+  const overallLoad = capacity?.overall_load_pct ?? 0;
 
   const getLoadColor = (pct: number) => {
+    if (pct === 0) return { text: 'text-zinc-500 font-normal', bar: 'bg-zinc-700' };
     if (pct > 100) return { text: 'text-rose-400 font-bold', bar: 'bg-rose-500' };
     if (pct >= 85) return { text: 'text-amber-400 font-semibold', bar: 'bg-amber-400' };
     return { text: 'text-emerald-400 font-medium', bar: 'bg-emerald-500' };
@@ -54,7 +57,25 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <aside className="w-64 border-r border-zinc-800 bg-surface-900 flex flex-col justify-between select-none">
-      <div className="p-3 space-y-6 overflow-y-auto">
+      <div className="p-3 space-y-5 overflow-y-auto">
+        {/* Active Role Persona Badge */}
+        <div className="px-2.5 py-2 rounded-lg bg-surface-950/70 border border-zinc-800/80 flex items-center justify-between">
+          <div className="flex items-center space-x-2 truncate">
+            <div className={`w-5 h-5 rounded-full bg-gradient-to-tr ${profile.avatarBg} flex items-center justify-center text-[9px] font-bold text-white shrink-0 shadow-sm`}>
+              {profile.shortLabel}
+            </div>
+            <div className="truncate">
+              <span className="text-[11px] font-bold text-zinc-200 block truncate leading-tight">{profile.title}</span>
+              <span className="text-[9px] text-zinc-500 font-mono block truncate leading-tight">
+                {profile.permissions.isReadOnly ? 'Read-Only Mode' : 'Interactive Access'}
+              </span>
+            </div>
+          </div>
+          <span className={`text-[8px] font-mono px-1.5 py-0.2 rounded uppercase font-semibold border ${profile.badgeBg} ${profile.badgeBorder} ${profile.badgeText} shrink-0`}>
+            {profile.shortLabel}
+          </span>
+        </div>
+
         {/* Strategy & Ingestion */}
         <div>
           <div className="px-2 mb-2 text-[10px] font-semibold text-zinc-500 uppercase tracking-wider font-mono">
@@ -203,26 +224,26 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <div className="space-y-1.5">
             <div className="flex justify-between text-[10px] text-zinc-500">
               <span>Frontend Workload</span>
-              <span>{capacity?.frontend_load_pct ?? 66.7}%</span>
+              <span>{capacity?.frontend_load_pct ?? 0}%</span>
             </div>
             <div className="w-full bg-zinc-800 h-1.5 rounded-full overflow-hidden">
-              <div className="bg-indigo-500 h-full rounded-full" style={{ width: `${Math.min(capacity?.frontend_load_pct ?? 66.7, 100)}%` }} />
+              <div className="bg-indigo-500 h-full rounded-full" style={{ width: `${Math.min(capacity?.frontend_load_pct ?? 0, 100)}%` }} />
             </div>
 
             <div className="flex justify-between text-[10px] text-zinc-500">
               <span>Backend Workload</span>
-              <span className="text-amber-400 font-semibold">{capacity?.backend_load_pct ?? 80.0}%</span>
+              <span className="text-zinc-400 font-medium">{capacity?.backend_load_pct ?? 0}%</span>
             </div>
             <div className="w-full bg-zinc-800 h-1.5 rounded-full overflow-hidden">
-              <div className="bg-amber-400 h-full rounded-full" style={{ width: `${Math.min(capacity?.backend_load_pct ?? 80.0, 100)}%` }} />
+              <div className="bg-amber-400 h-full rounded-full" style={{ width: `${Math.min(capacity?.backend_load_pct ?? 0, 100)}%` }} />
             </div>
 
             <div className="flex justify-between text-[10px] text-zinc-500">
               <span>QA Workload</span>
-              <span>{capacity?.qa_load_pct ?? 80.0}%</span>
+              <span>{capacity?.qa_load_pct ?? 0}%</span>
             </div>
             <div className="w-full bg-zinc-800 h-1.5 rounded-full overflow-hidden">
-              <div className="bg-teal-500 h-full rounded-full" style={{ width: `${Math.min(capacity?.qa_load_pct ?? 80.0, 100)}%` }} />
+              <div className="bg-teal-500 h-full rounded-full" style={{ width: `${Math.min(capacity?.qa_load_pct ?? 0, 100)}%` }} />
             </div>
           </div>
         )}
@@ -232,7 +253,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
             Jira Capacity Sync
           </span>
-          <span className="text-zinc-400">{capacity?.team_total_hours ?? 160}h Total</span>
+          <span className="text-zinc-400">{capacity?.team_total_hours ?? 0}h Total</span>
         </div>
       </div>
     </aside>

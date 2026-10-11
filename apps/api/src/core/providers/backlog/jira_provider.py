@@ -1,5 +1,6 @@
 import logging
 import requests
+import re
 from requests.auth import HTTPBasicAuth
 from typing import List, Dict, Any, Optional
 from datetime import datetime, timezone
@@ -25,25 +26,34 @@ def parse_jira_datetime(dt_str: Optional[str]) -> datetime:
         return datetime.utcnow()
 
 def adf_to_plain_text(doc: Any) -> str:
-    """Extract plain readable text from Atlassian Document Format (ADF) or strings."""
+    """Extract plain readable markdown/text from Atlassian Document Format (ADF) or strings."""
     if not doc:
         return ""
     if isinstance(doc, str):
         return doc
-    texts: List[str] = []
 
-    def extract(node: Any):
-        if isinstance(node, dict):
-            if node.get("type") == "text" and "text" in node:
-                texts.append(node["text"])
-            for child in node.get("content", []):
-                extract(child)
-        elif isinstance(node, list):
-            for item in node:
-                extract(item)
+    def extract_node(node: Any) -> str:
+        if not node or not isinstance(node, dict):
+            return ""
+        ntype = node.get("type", "")
+        if ntype == "text":
+            return node.get("text", "")
 
-    extract(doc)
-    return " ".join(texts).strip()
+        child_texts = [extract_node(child) for child in node.get("content", [])]
+        joined = "".join(child_texts)
+
+        if ntype in ["paragraph", "heading"]:
+            return f"\n{joined}\n"
+        elif ntype == "listItem":
+            return f"\n- {joined.strip()}"
+        elif ntype == "codeBlock":
+            return f"\n```\n{joined.strip()}\n```\n"
+        return joined
+
+    if isinstance(doc, dict):
+        result = extract_node(doc)
+        return re.sub(r"\n{3,}", "\n\n", result).strip()
+    return ""
 
 class JiraBacklogProvider(BaseBacklogProvider):
     def __init__(
@@ -116,6 +126,101 @@ class JiraBacklogProvider(BaseBacklogProvider):
         except Exception as e:
             logger.error(f"Failed to connect to Jira instance {self.instance_url}: {e}")
             return {"connected": False, "error": str(e)}
+
+    def fetch_all_issues_detailed(self, project_key: Optional[str] = None) -> List[Dict[str, Any]]:
+        """
+        Fetch all issues with 100% of their rich fields (descriptions, comments, subtasks,
+        acceptance criteria, assignees, priorities) directly from Jira Cloud.
+        """
+        if not self._is_configured():
+            logger.info("Jira credentials not configured; cannot fetch live detailed issues.")
+            return []
+
+        target_key = (project_key or self.project_key).upper()
+        try:
+            url = f"{self.instance_url}/rest/api/3/search/jql"
+            jql = f"project = '{target_key}' ORDER BY created DESC"
+            payload = {
+                "jql": jql,
+                "maxResults": 100,
+                "fields": ["*all"]
+            }
+            res = requests.post(url, headers=self._get_headers(), json=payload, auth=self._get_auth(), timeout=12)
+            if res.status_code != 200:
+                logger.warning(f"Jira JQL search returned {res.status_code}: {res.text}")
+                return []
+
+            issues = res.json().get("issues", [])
+            detailed_items = []
+            for item in issues:
+                key = item.get("key", "")
+                fields = item.get("fields", {})
+                it = fields.get("issuetype", {})
+                it_name = it.get("name", "Task")
+                summary = fields.get("summary", "Untitled")
+                status_name = fields.get("status", {}).get("name", "To Do")
+                desc_text = adf_to_plain_text(fields.get("description"))
+                priority_name = fields.get("priority", {}).get("name", "Medium") if fields.get("priority") else "Medium"
+
+                assignee = fields.get("assignee")
+                assignee_name = assignee.get("displayName") if assignee else "Unassigned"
+                assignee_email = assignee.get("emailAddress") if assignee else None
+
+                reporter = fields.get("reporter")
+                reporter_name = reporter.get("displayName") if reporter else "Unknown"
+
+                # Comments
+                comments_data = fields.get("comment", {}).get("comments", [])
+                extracted_comments = []
+                for c in comments_data:
+                    c_author = c.get("author", {}).get("displayName", "User")
+                    c_body = adf_to_plain_text(c.get("body"))
+                    c_created = c.get("created", "")
+                    if c_body:
+                        extracted_comments.append({
+                            "author": c_author,
+                            "text": c_body,
+                            "created_at": c_created
+                        })
+
+                # Subtasks
+                subtasks_data = fields.get("subtasks", [])
+                subtasks_list = []
+                for st in subtasks_data:
+                    subtasks_list.append({
+                        "key": st.get("key"),
+                        "summary": st.get("fields", {}).get("summary"),
+                        "status": st.get("fields", {}).get("status", {}).get("name")
+                    })
+
+                points = fields.get("customfield_10016") or fields.get("story_points") or 0
+                labels = fields.get("labels", [])
+                components = [c.get("name") for c in fields.get("components", []) if isinstance(c, dict)]
+
+                detailed_items.append({
+                    "key": key,
+                    "id": item.get("id", key),
+                    "title": summary,
+                    "type": it_name.upper(),
+                    "status": status_name,
+                    "priority": priority_name,
+                    "assignee": assignee_name,
+                    "assignee_email": assignee_email,
+                    "reporter": reporter_name,
+                    "description": desc_text,
+                    "points": points,
+                    "labels": labels,
+                    "components": components,
+                    "comments": extracted_comments,
+                    "subtasks": subtasks_list,
+                    "url": f"{self.instance_url}/browse/{key}",
+                    "created_at": fields.get("created"),
+                    "updated_at": fields.get("updated")
+                })
+            return detailed_items
+        except Exception as e:
+            logger.warning(f"Error fetching detailed Jira issues: {e}")
+            return []
 
     def _build_adf_doc(self, text: str, extra_paragraphs: Optional[List[str]] = None) -> Dict[str, Any]:
         """Construct Atlassian Document Format (ADF) representation."""

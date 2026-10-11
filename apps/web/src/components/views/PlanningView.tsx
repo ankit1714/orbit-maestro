@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Compass, CheckCircle, Sparkles, Users, ExternalLink, User } from 'lucide-react';
+import { Compass, CheckCircle, Sparkles, Users, ExternalLink, User, Lock } from 'lucide-react';
 import { api } from '@/lib/api';
+import { useRole } from '@/lib/roleContext';
 
 interface PlanningViewProps {
   project: any;
@@ -19,6 +20,7 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
   onRefresh,
   onSwitchView,
 }) => {
+  const { can, profile } = useRole();
   const [committed, setCommitted] = useState(false);
   const [goalText, setGoalText] = useState(sprint?.goal || `Deliver foundational capabilities for ${project?.name || 'SCRUM'}`);
 
@@ -27,11 +29,11 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
 
   const team = project?.team_members || [];
   const capacity = sprint?.capacity;
-  const devAllocs = capacity?.developer_allocations || [];
-  const totalTeamHours = capacity?.team_total_hours || (team.length ? team.length * 80 : 160);
-  const totalBacklogPts = backlog?.total_points || sprint?.planned_points || 39;
+  const totalTeamHours = capacity?.team_total_hours ?? (team.length ? team.length * 80 : 0);
+  const totalBacklogPts = backlog?.total_points ?? sprint?.planned_points ?? 0;
 
   const handleCommit = async () => {
+    if (!can('canCommitSprint')) return;
     try {
       await api.commitSprintScope({
         project_id: project.id,
@@ -51,6 +53,19 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
 
   return (
     <div className="p-6 max-w-7xl mx-auto w-full space-y-5 flex-1">
+      {/* Read Only Persona Banner */}
+      {profile.permissions.isReadOnly && (
+        <div className="p-3 rounded-xl border border-zinc-700/60 bg-zinc-800/60 flex items-center justify-between text-xs text-zinc-300">
+          <div className="flex items-center gap-2">
+            <Lock className="w-4 h-4 text-purple-400 shrink-0" />
+            <span>Viewing as <strong>{profile.title}</strong> — Sprint planning is in read-only observation mode. Scope commitment is restricted to Scrum Master, Product Owner, or Admin.</span>
+          </div>
+          <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-zinc-800 text-zinc-400 border border-zinc-700 font-bold">
+            Read Only
+          </span>
+        </div>
+      )}
+
       <div className="flex items-center justify-between pb-3 border-b border-zinc-800">
         <div>
           <div className="flex items-center gap-2">
@@ -64,13 +79,23 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
           </div>
           <p className="text-xs text-zinc-400 mt-0.5">Align team capacity, historical velocity, and dependency risks to synthesize an achievable sprint commitment.</p>
         </div>
-        <button
-          onClick={handleCommit}
-          className="px-4 py-2 rounded-lg bg-brand-600 hover:bg-brand-500 text-white font-bold text-xs flex items-center gap-2 shadow-lg shadow-brand-500/20 transition"
-        >
-          <CheckCircle className="w-4 h-4" />
-          <span>{committed ? "Committed! Redirecting..." : `Commit ${sprint?.name || "Sprint"} Scope`}</span>
-        </button>
+        {can('canCommitSprint') ? (
+          <button
+            onClick={handleCommit}
+            className="px-4 py-2 rounded-lg bg-brand-600 hover:bg-brand-500 text-white font-bold text-xs flex items-center gap-2 shadow-lg shadow-brand-500/20 transition"
+          >
+            <CheckCircle className="w-4 h-4" />
+            <span>{committed ? "Committed! Redirecting..." : `Commit ${sprint?.name || "Sprint"} Scope`}</span>
+          </button>
+        ) : (
+          <div
+            className="px-4 py-2 rounded-lg bg-zinc-800/60 border border-zinc-700/40 text-zinc-500 font-medium text-xs flex items-center gap-2 cursor-not-allowed opacity-75"
+            title={`Role "${profile.title}" cannot commit sprint scope (Requires SM, PO, or Admin)`}
+          >
+            <Lock className="w-4 h-4 text-zinc-500" />
+            <span>Commit Scope (SM/PO Only)</span>
+          </div>
+        )}
       </div>
 
       {/* AI Generated Sprint Goal Banner */}
@@ -86,7 +111,10 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
             type="text"
             value={goalText}
             onChange={(e) => setGoalText(e.target.value)}
-            className="w-full bg-surface-950 border border-zinc-800 rounded-lg p-2 text-sm font-semibold text-white focus:outline-none focus:border-brand-500 mt-1"
+            disabled={!can('canCommitSprint')}
+            className={`w-full bg-surface-950 border border-zinc-800 rounded-lg p-2 text-sm font-semibold text-white focus:outline-none focus:border-brand-500 mt-1 ${
+              !can('canCommitSprint') ? 'opacity-60 cursor-not-allowed' : ''
+            }`}
           />
           <p className="text-[11px] text-zinc-400">Synchronized directly with Jira Cloud sprint objectives and unblocked capacity.</p>
         </div>

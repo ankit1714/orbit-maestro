@@ -1,8 +1,9 @@
 'use client';
 
 import React from 'react';
-import { TrendingDown, AlertOctagon, Check, Play, CheckCircle2, ChevronRight, ExternalLink, RefreshCw, Calendar, Clock, User } from 'lucide-react';
+import { TrendingDown, AlertOctagon, Check, Play, CheckCircle2, ChevronRight, ExternalLink, RefreshCw, Calendar, Clock, User, Lock } from 'lucide-react';
 import { api } from '@/lib/api';
+import { useRole } from '@/lib/roleContext';
 
 interface SprintBoardViewProps {
   project: any;
@@ -21,6 +22,7 @@ export const SprintBoardView: React.FC<SprintBoardViewProps> = ({
   onSwitchView,
   onOpenSpilloverModal,
 }) => {
+  const { can, profile } = useRole();
   const epics = backlog?.epics || [];
   const allTasks: any[] = [];
 
@@ -76,6 +78,7 @@ export const SprintBoardView: React.FC<SprintBoardViewProps> = ({
   const doneTasks = allTasks.filter(isDone);
 
   const moveTask = async (taskIdOrKey: string, newStatus: string) => {
+    if (!can('canMoveTasks')) return;
     try {
       await api.updateTaskStatus(project.id, taskIdOrKey, newStatus);
       onRefresh();
@@ -99,6 +102,19 @@ export const SprintBoardView: React.FC<SprintBoardViewProps> = ({
 
   return (
     <div className="p-6 max-w-7xl mx-auto w-full space-y-4 flex-1 flex flex-col">
+      {/* Read Only Persona Banner */}
+      {profile.permissions.isReadOnly && (
+        <div className="p-3 rounded-xl border border-zinc-700/60 bg-zinc-800/60 flex items-center justify-between text-xs text-zinc-300">
+          <div className="flex items-center gap-2">
+            <Lock className="w-4 h-4 text-rose-400 shrink-0" />
+            <span>Viewing as <strong>{profile.title}</strong> — Sprint Board is in read-only observation mode. Workflow transitions and task movements are disabled.</span>
+          </div>
+          <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-zinc-800 text-zinc-400 border border-zinc-700 font-bold">
+            Read Only
+          </span>
+        </div>
+      )}
+
       {/* Spillover Warning Banner */}
       {blockedTasks.length > 0 && (
         <div className="p-3 rounded-lg border border-amber-500/30 bg-amber-500/10 flex items-center justify-between text-xs">
@@ -108,12 +124,22 @@ export const SprintBoardView: React.FC<SprintBoardViewProps> = ({
               <strong>Spillover Forecast Alert (Stage 11 · FR-13):</strong> {blockedTasks.length} task(s) currently blocked with high risk of spilling over.
             </span>
           </div>
-          <button
-            onClick={onOpenSpilloverModal}
-            className="px-2.5 py-1 rounded bg-amber-400 text-surface-950 font-bold hover:bg-amber-300 transition text-[11px] shadow-sm"
-          >
-            Launch Spillover Triage Workbench
-          </button>
+          {can('canTriageSpillover') ? (
+            <button
+              onClick={onOpenSpilloverModal}
+              className="px-2.5 py-1 rounded bg-amber-400 text-surface-950 font-bold hover:bg-amber-300 transition text-[11px] shadow-sm"
+            >
+              Launch Spillover Triage Workbench
+            </button>
+          ) : (
+            <div
+              className="px-2.5 py-1 rounded bg-zinc-800/80 text-zinc-500 font-medium text-[11px] flex items-center gap-1 cursor-not-allowed border border-zinc-700/50"
+              title={`Role "${profile.title}" cannot triage spillover (Requires Scrum Master or Admin)`}
+            >
+              <Lock className="w-3 h-3 text-zinc-500" />
+              <span>Triage (SM Only)</span>
+            </div>
+          )}
         </div>
       )}
 
@@ -186,13 +212,19 @@ export const SprintBoardView: React.FC<SprintBoardViewProps> = ({
                     <User className="w-3 h-3 text-zinc-500" />
                     <span>{t.assignee_name || "Unassigned"}</span>
                   </span>
-                  <button
-                    onClick={() => moveTask(t.key || t.id, "IN_PROGRESS")}
-                    className="text-brand-400 hover:underline flex items-center gap-0.5 text-[10px]"
-                  >
-                    <span>Start</span>
-                    <ChevronRight className="w-3 h-3" />
-                  </button>
+                  {can('canMoveTasks') ? (
+                    <button
+                      onClick={() => moveTask(t.key || t.id, "IN_PROGRESS")}
+                      className="text-brand-400 hover:underline flex items-center gap-0.5 text-[10px]"
+                    >
+                      <span>Start</span>
+                      <ChevronRight className="w-3 h-3" />
+                    </button>
+                  ) : (
+                    <span className="text-[10px] text-zinc-600 flex items-center gap-0.5 font-mono">
+                      <Lock className="w-2.5 h-2.5" /> Read-only
+                    </span>
+                  )}
                 </div>
                 {t.updated_at && (
                   <div className="text-[9px] text-zinc-500 pt-0.5">
@@ -234,13 +266,19 @@ export const SprintBoardView: React.FC<SprintBoardViewProps> = ({
                     <User className="w-3 h-3 text-indigo-400" />
                     <span>{t.assignee_name || "Unassigned"}</span>
                   </span>
-                  <button
-                    onClick={() => moveTask(t.key || t.id, "DONE")}
-                    className="text-emerald-400 hover:underline flex items-center gap-0.5 text-[10px]"
-                  >
-                    <span>Finish</span>
-                    <Check className="w-3 h-3" />
-                  </button>
+                  {can('canMoveTasks') ? (
+                    <button
+                      onClick={() => moveTask(t.key || t.id, "DONE")}
+                      className="text-emerald-400 hover:underline flex items-center gap-0.5 text-[10px]"
+                    >
+                      <span>Finish</span>
+                      <Check className="w-3 h-3" />
+                    </button>
+                  ) : (
+                    <span className="text-[10px] text-zinc-600 flex items-center gap-0.5 font-mono">
+                      <Lock className="w-2.5 h-2.5" /> Read-only
+                    </span>
+                  )}
                 </div>
                 {t.updated_at && (
                   <div className="text-[9px] text-zinc-500 pt-0.5">

@@ -57,7 +57,7 @@ class SprintPlanningAgent:
             planned = proj_data.get("target_velocity_points", 30)
         else:
             goal = f"Deliver core user stories and verified acceptance criteria for {project_name}."
-            delivered = int(done_pts) if done_pts > 0 else 24
+            delivered = int(done_pts)
             planned = int(total_pts)
 
         sprint = Sprint(

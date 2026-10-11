@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useState } from 'react';
-import { ShieldAlert, Check, History, CheckCircle2 } from 'lucide-react';
+import { ShieldAlert, Check, History, CheckCircle2, Lock } from 'lucide-react';
 import { api } from '@/lib/api';
+import { useRole } from '@/lib/roleContext';
 
 interface GovernanceViewProps {
   project: any;
@@ -19,9 +20,11 @@ export const GovernanceView: React.FC<GovernanceViewProps> = ({
   onRefresh,
   onSwitchView,
 }) => {
+  const { can, profile } = useRole();
   const [acted, setActed] = useState<Record<string, string>>({});
 
   const handleAction = async (approvalId: string, action: "APPROVE" | "REJECT", label: string) => {
+    if (!can('canActOnApprovals')) return;
     try {
       await api.actOnApproval(approvalId, action, label);
       setActed((prev) => ({ ...prev, [approvalId]: action }));
@@ -36,6 +39,19 @@ export const GovernanceView: React.FC<GovernanceViewProps> = ({
 
   return (
     <div className="p-6 max-w-7xl mx-auto w-full space-y-6 flex-1">
+      {/* Auditor / Restricted Persona Banner */}
+      {!can('canActOnApprovals') && (
+        <div className="p-3 rounded-xl border border-zinc-700/60 bg-zinc-800/60 flex items-center justify-between text-xs text-zinc-300">
+          <div className="flex items-center gap-2">
+            <Lock className="w-4 h-4 text-amber-400 shrink-0" />
+            <span>Viewing as <strong>{profile.title}</strong> — Governance actions (Approve & Dismiss) are restricted to Scrum Master, Product Owner, and Workspace Admin.</span>
+          </div>
+          <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-zinc-800 text-zinc-400 border border-zinc-700 font-bold">
+            Auditor Mode
+          </span>
+        </div>
+      )}
+
       <div className="flex items-center justify-between pb-3 border-b border-zinc-800">
         <div>
           <div className="flex items-center gap-2">
@@ -87,18 +103,30 @@ export const GovernanceView: React.FC<GovernanceViewProps> = ({
               </div>
 
               <div className="flex items-center justify-end space-x-2 pt-1">
-                <button
-                  onClick={() => handleAction(app.id, "APPROVE", app.ai_proposed_action)}
-                  className="px-3 py-1.5 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs transition"
-                >
-                  Approve & Execute
-                </button>
-                <button
-                  onClick={() => handleAction(app.id, "REJECT", "Dismissed")}
-                  className="px-3 py-1.5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs"
-                >
-                  Dismiss
-                </button>
+                {can('canActOnApprovals') ? (
+                  <>
+                    <button
+                      onClick={() => handleAction(app.id, "APPROVE", app.ai_proposed_action)}
+                      className="px-3 py-1.5 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs transition"
+                    >
+                      Approve & Execute
+                    </button>
+                    <button
+                      onClick={() => handleAction(app.id, "REJECT", "Dismissed")}
+                      className="px-3 py-1.5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs"
+                    >
+                      Dismiss
+                    </button>
+                  </>
+                ) : (
+                  <div
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-zinc-800/80 border border-zinc-700/50 text-zinc-500 text-xs cursor-not-allowed opacity-75"
+                    title={`Role "${profile.title}" cannot approve actions (Requires SM, PO, or Admin)`}
+                  >
+                    <Lock className="w-3.5 h-3.5 text-zinc-500" />
+                    <span>Action Restricted (SM/PO Only)</span>
+                  </div>
+                )}
               </div>
             </div>
           ))

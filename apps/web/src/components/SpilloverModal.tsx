@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { TrendingDown, X, CheckCircle, ShieldCheck } from 'lucide-react';
+import { TrendingDown, X, CheckCircle, ShieldCheck, Lock } from 'lucide-react';
 import { api } from '@/lib/api';
+import { useRole } from '@/lib/roleContext';
 
 interface SpilloverModalProps {
   isOpen: boolean;
@@ -11,6 +12,7 @@ interface SpilloverModalProps {
 }
 
 export const SpilloverModal: React.FC<SpilloverModalProps> = ({ isOpen, onClose, projectId }) => {
+  const { can, profile } = useRole();
   const [spillovers, setSpillovers] = useState<any[]>([]);
   const [resolvedActions, setResolvedActions] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
@@ -28,6 +30,7 @@ export const SpilloverModal: React.FC<SpilloverModalProps> = ({ isOpen, onClose,
   if (!isOpen) return null;
 
   const handleResolve = async (taskId: string, action: string) => {
+    if (!can('canTriageSpillover')) return;
     try {
       await api.resolveSpillover({
         project_id: projectId,
@@ -92,7 +95,7 @@ export const SpilloverModal: React.FC<SpilloverModalProps> = ({ isOpen, onClose,
                     <div className="text-xs text-emerald-400 font-bold flex items-center gap-1.5">
                       <CheckCircle className="w-4 h-4" /> Action Executed: <strong>{resolvedActions[item.task_id]}</strong>
                     </div>
-                  ) : (
+                  ) : can('canTriageSpillover') ? (
                     <div className="flex items-center space-x-2">
                       <button
                         onClick={() => handleResolve(item.task_id, "Rolled forward to next sprint")}
@@ -106,6 +109,14 @@ export const SpilloverModal: React.FC<SpilloverModalProps> = ({ isOpen, onClose,
                       >
                         Split Scope
                       </button>
+                    </div>
+                  ) : (
+                    <div
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-zinc-800/80 border border-zinc-700/50 text-zinc-500 font-medium text-xs cursor-not-allowed"
+                      title={`Role "${profile.title}" cannot resolve spillover (Requires Scrum Master or Admin)`}
+                    >
+                      <Lock className="w-3.5 h-3.5 text-zinc-500" />
+                      <span>Resolution Restricted (SM Only)</span>
                     </div>
                   )}
                   <span className="text-[10px] text-zinc-500 font-mono">Assignee: {item.assignee}</span>

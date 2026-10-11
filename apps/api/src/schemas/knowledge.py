@@ -13,10 +13,18 @@ class NotebookLMReference(BaseModel):
 
 class CitationSnippet(BaseModel):
     source_title: str
-    source_type: str # NOTEBOOKLM, PRD, CONFLUENCE, MEETING, ADR
+    source_type: str # JIRA_STORY, JIRA_BUG, JIRA_TASK, CONFLUENCE_PAGE, GIT_REPOSITORY, PROJECT_PRD, OPEN_QUESTION
     section_or_page: str
     snippet_text: str
     source_uri: Optional[str] = None
+    ticket_key: Optional[str] = None
+
+class ScannedSourcesStats(BaseModel):
+    confluence_pages: int = 0
+    jira_items: int = 0
+    git_repos: int = 0
+    project_docs: int = 0
+    open_questions: int = 0
 
 class KnowledgeItem(BaseModel):
     id: str
@@ -32,13 +40,22 @@ class KnowledgeItem(BaseModel):
 class KnowledgeSearchQuery(BaseModel):
     project_id: str
     query: str
-    limit: int = 5
+    limit: int = 15
     source_types: Optional[List[str]] = None
 
 class KnowledgeSearchResponse(BaseModel):
     query: str
     project_id: str
+    has_details: bool = True
     answer: str
     citations: List[CitationSnippet] = Field(default_factory=list)
+    scanned_sources: ScannedSourcesStats = Field(default_factory=ScannedSourcesStats)
     notebooklm_link: Optional[str] = None
     confidence_score: float = 0.96
+
+class ProjectKnowledgeSyncResponse(BaseModel):
+    project_id: str
+    status: str
+    scanned_sources: ScannedSourcesStats
+    message: str
+    synced_at: datetime = Field(default_factory=datetime.utcnow)

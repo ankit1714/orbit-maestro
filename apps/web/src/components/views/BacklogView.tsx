@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Layers, Bookmark, CheckSquare, AlertCircle, TestTube, ChevronDown, Plus, Sparkles, Inbox, FileText, ArrowRight, UploadCloud, ExternalLink, CheckCircle2, X, RefreshCw, User, Calendar, Clock } from 'lucide-react';
+import { Layers, Bookmark, CheckSquare, AlertCircle, TestTube, ChevronDown, Plus, Sparkles, Inbox, FileText, ArrowRight, UploadCloud, ExternalLink, CheckCircle2, X, RefreshCw, User, Calendar, Clock, Lock } from 'lucide-react';
 import { api } from '@/lib/api';
+import { useRole } from '@/lib/roleContext';
 
 interface BacklogViewProps {
   project: any;
@@ -19,6 +20,7 @@ export const BacklogView: React.FC<BacklogViewProps> = ({
   onRefresh,
   onSwitchView,
 }) => {
+  const { can, profile } = useRole();
   const [generating, setGenerating] = useState(false);
   const [uploadingJira, setUploadingJira] = useState(false);
   const [showJiraModal, setShowJiraModal] = useState(false);
@@ -82,6 +84,19 @@ export const BacklogView: React.FC<BacklogViewProps> = ({
 
   return (
     <div className="p-6 max-w-7xl mx-auto w-full space-y-4 flex-1">
+      {/* Read Only Persona Banner */}
+      {profile.permissions.isReadOnly && (
+        <div className="p-3 rounded-xl border border-zinc-700/60 bg-zinc-800/60 flex items-center justify-between text-xs text-zinc-300">
+          <div className="flex items-center gap-2">
+            <Lock className="w-4 h-4 text-purple-400 shrink-0" />
+            <span>Viewing as <strong>{profile.title}</strong> — Backlog is in read-only observation mode. Backlog mutations and Jira sync are disabled.</span>
+          </div>
+          <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-zinc-800 text-zinc-400 border border-zinc-700 font-bold">
+            Read Only
+          </span>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between pb-3 border-b border-zinc-800">
         <div>
@@ -116,23 +131,43 @@ export const BacklogView: React.FC<BacklogViewProps> = ({
             </button>
           )}
           {hasBacklog && (
-            <button
-              onClick={() => setShowJiraModal(true)}
-              className="px-3.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold flex items-center gap-1.5 shadow-md shadow-blue-500/20 transition"
-            >
-              <UploadCloud className="w-3.5 h-3.5" />
-              <span>Upload to Jira</span>
-            </button>
+            can('canUploadToJira') ? (
+              <button
+                onClick={() => setShowJiraModal(true)}
+                className="px-3.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold flex items-center gap-1.5 shadow-md shadow-blue-500/20 transition"
+              >
+                <UploadCloud className="w-3.5 h-3.5" />
+                <span>Upload to Jira</span>
+              </button>
+            ) : (
+              <div
+                className="px-3 py-1.5 rounded-lg bg-zinc-800/60 border border-zinc-700/40 text-zinc-500 text-xs flex items-center gap-1.5 cursor-not-allowed opacity-75"
+                title={`Role "${profile.title}" cannot upload to Jira (Requires PO, SM, or Admin)`}
+              >
+                <Lock className="w-3.5 h-3.5 text-zinc-500" />
+                <span>Upload to Jira (PO/SM Only)</span>
+              </div>
+            )
           )}
           {hasRequirements && (
-            <button
-              onClick={handleSynthesize}
-              disabled={generating}
-              className="px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-500 hover:to-indigo-500 text-white text-xs font-semibold flex items-center gap-1.5 shadow-md shadow-brand-500/20 transition"
-            >
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>{generating ? "Synthesizing with Gemini..." : "Synthesize Backlog from PRD"}</span>
-            </button>
+            can('canSynthesizeBacklog') ? (
+              <button
+                onClick={handleSynthesize}
+                disabled={generating}
+                className="px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-500 hover:to-indigo-500 text-white text-xs font-semibold flex items-center gap-1.5 shadow-md shadow-brand-500/20 transition"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>{generating ? "Synthesizing with Gemini..." : "Synthesize Backlog from PRD"}</span>
+              </button>
+            ) : (
+              <div
+                className="px-3 py-1.5 rounded-lg bg-zinc-800/60 border border-zinc-700/40 text-zinc-500 text-xs flex items-center gap-1.5 cursor-not-allowed opacity-75"
+                title={`Role "${profile.title}" cannot synthesize backlog (Requires PO, SM, or Admin)`}
+              >
+                <Lock className="w-3.5 h-3.5 text-zinc-500" />
+                <span>Synthesize Backlog (PO/SM Only)</span>
+              </div>
+            )
           )}
         </div>
       </div>

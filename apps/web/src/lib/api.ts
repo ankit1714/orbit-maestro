@@ -41,6 +41,26 @@ export const api = {
   createProject: (data: any) => fetchApi<any>('/projects', { method: 'POST', body: JSON.stringify(data) }),
   updateProject: (id: string, data: any) => fetchApi<any>(`/projects/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteProject: (id: string) => fetchApi<any>(`/projects/${id}`, { method: 'DELETE' }),
+  addGitRepo: (projectId: string, data: any) =>
+    fetchApi<any>(`/projects/${projectId}/git-repos`, { method: 'POST', body: JSON.stringify(data) }),
+  deleteGitRepo: (projectId: string, repoId: string) =>
+    fetchApi<any>(`/projects/${projectId}/git-repos/${repoId}`, { method: 'DELETE' }),
+  addConfluenceLink: (projectId: string, data: any) =>
+    fetchApi<any>(`/projects/${projectId}/confluence-links`, { method: 'POST', body: JSON.stringify(data) }),
+  deleteConfluenceLink: (projectId: string, linkId: string) =>
+    fetchApi<any>(`/projects/${projectId}/confluence-links/${linkId}`, { method: 'DELETE' }),
+  syncConfluencePage: (projectId: string, linkId: string) =>
+    fetchApi<any>(`/projects/${projectId}/confluence-links/${linkId}/sync`, { method: 'POST' }),
+  syncAllConfluence: (projectId: string) =>
+    fetchApi<any>(`/projects/${projectId}/confluence-sync`, { method: 'POST' }),
+  syncGitRepo: (projectId: string, repoId: string) =>
+    fetchApi<any>(`/projects/${projectId}/git-repos/${repoId}/sync`, { method: 'POST' }),
+  syncAllGit: (projectId: string) =>
+    fetchApi<any>(`/projects/${projectId}/git-sync`, { method: 'POST' }),
+  syncJira: (projectId: string) =>
+    fetchApi<any>(`/projects/${projectId}/jira-sync`, { method: 'POST' }),
+  updateIntegrations: (projectId: string, data: any) =>
+    fetchApi<any>(`/projects/${projectId}/integrations`, { method: 'PATCH', body: JSON.stringify(data) }),
 
   // Document Ingestion & Open Questions
   getRequirements: (projectId: string) => fetchApi<any>(`/ingest/${projectId}`),
@@ -90,6 +110,8 @@ export const api = {
   // Knowledge & NotebookLM
   searchKnowledge: (projectId: string, query: string) =>
     fetchApi<any>('/knowledge/search', { method: 'POST', body: JSON.stringify({ project_id: projectId, query }) }),
+  syncKnowledge: (projectId: string) =>
+    fetchApi<any>(`/knowledge/sync/${projectId}`, { method: 'POST' }),
   getNotebookLMDetails: (projectId: string) => fetchApi<any>(`/knowledge/notebooklm/${projectId}`),
   getKnowledgeItems: (projectId: string) => fetchApi<any[]>(`/knowledge/items/${projectId}`),
 
@@ -103,4 +125,18 @@ export const api = {
     fetchApi<any>('/simulator/run-step-1', { method: 'POST', body: JSON.stringify({ project_id: projectId, file_name: "Claims_Automation_PRD_v1.pdf", use_sample_doc: true }) }),
   runSimulatorStage4: (projectId: string, clarifications: Record<string, string>) =>
     fetchApi<any>('/simulator/run-step-4', { method: 'POST', body: JSON.stringify({ project_id: projectId, clarifications }) }),
+
+  // Users & Roles (Firestore DB)
+  getUsers: (role?: string) => fetchApi<any[]>(`/users${role ? `?role=${role}` : ''}`),
+  getUser: (id: string) => fetchApi<any>(`/users/${id}`),
+  createUser: (data: { name: string; email: string; role: string; title?: string; avatar_url?: string; project_ids?: string[] }) =>
+    fetchApi<any>('/users', { method: 'POST', body: JSON.stringify(data) }),
+  updateUser: (id: string, data: any) =>
+    fetchApi<any>(`/users/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  updateUserRole: (id: string, role: string) =>
+    fetchApi<any>(`/users/${id}/role`, { method: 'PATCH', body: JSON.stringify({ role }) }),
+  deleteUser: (id: string) =>
+    fetchApi<any>(`/users/${id}`, { method: 'DELETE' }),
+  seedDefaultUsers: () =>
+    fetchApi<any[]>('/users/seed-defaults', { method: 'POST' }),
 };

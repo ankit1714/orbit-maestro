@@ -14,8 +14,10 @@ from apps.api.src.schemas.project import (
     ProjectUpdate,
     TeamMember,
     GitSettings,
+    GitRepoLink,
     JiraSettings,
     ConfluenceSettings,
+    ConfluencePageLink,
     NotebookLMSettings
 )
 from apps.api.src.schemas.requirement import (
@@ -74,7 +76,9 @@ from apps.api.src.schemas.knowledge import (
     CitationSnippet,
     KnowledgeItem,
     KnowledgeSearchQuery,
-    KnowledgeSearchResponse
+    KnowledgeSearchResponse,
+    ScannedSourcesStats,
+    ProjectKnowledgeSyncResponse
 )
 from apps.api.src.schemas.analytics import (
     SprintSnapshot,

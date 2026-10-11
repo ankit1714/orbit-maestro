@@ -61,12 +61,23 @@ class ProviderFactory:
     @classmethod
     def get_doc_provider(cls, project_id: str) -> BaseDocProvider:
         project = cls.get_project(project_id)
-        if project and project.mode == ProjectMode.ENTERPRISE_SYNC and project.confluence_settings.enabled:
+        if not project:
+            return NativeFirestoreDocProvider()
+
+        instance_url = (
+            project.confluence_settings.instance_url
+            or (f"{project.jira_settings.instance_url.rstrip('/')}/wiki" if project.jira_settings.instance_url else None)
+        )
+        user_email = project.confluence_settings.user_email or project.jira_settings.user_email
+        api_token = project.confluence_settings.api_token or project.jira_settings.api_token
+        space_key = project.confluence_settings.space_key or project.key
+
+        if instance_url and user_email and api_token:
             return ConfluenceDocProvider(
-                instance_url=project.confluence_settings.instance_url,
-                user_email=project.confluence_settings.user_email,
-                api_token=project.confluence_settings.api_token,
-                space_key=project.confluence_settings.space_key,
+                instance_url=instance_url,
+                user_email=user_email,
+                api_token=api_token,
+                space_key=space_key,
                 parent_page_id=project.confluence_settings.parent_page_id
             )
         return NativeFirestoreDocProvider()
@@ -74,13 +85,19 @@ class ProviderFactory:
     @classmethod
     def get_git_provider(cls, project_id: str) -> BaseGitProvider:
         project = cls.get_project(project_id)
-        if project and project.git_settings.enabled and (project.git_settings.repo_url or project.git_settings.repo_name):
-            return GitHubTrackerProvider(
-                repo_url=project.git_settings.repo_url,
-                repo_owner=project.git_settings.repo_owner,
-                repo_name=project.git_settings.repo_name,
-                access_token=project.git_settings.access_token
-            )
+        if project and project.git_settings:
+            repo_url = project.git_settings.repo_url
+            if not repo_url and project.git_settings.repositories:
+                primary = next((r for r in project.git_settings.repositories if getattr(r, "is_primary", False)), project.git_settings.repositories[0])
+                repo_url = getattr(primary, "repo_url", None)
+
+            if repo_url or project.git_settings.repo_name:
+                return GitHubTrackerProvider(
+                    repo_url=repo_url,
+                    repo_owner=project.git_settings.repo_owner,
+                    repo_name=project.git_settings.repo_name,
+                    access_token=project.git_settings.access_token
+                )
         return NativeGitTrackerProvider()
 
     @classmethod

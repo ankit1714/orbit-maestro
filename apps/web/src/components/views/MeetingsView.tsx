@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useState } from 'react';
-import { AlignLeft, Sparkles, Workflow, FileSearch, CheckCircle, AlertOctagon } from 'lucide-react';
+import { AlignLeft, Sparkles, Workflow, FileSearch, CheckCircle, AlertOctagon, Lock } from 'lucide-react';
 import { api } from '@/lib/api';
+import { useRole } from '@/lib/roleContext';
 
 interface MeetingsViewProps {
   project: any;
@@ -11,6 +12,7 @@ interface MeetingsViewProps {
 }
 
 export const MeetingsView: React.FC<MeetingsViewProps> = ({ project, onSwitchView, onRefresh }) => {
+  const { can, profile } = useRole();
   const [meetingType, setMeetingType] = useState<'STANDUP' | 'REVIEW' | 'RETROSPECTIVE'>('STANDUP');
   const [transcript, setTranscript] = useState('');
   const [result, setResult] = useState<any>(null);
@@ -38,6 +40,7 @@ Product Owner: Agreed to follow up with external vendor today.`);
   };
 
   const handleProcess = async () => {
+    if (!can('canProcessMeetings')) return;
     if (!transcript.trim()) return;
     const pId = project?.id;
     if (!pId) return;
@@ -59,6 +62,19 @@ Product Owner: Agreed to follow up with external vendor today.`);
 
   return (
     <div className="p-6 max-w-7xl mx-auto w-full space-y-6 flex-1 flex flex-col">
+      {/* Observer Mode Persona Banner */}
+      {!can('canProcessMeetings') && (
+        <div className="p-3 rounded-xl border border-zinc-700/60 bg-zinc-800/60 flex items-center justify-between text-xs text-zinc-300">
+          <div className="flex items-center gap-2">
+            <Lock className="w-4 h-4 text-purple-400 shrink-0" />
+            <span>Viewing as <strong>{profile.title}</strong> — Meeting intelligence processing is restricted to Scrum Master, Product Owner, and Workspace Admin.</span>
+          </div>
+          <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-zinc-800 text-zinc-400 border border-zinc-700 font-bold">
+            Observer Mode
+          </span>
+        </div>
+      )}
+
       <div className="flex items-center justify-between pb-3 border-b border-zinc-800">
         <div>
           <div className="flex items-center gap-2">
@@ -116,18 +132,28 @@ Product Owner: Agreed to follow up with external vendor today.`);
           />
 
           <div className="flex justify-end pt-2">
-            <button
-              onClick={handleProcess}
-              disabled={loading || !transcript.trim()}
-              className={`px-4 py-2 rounded-lg font-bold text-xs flex items-center gap-2 shadow-md transition ${
-                loading || !transcript.trim()
-                  ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed'
-                  : 'bg-purple-600 hover:bg-purple-500 text-white shadow-purple-500/20'
-              }`}
-            >
-              <Sparkles className="w-4 h-4" />
-              <span>{loading ? "Extracting Decisions with Gemini..." : "Extract Decisions & Mutate State"}</span>
-            </button>
+            {can('canProcessMeetings') ? (
+              <button
+                onClick={handleProcess}
+                disabled={loading || !transcript.trim()}
+                className={`px-4 py-2 rounded-lg font-bold text-xs flex items-center gap-2 shadow-md transition ${
+                  loading || !transcript.trim()
+                    ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed'
+                    : 'bg-purple-600 hover:bg-purple-500 text-white shadow-purple-500/20'
+                }`}
+              >
+                <Sparkles className="w-4 h-4" />
+                <span>{loading ? "Extracting Decisions with Gemini..." : "Extract Decisions & Mutate State"}</span>
+              </button>
+            ) : (
+              <div
+                className="px-4 py-2 rounded-lg bg-zinc-800/80 border border-zinc-700/50 text-zinc-500 font-bold text-xs flex items-center gap-2 cursor-not-allowed opacity-75"
+                title={`Role "${profile.title}" cannot process meetings (Requires SM, PO, or Admin)`}
+              >
+                <Lock className="w-4 h-4 text-zinc-500" />
+                <span>Process Decisions (SM/PO Only)</span>
+              </div>
+            )}
           </div>
         </div>
 

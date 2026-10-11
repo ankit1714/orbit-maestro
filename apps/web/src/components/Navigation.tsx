@@ -14,8 +14,12 @@ import {
   Check,
   Trash2,
   Users,
-  Link as LinkIcon
+  Link as LinkIcon,
+  Lock
 } from 'lucide-react';
+import { useRole } from '@/lib/roleContext';
+import { RoleSwitcher } from '@/components/RoleSwitcher';
+import { CreateProjectModal } from '@/components/CreateProjectModal';
 
 interface NavigationProps {
   projects: any[];
@@ -46,63 +50,13 @@ export const Navigation: React.FC<NavigationProps> = ({
 }) => {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [createModalOpen, setCreateModalOpen] = useState(false);
+  const { can, profile } = useRole();
 
-  // New Project Form State
-  const [newProjectName, setNewProjectName] = useState('');
-  const [newProjectKey, setNewProjectKey] = useState('');
-  const [newProjectDesc, setNewProjectDesc] = useState('');
-  const [newJiraLink, setNewJiraLink] = useState('');
-  const [newDevNames, setNewDevNames] = useState('');
-  const [newProjectMode, setNewProjectMode] = useState('ENTERPRISE_SYNC');
-  const [newGitRepo, setNewGitRepo] = useState('');
-  const [newNotebookLMUrl, setNewNotebookLMUrl] = useState('');
-
-  const handleJiraLinkChange = (link: string) => {
-    setNewJiraLink(link);
-    if (link) {
-      const match = link.match(/\/(?:projects|browse)\/([A-Za-z0-9_]+)/);
-      if (match && !newProjectKey) {
-        setNewProjectKey(match[1].toUpperCase());
-      }
-      setNewProjectMode('ENTERPRISE_SYNC');
-    }
-  };
-
-  const handleCreateSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newProjectName) return;
-    const finalKey = (newProjectKey || (newJiraLink.match(/\/(?:projects|browse)\/([A-Za-z0-9_]+)/)?.[1]) || 'SCRUM').toUpperCase();
-    
-    onCreateProject({
-      name: newProjectName,
-      key: finalKey,
-      description: newProjectDesc || `${newProjectName} workspace`,
-      jira_project_link: newJiraLink.trim() || undefined,
-      developer_skills_input: newDevNames.trim() || undefined,
-      developer_names: newDevNames
-        ? newDevNames.split(/[\n;]/).map((n) => n.trim()).filter(Boolean)
-        : undefined,
-      mode: newProjectMode,
-      git_settings: {
-        enabled: true,
-        repo_url: newGitRepo || undefined
-      },
-      notebooklm_settings: {
-        enabled: true,
-        notebook_url: newNotebookLMUrl || undefined,
-        workspace_name: `${newProjectName} Knowledge Hub`
-      }
-    });
-
-    setCreateModalOpen(false);
-    setNewProjectName('');
-    setNewProjectKey('');
-    setNewProjectDesc('');
-    setNewJiraLink('');
-    setNewDevNames('');
-    setNewGitRepo('');
-    setNewNotebookLMUrl('');
-  };
+  React.useEffect(() => {
+    const handleOpen = () => setCreateModalOpen(true);
+    window.addEventListener('open-create-project-modal', handleOpen);
+    return () => window.removeEventListener('open-create-project-modal', handleOpen);
+  }, []);
 
   const getFlashBadge = () => {
     if (flashStatus === "OFF_TRACK") {
@@ -156,9 +110,11 @@ export const Navigation: React.FC<NavigationProps> = ({
             >
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
               <span className="font-semibold text-zinc-100">{activeProject?.name || "Select Project"}</span>
-              <span className="text-[10px] px-1.5 py-0.2 rounded font-mono uppercase bg-zinc-800 text-zinc-300 border border-zinc-700">
-                {activeProject?.jira_settings?.project_key || activeProject?.key || "SCRUM"}
-              </span>
+              {activeProject && (
+                <span className="text-[10px] px-1.5 py-0.2 rounded font-mono uppercase bg-zinc-800 text-zinc-300 border border-zinc-700">
+                  {activeProject?.jira_settings?.project_key || activeProject?.key || ""}
+                </span>
+              )}
               <ChevronDown className="w-3.5 h-3.5 text-zinc-400" />
             </button>
 
@@ -205,35 +161,47 @@ export const Navigation: React.FC<NavigationProps> = ({
 
                       <div className="flex items-center gap-1.5 shrink-0">
                         {activeProject?.id === proj.id && <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />}
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (window.confirm(`Are you sure you want to permanently delete project "${proj.name}" [${proj.key}] from GCP Firestore?`)) {
-                              onDeleteProject(proj.id);
-                            }
-                          }}
-                          className="p-1 rounded opacity-60 hover:opacity-100 hover:bg-rose-500/20 text-zinc-400 hover:text-rose-400 transition"
-                          title="Delete project from GCP Firestore"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                        {can('canDeleteProject') && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (window.confirm(`Are you sure you want to permanently delete project "${proj.name}" [${proj.key}] from GCP Firestore?`)) {
+                                onDeleteProject(proj.id);
+                              }
+                            }}
+                            className="p-1 rounded opacity-60 hover:opacity-100 hover:bg-rose-500/20 text-zinc-400 hover:text-rose-400 transition"
+                            title="Delete project from GCP Firestore"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                       </div>
                     </div>
                   ))}
                 </div>
 
                 <div className="pt-1.5 border-t border-zinc-800">
-                  <button
-                    onClick={() => {
-                      setDropdownOpen(false);
-                      setCreateModalOpen(true);
-                    }}
-                    className="w-full text-left p-2 rounded-lg text-xs text-brand-400 hover:bg-brand-500/10 flex items-center gap-2 font-semibold transition"
-                  >
-                    <Plus className="w-4 h-4" />
-                    <span>Create New Project...</span>
-                  </button>
+                  {can('canCreateProject') ? (
+                    <button
+                      onClick={() => {
+                        setDropdownOpen(false);
+                        setCreateModalOpen(true);
+                      }}
+                      className="w-full text-left p-2 rounded-lg text-xs text-brand-400 hover:bg-brand-500/10 flex items-center gap-2 font-semibold transition"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>Create New Project...</span>
+                    </button>
+                  ) : (
+                    <div 
+                      className="w-full p-2 rounded-lg text-xs text-zinc-500 flex items-center gap-2 font-medium cursor-not-allowed opacity-60"
+                      title="Only Product Owner, Scrum Master, or Admin can create projects"
+                    >
+                      <Lock className="w-3.5 h-3.5 text-zinc-600" />
+                      <span>Create Project (Restricted)</span>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -259,13 +227,23 @@ export const Navigation: React.FC<NavigationProps> = ({
         {/* Right: Governance Badges & AI Status */}
         <div className="flex items-center space-x-3">
           {/* Interactive Pipeline Simulator Button */}
-          <button
-            onClick={onOpenSimulator}
-            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-brand-600 via-indigo-600 to-purple-600 hover:from-brand-500 hover:to-purple-500 text-white shadow-lg shadow-brand-500/20 text-xs font-semibold transition border border-white/10"
-          >
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>Run Pipeline: PRD → Backlog</span>
-          </button>
+          {can('canIngestPRD') ? (
+            <button
+              onClick={onOpenSimulator}
+              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-brand-600 via-indigo-600 to-purple-600 hover:from-brand-500 hover:to-purple-500 text-white shadow-lg shadow-brand-500/20 text-xs font-semibold transition border border-white/10"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Run Pipeline: PRD → Backlog</span>
+            </button>
+          ) : (
+            <div
+              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-500 text-xs cursor-not-allowed opacity-75"
+              title={`Role "${profile.name}" cannot trigger pipeline (Requires PO or Admin)`}
+            >
+              <Lock className="w-3.5 h-3.5 text-zinc-500" />
+              <span>Run Pipeline (PO Only)</span>
+            </div>
+          )}
 
           {/* Approvals Badge */}
           <button
@@ -291,133 +269,20 @@ export const Navigation: React.FC<NavigationProps> = ({
             <Sparkles className="w-4 h-4 text-brand-400" />
           </button>
 
-          {/* User Avatar */}
-          <div className="w-7 h-7 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-[11px] font-bold text-white border border-white/20">
-            PO
-          </div>
+          {/* Interactive Role Switcher Dropdown */}
+          <RoleSwitcher />
         </div>
       </header>
 
       {/* CREATE PROJECT MODAL */}
-      {createModalOpen && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="w-full max-w-lg bg-surface-900 border border-zinc-700 rounded-2xl shadow-2xl overflow-hidden p-6 space-y-4">
-            <div className="flex justify-between items-center pb-2 border-b border-zinc-800">
-              <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                <Layers className="w-4 h-4 text-brand-400" />
-                Create New Scrum Project
-              </h3>
-              <button onClick={() => setCreateModalOpen(false)} className="text-zinc-500 hover:text-zinc-300 text-xs">
-                ✕
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateSubmit} className="space-y-3.5 text-xs">
-              <div>
-                <label className="block text-zinc-400 mb-1 font-medium">Project Name *</label>
-                <input
-                  type="text"
-                  required
-                  value={newProjectName}
-                  onChange={(e) => setNewProjectName(e.target.value)}
-                  placeholder="e.g. AI Scrum Master"
-                  className="w-full bg-surface-950 border border-zinc-800 rounded-lg p-2.5 text-white focus:outline-none focus:border-brand-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-zinc-400 mb-1 font-medium flex items-center gap-1.5">
-                  <LinkIcon className="w-3 h-3 text-blue-400" />
-                  <span>Jira Project Link (Auto-detects Key & Live Sync)</span>
-                </label>
-                <input
-                  type="text"
-                  value={newJiraLink}
-                  onChange={(e) => handleJiraLinkChange(e.target.value)}
-                  placeholder="https://the-ai-scrum-master.atlassian.net/jira/software/projects/SCRUM/summary"
-                  className="w-full bg-surface-950 border border-zinc-800 rounded-lg p-2.5 text-white font-mono text-[11px] focus:outline-none focus:border-brand-500"
-                />
-                <span className="text-[10px] text-zinc-500 mt-0.5 block">
-                  Paste full Jira board or project link to sync tickets, stories, points, and sprints automatically.
-                </span>
-              </div>
-
-              <div>
-                <label className="block text-zinc-400 mb-1 font-medium flex items-center justify-between">
-                  <span className="flex items-center gap-1.5">
-                    <Users className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>Developer Resources & Skill Profiles (Name: Skills)</span>
-                  </span>
-                  <span className="text-[10px] text-brand-400 font-mono">AI Matching</span>
-                </label>
-                <textarea
-                  rows={3}
-                  value={newDevNames}
-                  onChange={(e) => setNewDevNames(e.target.value)}
-                  placeholder={`Ankit Maurya: Python, FastAPI, Cloud Run, Vertex AI\nSarah Chen: React, Next.js, TypeScript, UI Components\nDavid Kim: QA, Pytest, Cypress, Automation Testing`}
-                  className="w-full bg-surface-950 border border-zinc-800 rounded-lg p-2.5 text-white font-mono text-[11px] focus:outline-none focus:border-brand-500"
-                />
-                <span className="text-[10px] text-zinc-500 mt-0.5 block">
-                  AI automatically matches tasks to developers based on their technical skills (e.g. 96% match).
-                </span>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-zinc-400 mb-1 font-medium">Project Key Prefix</label>
-                  <input
-                    type="text"
-                    maxLength={10}
-                    value={newProjectKey}
-                    onChange={(e) => setNewProjectKey(e.target.value.toUpperCase())}
-                    placeholder="e.g. SCRUM, PAY, FIN"
-                    className="w-full bg-surface-950 border border-zinc-800 rounded-lg p-2.5 text-white font-mono uppercase focus:outline-none focus:border-brand-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-zinc-400 mb-1 font-medium">Operating Mode</label>
-                  <select
-                    value={newProjectMode}
-                    onChange={(e) => setNewProjectMode(e.target.value)}
-                    className="w-full bg-surface-950 border border-zinc-800 rounded-lg p-2.5 text-white focus:outline-none focus:border-brand-500"
-                  >
-                    <option value="ENTERPRISE_SYNC">Enterprise Sync (Jira Cloud Direct)</option>
-                    <option value="STANDALONE">Standalone (Native Firestore)</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-zinc-400 mb-1 font-medium">Description (Optional)</label>
-                <input
-                  type="text"
-                  value={newProjectDesc}
-                  onChange={(e) => setNewProjectDesc(e.target.value)}
-                  placeholder="Workspace scope and delivery milestones"
-                  className="w-full bg-surface-950 border border-zinc-800 rounded-lg p-2.5 text-white focus:outline-none focus:border-brand-500"
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-3 border-t border-zinc-800">
-                <button
-                  type="button"
-                  onClick={() => setCreateModalOpen(false)}
-                  className="px-3.5 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-medium"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-500 text-white font-semibold shadow-md shadow-brand-500/20"
-                >
-                  Create & Save to GCP
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <CreateProjectModal
+        isOpen={createModalOpen}
+        onClose={() => setCreateModalOpen(false)}
+        onProjectCreated={(newProj) => {
+          onCreateProject(newProj);
+          setCreateModalOpen(false);
+        }}
+      />
     </>
   );
 };

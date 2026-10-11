@@ -15,6 +15,7 @@ from apps.api.src.api.governance import router as governance_router
 from apps.api.src.api.knowledge import router as knowledge_router
 from apps.api.src.api.reports import router as reports_router
 from apps.api.src.api.simulator import router as simulator_router
+from apps.api.src.api.users import router as users_router
 
 # Setup Logging
 logging.basicConfig(level=logging.INFO)
@@ -52,15 +53,7 @@ app.include_router(governance_router, prefix=api_prefix)
 app.include_router(knowledge_router, prefix=api_prefix)
 app.include_router(reports_router, prefix=api_prefix)
 app.include_router(simulator_router, prefix=api_prefix)
-
-@app.on_event("startup")
-def startup_event():
-    try:
-        from scripts.seed_project_data import seed
-        seed()
-        logger.info("Startup project seeder completed successfully.")
-    except Exception as e:
-        logger.warning(f"Startup seeder warning: {e}")
+app.include_router(users_router, prefix=api_prefix)
 
 @app.get("/")
 def root():

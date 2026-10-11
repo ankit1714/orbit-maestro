@@ -98,15 +98,6 @@ npm run dev
 ```
 The Web Cockpit will be live on [http://localhost:3000](http://localhost:3000).
 
-#### 4. Preload Sample Multi-Project Data (Terminal 3 or after backend is running)
-```bash
-source .venv/bin/activate
-python scripts/seed_project_data.py
-```
-This seeds sample data into your local environment:
-- **Project 1:** `Customer Claims Automation` (Standalone Mode with GitHub telemetry & NotebookLM)
-- **Project 2:** `FinTech Payment Modernization` (Enterprise Sync Mode with Jira & Confluence)
-
 ---
 
 ### Approach C: Standalone Production Builds
@@ -165,8 +156,8 @@ You can issue high-level instructions directly in natural language:
 
 - **Full Stack Build & Run:**
   > *"Build the docker images and run the full stack in the background. Verify that the health endpoint returns status 200."*
-- **Run Backend & Seed Data:**
-  > *"Start the FastAPI server on port 8000, seed the test projects with `scripts/seed_project_data.py`, and test the `/v1/projects` endpoint."*
+- **Run Backend & Create Project:**
+  > *"Start the FastAPI server on port 8000 and test creating a new project via the `/v1/projects` endpoint."*
 - **Run Frontend:**
   > *"Change directory to apps/web and run the Next.js dev server. Tell me if there are any build or TypeScript warnings."*
 - **Diagnose & Fix Test Failures:**

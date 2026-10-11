@@ -37,7 +37,6 @@ ai-scrum-master/
 │   └── terraform/               # Enterprise Terraform Blueprint (prod, dev, modules)
 ├── scripts/
 │   ├── bootstrap_gcp.sh         # Automated GCP provisioning script
-│   ├── seed_project_data.py     # Multi-project sample data preloader
 │   └── setup_local_env.sh       # Local virtualenv and dependencies setup
 ├── cloudbuild.yaml              # Cloud Build CI/CD pipeline
 ├── docker-compose.yaml          # Multi-container local orchestration
@@ -52,11 +51,8 @@ ai-scrum-master/
 
 ### Option A: Local Terminal (Docker Compose)
 ```bash
-# 1. Build and start both API and Web UI
+# Build and start both API and Web UI
 docker compose up --build
-
-# 2. (Optional) Seed sample data
-python scripts/seed_project_data.py
 ```
 - **Web Cockpit:** [http://localhost:3000](http://localhost:3000)
 - **FastAPI Backend & Swagger Docs:** [http://localhost:8000/docs](http://localhost:8000/docs)
@@ -91,16 +87,6 @@ curl -fsSL https://antigravity.google/cli/install.sh | bash
 # Launch TUI cockpit
 agy
 ```
-
----
-
-### Preload Sample Multi-Project Data
-```bash
-python scripts/seed_project_data.py
-```
-This preloads two projects:
-1. `Customer Claims Automation` (Standalone Mode with GitHub & NotebookLM)
-2. `FinTech Payment Modernization` (Enterprise Sync Mode with Jira & Confluence)
 
 ---
 

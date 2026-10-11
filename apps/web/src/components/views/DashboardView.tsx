@@ -24,16 +24,42 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onSwitchView,
   onOpenSimulator,
 }) => {
+  if (!project) {
+    return (
+      <div className="p-8 max-w-4xl mx-auto w-full flex-1 flex flex-col items-center justify-center text-center space-y-4 my-auto">
+        <div className="w-16 h-16 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center shadow-lg">
+          <Layers className="w-8 h-8 text-brand-400" />
+        </div>
+        <div className="space-y-1.5">
+          <h2 className="text-lg font-bold text-white">No Projects in Database</h2>
+          <p className="text-xs text-zinc-400 max-w-md">
+            All seed entries have been removed. Create a new project using the button below or &quot;+ New Project&quot; in the header to verify backend database storage and integrations.
+          </p>
+        </div>
+        <div className="pt-2">
+          <button
+            onClick={() => {
+              window.dispatchEvent(new CustomEvent('open-create-project-modal'));
+            }}
+            className="px-4 py-2 rounded-lg bg-brand-600 hover:bg-brand-500 text-white font-semibold text-xs shadow-md shadow-brand-500/20"
+          >
+            + Create First Project
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   const isOffTrack = flashHealth?.status === "OFF_TRACK";
   const isAtRisk = flashHealth?.status === "AT_RISK";
 
-  const totalPoints = backlog?.total_points || sprint?.planned_points || 39;
-  const deliveredPoints = sprint?.delivered_points || 0;
+  const totalPoints = backlog?.total_points ?? sprint?.planned_points ?? 0;
+  const deliveredPoints = sprint?.delivered_points ?? 0;
   const completionPct = totalPoints > 0 ? Math.round((deliveredPoints / totalPoints) * 100) : 0;
-  const totalTasks = backlog?.total_tasks || 10;
-  const totalEpics = backlog?.total_epics || 3;
-  const isJira = backlog?.source === "JIRA" || sprint?.source === "JIRA";
-  const jiraKey = project?.jira_settings?.project_key || project?.key || "SCRUM";
+  const totalTasks = backlog?.total_tasks ?? 0;
+  const totalEpics = backlog?.total_epics ?? 0;
+  const isJira = Boolean(project?.mode === "ENTERPRISE_SYNC" && project?.jira_settings?.enabled);
+  const jiraKey = project?.jira_settings?.project_key || project?.key || "";
 
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto w-full">
@@ -41,17 +67,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-zinc-800">
         <div>
           <div className="flex items-center gap-2">
-            <span className="font-mono text-brand-400 font-bold text-sm">[{jiraKey}]</span>
+            {jiraKey && <span className="font-mono text-brand-400 font-bold text-sm">[{jiraKey}]</span>}
             <h1 className="text-xl font-bold text-white">
               {project?.name || "AI Scrum Master"}
             </h1>
             <span className="text-xs px-2.5 py-0.5 rounded-full bg-blue-500/10 text-blue-300 border border-blue-500/20 font-medium flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              {sprint?.name || "Active Jira Sprint"}
+              {sprint?.name || (isJira ? "Active Jira Sprint" : "Sprint 1")}
             </span>
           </div>
           <p className="text-xs text-zinc-400 mt-1">
-            Goal: <span className="text-zinc-200 font-medium">{sprint?.goal || project?.business_objective || "Real-time Jira Sprint tracking and automated delivery execution."}</span>
+            Goal: <span className="text-zinc-200 font-medium">{sprint?.goal || project?.business_objective || "Awaiting sprint goal commitment."}</span>
           </p>
         </div>
         <div className="flex items-center space-x-2">

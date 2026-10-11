@@ -58,3 +58,8 @@ Thumbs.db
 /apps/web/.next/
 /apps/web/node_modules/
 /apps/src/api/__pycache__/
+
+# Local mock database
+data/
+*.db
+local_firestore.json

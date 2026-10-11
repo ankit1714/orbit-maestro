@@ -164,8 +164,11 @@ export default function CockpitPage() {
               requirements={requirements}
               questions={questions}
               onSwitchView={(v) => setCurrentView(v)}
-              onOpenSimulator={() => setSimulatorOpen(true)}
               onRefresh={handleRefresh}
+              onProjectUpdated={(updated) => {
+                setActiveProject(updated);
+                setProjects((prev) => prev.map((p) => p.id === updated.id ? updated : p));
+              }}
             />
           )}
 
@@ -260,6 +263,7 @@ export default function CockpitPage() {
         onClose={() => setCommandPaletteOpen(false)}
         onSwitchView={(v) => setCurrentView(v)}
         approvalsCount={approvalsCount}
+        activeProject={activeProject}
       />
 
       {/* Ingestion & Backlog Synthesis Simulator */}
