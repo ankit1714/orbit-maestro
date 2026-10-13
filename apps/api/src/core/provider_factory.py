@@ -67,9 +67,21 @@ class ProviderFactory:
         instance_url = (
             project.confluence_settings.instance_url
             or (f"{project.jira_settings.instance_url.rstrip('/')}/wiki" if project.jira_settings.instance_url else None)
+            or settings.CONFLUENCE_INSTANCE_URL
+            or (f"{settings.JIRA_INSTANCE_URL.rstrip('/')}/wiki" if settings.JIRA_INSTANCE_URL else None)
         )
-        user_email = project.confluence_settings.user_email or project.jira_settings.user_email
-        api_token = project.confluence_settings.api_token or project.jira_settings.api_token
+        user_email = (
+            project.confluence_settings.user_email
+            or project.jira_settings.user_email
+            or settings.CONFLUENCE_USER_EMAIL
+            or settings.JIRA_USER_EMAIL
+        )
+        api_token = (
+            project.confluence_settings.api_token
+            or project.jira_settings.api_token
+            or settings.CONFLUENCE_API_TOKEN
+            or settings.JIRA_API_TOKEN
+        )
         space_key = project.confluence_settings.space_key or project.key
 
         if instance_url and user_email and api_token:

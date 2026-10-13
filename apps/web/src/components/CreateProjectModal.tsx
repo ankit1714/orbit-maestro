@@ -153,7 +153,6 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
         setProjectKey(match[1].toUpperCase());
         setIsKeyManuallyEdited(true);
       }
-      setProjectMode('ENTERPRISE_SYNC');
     }
   };
 

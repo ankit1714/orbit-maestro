@@ -9,12 +9,40 @@ from apps.api.src.core.firestore_client import db
 logger = logging.getLogger("risk_agent")
 
 class RiskRadarAgent:
+    def _get_project_tasks(self, project_id: str) -> List[Dict[str, Any]]:
+        task_docs = list(db.collection("tasks").where("project_id", "==", project_id).stream())
+        tasks = [td.to_dict() for td in task_docs]
+        if not tasks:
+            try:
+                from apps.api.src.core.provider_factory import provider_factory
+                jira_provider = provider_factory.get_jira_provider(project_id)
+                if jira_provider._is_configured():
+                    backlog = jira_provider.get_backlog(project_id)
+                    all_items = []
+                    for e in backlog.epics:
+                        for s in e.stories:
+                            if s.tasks:
+                                all_items.extend(s.tasks)
+                            else:
+                                all_items.append(s)
+                    for item in all_items:
+                        tasks.append({
+                            "id": getattr(item, "id", getattr(item, "key", "")),
+                            "key": getattr(item, "key", ""),
+                            "title": getattr(item, "title", ""),
+                            "status": getattr(item, "status", "TODO").upper().replace(" ", "_"),
+                            "effort_days": getattr(item, "effort_days", 1.5) if hasattr(item, "effort_days") else ((getattr(item, "story_points", 3) or 3) * 0.5),
+                            "is_blocked": getattr(item, "is_blocked", False) or getattr(item, "status", "").lower() in ["blocked", "impediment"]
+                        })
+            except Exception as e:
+                logger.warning(f"Could not load Jira tasks for risk evaluation: {e}")
+        return tasks
+
     def evaluate_risks(self, project_id: str) -> DependencyDAGResponse:
         logger.info(f"Risk Agent traversing dependency graph for project: {project_id}")
 
-        # Fetch actual tasks for this project
-        task_docs = list(db.collection("tasks").where("project_id", "==", project_id).stream())
-        tasks = [td.to_dict() for td in task_docs]
+        # Fetch actual tasks for this project (from native store or live Jira)
+        tasks = self._get_project_tasks(project_id)
 
         if not tasks:
             # Clean initial state for new project
@@ -73,8 +101,7 @@ class RiskRadarAgent:
         )
 
     def evaluate_health_matrix(self, project_id: str) -> HealthMatrix5D:
-        task_docs = list(db.collection("tasks").where("project_id", "==", project_id).stream())
-        tasks = [td.to_dict() for td in task_docs]
+        tasks = self._get_project_tasks(project_id)
 
         blocked = [t for t in tasks if t.get("status") == "BLOCKED" or t.get("is_blocked")]
         slipping = [t for t in tasks if t.get("status") == "IN_PROGRESS" and t.get("idle_hours", 0) > 48]
