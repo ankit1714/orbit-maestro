@@ -47,7 +47,7 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
   const [projectKey, setProjectKey] = useState('');
   const [projectDesc, setProjectDesc] = useState('');
   const [jiraLink, setJiraLink] = useState('');
-  const [projectMode] = useState<'ENTERPRISE_SYNC'>('ENTERPRISE_SYNC');
+  const [projectMode, setProjectMode] = useState<'ENTERPRISE_SYNC'>('ENTERPRISE_SYNC');
   const [isKeyManuallyEdited, setIsKeyManuallyEdited] = useState(false);
 
   // Step 2: Team Members from Firestore DB

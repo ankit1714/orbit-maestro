@@ -154,26 +154,40 @@ class FirestoreService:
         # Load existing data from file if present
         self.load()
 
+        # Check if explicitly testing or offline mock
+        if os.getenv("TESTING", "").lower() in ("true", "1", "yes") or os.getenv("FIRESTORE_MOCK", "").lower() in ("true", "1", "yes"):
+            self._is_live = False
+            logger.info("Using local persistent file-backed Firestore database (TESTING mode).")
+            return
+
         # Attempt to initialize live Google Cloud Firestore if credentials or emulator exist
         try:
             from google.cloud import firestore
-            if os.getenv("FIRESTORE_EMULATOR_HOST") or os.getenv("GOOGLE_APPLICATION_CREDENTIALS") or os.getenv("K_SERVICE"):
-                self._live_client = firestore.Client(project=settings.PROJECT_ID)
+            target_project = settings.PROJECT_ID
+            database = getattr(settings, "FIRESTORE_DATABASE", "(default)")
+
+            if os.getenv("FIRESTORE_EMULATOR_HOST"):
+                self._live_client = firestore.Client(project=target_project, database=database)
                 self._is_live = True
-                logger.info("Connected to live Google Cloud Firestore.")
+                logger.info(f"Connected to Firestore emulator (project: {target_project}).")
+            elif os.getenv("GOOGLE_APPLICATION_CREDENTIALS") or os.getenv("K_SERVICE"):
+                self._live_client = firestore.Client(project=target_project, database=database)
+                self._is_live = True
+                logger.info(f"Connected to live Google Cloud Firestore (project: {target_project}).")
             else:
                 try:
                     import google.auth
                     creds, proj = google.auth.default()
-                    proj = proj or settings.PROJECT_ID
-                    self._live_client = firestore.Client(project=proj, credentials=creds)
+                    target_project = settings.PROJECT_ID if settings.PROJECT_ID else proj
+                    self._live_client = firestore.Client(project=target_project, credentials=creds, database=database)
                     self._is_live = True
-                    logger.info(f"Connected to live Google Cloud Firestore via ADC (project: {proj}).")
-                except Exception:
+                    logger.info(f"Connected to live Google Cloud Firestore via ADC (project: {target_project}).")
+                except Exception as inner_e:
+                    logger.warning(f"Could not connect via ADC: {inner_e}")
                     self._is_live = False
                     logger.info("Using local persistent file-backed Firestore database.")
         except Exception as e:
-            logger.info(f"Using local persistent file-backed Firestore database: {e}")
+            logger.warning(f"Using local persistent file-backed Firestore database: {e}")
             self._is_live = False
 
     def load(self):

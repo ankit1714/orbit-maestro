@@ -38,8 +38,8 @@ class UserStory(BaseModel):
     project_id: str
     epic_id: str
     title: str
-    description: str
-    requirement_origin: str
+    description: Optional[str] = ""
+    requirement_origin: Optional[str] = ""
     story_points: int = 5
     priority: Union[Priority, str] = Priority.HIGH
     status: Union[ItemStatus, str] = ItemStatus.TODO
@@ -59,8 +59,8 @@ class Epic(BaseModel):
     key: str # e.g. EPC-01 or SCRUM-5
     project_id: str
     title: str
-    description: str
-    requirement_origin: str
+    description: Optional[str] = ""
+    requirement_origin: Optional[str] = ""
     total_points: int = 0
     status: Union[ItemStatus, str] = ItemStatus.IN_PROGRESS
     stories: List[UserStory] = Field(default_factory=list)

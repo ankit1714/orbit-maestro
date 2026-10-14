@@ -99,6 +99,13 @@ chmod +x scripts/bootstrap_gcp.sh
 ```
 
 ### 2. Deploy via Cloud Build
+You can deploy directly using the automated script (which builds and deploys to Cloud Run without running local/CI test suites):
 ```bash
-gcloud builds submit --config=cloudbuild.yaml --substitutions=_REGION=europe-west3
+chmod +x scripts/run_cloud_build.sh
+./scripts/run_cloud_build.sh <YOUR_GCP_PROJECT_ID> <REGION>
+```
+
+Or trigger `gcloud` manually:
+```bash
+gcloud builds submit --config=cloudbuild.yaml --substitutions=_REGION=us-central1
 ```

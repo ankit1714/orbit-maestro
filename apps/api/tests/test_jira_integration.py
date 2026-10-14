@@ -79,6 +79,8 @@ def test_jira_create_story_with_parent_mocked():
         "project_id": "proj-claims-auto",
         "key": "TEST-101",
         "title": "Parent Epic",
+        "description": "Parent Epic description",
+        "requirement_origin": "PRD",
         "status": "TODO"
     })
 

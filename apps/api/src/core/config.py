@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     PROJECT_ID: str = os.getenv("PROJECT_ID", "ai-scrum-master-510116")
     REGION: str = os.getenv("REGION", "us-central1")
     ENVIRONMENT: str = os.getenv("ENVIRONMENT", "dev") # dev, prod
+    FIRESTORE_DATABASE: str = os.getenv("FIRESTORE_DATABASE", "(default)")
     
     # Document AI & Storage
     DOCUMENT_AI_PROCESSOR_ID: Optional[str] = os.getenv("DOCUMENT_AI_PROCESSOR_ID", None)
@@ -34,6 +35,11 @@ class Settings(BaseSettings):
 
     # Google NotebookLM Default
     NOTEBOOKLM_BASE_URL: str = "https://notebooklm.google.com"
+
+    # Google OAuth 2.0 Web Client (Calendar & Drive Gemini Notes)
+    GOOGLE_CLIENT_ID: Optional[str] = os.getenv("GOOGLE_CLIENT_ID", None)
+    GOOGLE_CLIENT_SECRET: Optional[str] = os.getenv("GOOGLE_CLIENT_SECRET", None)
+    GOOGLE_OAUTH_REDIRECT_URI: Optional[str] = os.getenv("GOOGLE_OAUTH_REDIRECT_URI", None)
 
     # API Server Port & CORS
     PORT: int = int(os.getenv("PORT", 8000))

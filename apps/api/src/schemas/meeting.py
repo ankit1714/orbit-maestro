@@ -91,4 +91,85 @@ class MeetingExtractResponse(BaseModel):
     due_diligence: Optional[MeetingDueDiligenceResult] = None
     is_linked: bool = False
     verdict_message: str = "Not linked to any GIT/JIRA/Confluence"
+    calendar_event_id: Optional[str] = None
+    has_gemini_notes: Optional[bool] = False
+    source_doc_url: Optional[str] = None
     extracted_at: datetime = Field(default_factory=datetime.utcnow)
+
+class CalendarEventAttachment(BaseModel):
+    file_id: Optional[str] = None
+    file_url: Optional[str] = None
+    title: str = "Attachment"
+    mime_type: Optional[str] = None
+    is_gemini_notes: bool = False
+
+class CalendarMeeting(BaseModel):
+    id: str
+    title: str
+    description: Optional[str] = ""
+    start_time: str
+    end_time: str
+    meeting_type: MeetingType = MeetingType.STANDUP
+    attendees: List[str] = Field(default_factory=list)
+    organizer: Optional[str] = None
+    meet_link: Optional[str] = None
+    attachments: List[CalendarEventAttachment] = Field(default_factory=list)
+    has_gemini_notes: bool = False
+    gemini_notes_title: Optional[str] = None
+    gemini_notes_doc_id: Optional[str] = None
+    gemini_notes_url: Optional[str] = None
+    status: str = "CONFIRMED"
+
+class CalendarStatusResponse(BaseModel):
+    connected: bool = False
+    user_email: Optional[str] = None
+    source: str = "WORKSPACE_SIMULATED"
+    primary_calendar_id: str = "primary"
+    message: str = ""
+
+class CalendarEventsResponse(BaseModel):
+    connected: bool = True
+    user_email: Optional[str] = None
+    source: str = "WORKSPACE_SIMULATED"
+    events: List[CalendarMeeting] = Field(default_factory=list)
+    total_events: int = 0
+
+class CalendarPullNotesResponse(BaseModel):
+    event_id: str
+    project_id: str
+    title: str
+    meeting_type: MeetingType = MeetingType.STANDUP
+    date: datetime = Field(default_factory=datetime.utcnow)
+    organizer: Optional[str] = None
+    attendees: List[str] = Field(default_factory=list)
+    notes_content: str
+    has_gemini_notes: bool = True
+    source_doc_title: Optional[str] = None
+    source_doc_url: Optional[str] = None
+
+class CalendarConnectRequest(BaseModel):
+    user_email: Optional[str] = None
+    access_token: Optional[str] = None
+    refresh_token: Optional[str] = None
+
+class CalendarPullAndProcessRequest(BaseModel):
+    event_id: str
+    project_id: str
+    doc_id: Optional[str] = None
+    access_token: Optional[str] = None
+
+class CalendarOAuthUrlResponse(BaseModel):
+    auth_url: str
+    client_id_configured: bool = True
+    message: str = ""
+
+class CalendarOAuthCallbackRequest(BaseModel):
+    code: str
+    redirect_uri: str
+    project_id: Optional[str] = None
+
+class CalendarOAuthCallbackResponse(BaseModel):
+    success: bool = True
+    user_email: Optional[str] = None
+    access_token: Optional[str] = None
+    message: str = ""

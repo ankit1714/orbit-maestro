@@ -1,5 +1,6 @@
 import uuid
 import re
+import logging
 from typing import List, Optional
 from datetime import datetime
 from fastapi import APIRouter, HTTPException
@@ -7,6 +8,8 @@ from apps.api.src.schemas.project import Project, ProjectCreate, ProjectUpdate, 
 from apps.api.src.schemas.common import ProjectMode
 from apps.api.src.core.firestore_client import db
 from apps.api.src.core.config import settings
+
+logger = logging.getLogger("projects_api")
 router = APIRouter(prefix="/projects", tags=["Projects"])
 
 @router.get("", response_model=List[Project])
