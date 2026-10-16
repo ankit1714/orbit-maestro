@@ -145,6 +145,7 @@ export default function CockpitPage() {
             localStorage.setItem('ai_scrum_active_project_id', p.id);
           }
         }}
+        onCreateProject={handleCreateProject}
         onDeleteProject={handleDeleteProject}
         onOpenSimulator={() => setSimulatorOpen(true)}
         onOpenCommandPalette={() => setCommandPaletteOpen(true)}
