@@ -65,10 +65,67 @@ def trigger_requirement_decomposition(project_id: str, payload: Optional[dict] =
 
 @router.post("", response_model=PRDExtractResult)
 def ingest_document(req: PRDUploadRequest):
-    """Ingest a PRD document, upload to Google Cloud Storage, extract layout, and sync to NotebookLM."""
+    """Ingest a PRD or attached Confluence document, upload to Google Cloud Storage, extract layout, and sync to NotebookLM."""
     file_bytes = b""
     raw_text = req.file_text or ""
     file_name = req.file_name or "Project_Requirements.txt"
+    confluence_url = req.confluence_url
+    confluence_link_id = req.confluence_link_id
+
+    # If Confluence link is indicated, or text is empty, resolve from project's attached Confluence pages
+    if req.confluence_link_id or req.confluence_url or (not raw_text and not req.file_content_base64):
+        try:
+            p_doc = db.collection("projects").document(req.project_id).get()
+            if p_doc.exists:
+                p_data = p_doc.to_dict() or {}
+                c_pages = list(p_data.get("confluence_settings", {}).get("pages", []))
+                target_page = None
+
+                if req.confluence_link_id and req.confluence_link_id != "all":
+                    target_page = next((p for p in c_pages if p.get("id") == req.confluence_link_id), None)
+                elif req.confluence_url:
+                    target_page = next((p for p in c_pages if p.get("url") == req.confluence_url), None)
+
+                if target_page:
+                    confluence_url = target_page.get("url") or confluence_url
+                    confluence_link_id = target_page.get("id") or confluence_link_id
+                    if not raw_text:
+                        raw_text = target_page.get("content") or target_page.get("description") or target_page.get("title") or ""
+                    if file_name in ("Project_Requirements.txt", "requirements.pdf"):
+                        file_name = f"{target_page.get('title', 'Confluence_Spec')}.md"
+
+                    # If page content is empty or short, attempt to fetch live from Confluence
+                    if len(raw_text.strip()) < 50:
+                        try:
+                            doc_provider = provider_factory.get_doc_provider(req.project_id)
+                            from apps.api.src.core.providers.doc.confluence_provider import ConfluenceDocProvider
+                            if isinstance(doc_provider, ConfluenceDocProvider) and doc_provider._is_configured():
+                                fetched = doc_provider.fetch_page_content(target_page.get("url", ""))
+                                if fetched and fetched.get("content"):
+                                    raw_text = fetched["content"]
+                                    target_page["content"] = fetched["content"]
+                                    target_page["content_length"] = fetched.get("content_length", len(raw_text))
+                                    target_page["fetch_status"] = "SYNCED"
+                                    db.collection("projects").document(req.project_id).update({
+                                        "confluence_settings.pages": c_pages
+                                    })
+                        except Exception as ex:
+                            logger.warning(f"Could not fetch Confluence content during ingestion: {ex}")
+
+                elif req.confluence_link_id == "all" or (not raw_text and c_pages):
+                    confluence_link_id = "all"
+                    if c_pages and not confluence_url:
+                        confluence_url = c_pages[0].get("url")
+                    if not raw_text:
+                        parts = []
+                        for p in c_pages:
+                            p_body = p.get("content") or p.get("description") or p.get("title") or ""
+                            parts.append(f"# {p.get('title', 'Page')}\nSource: {p.get('url', '')}\n\n{p_body}")
+                        raw_text = "\n\n---\n\n".join(parts)
+                    if file_name in ("Project_Requirements.txt", "requirements.pdf"):
+                        file_name = f"{p_data.get('key', 'Project')}_Confluence_Documentation.md"
+        except Exception as e:
+            logger.warning(f"Error resolving attached Confluence pages: {e}")
 
     if req.file_content_base64:
         try:
@@ -98,16 +155,20 @@ def ingest_document(req: PRDUploadRequest):
         raw_text=raw_text
     )
     result.gcs_uri = gcs_uri
+    result.confluence_url = confluence_url
+    result.confluence_link_id = confluence_link_id
 
     # 3. Sync to Google NotebookLM living knowledge hub
     try:
         knowledge_provider = provider_factory.get_knowledge_provider(req.project_id)
+        k_title = f"Confluence: {result.document_title}" if confluence_url or confluence_link_id else f"PRD: {result.document_title}"
+        k_source_type = "CONFLUENCE" if confluence_url or confluence_link_id else "PRD_SPECIFICATION"
         k_item = knowledge_provider.add_knowledge_item(
             project_id=req.project_id,
-            title=f"PRD: {result.document_title}",
+            title=k_title,
             content=raw_text[:3000] if raw_text else result.business_goal,
-            source_type="PRD_SPECIFICATION",
-            source_uri=gcs_uri
+            source_type=k_source_type,
+            source_uri=confluence_url or gcs_uri
         )
         result.notebooklm_source_id = k_item.notebooklm_source_id
         logger.info(f"Registered document into NotebookLM knowledge registry: {k_item.id}")

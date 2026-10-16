@@ -7,7 +7,6 @@ import {
   Bookmark,
   Check,
   ArrowRight,
-  UploadCloud,
   FileText,
   CheckCircle2,
   Sparkles,
@@ -66,11 +65,7 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
   const [resolved, setResolved] = useState<Record<string, string>>({});
   const [ingesting, setIngesting] = useState(false);
   const [ingestStatus, setIngestStatus] = useState<string | null>(null);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [pastedText, setPastedText] = useState('');
-  const [ingestTab, setIngestTab] = useState<'upload' | 'paste'>('upload');
-
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [selectedConfluencePageId, setSelectedConfluencePageId] = useState<string>('all');
 
   // Confluence Modal / Form State
   const [showAddConfluenceModal, setShowAddConfluenceModal] = useState(false);
@@ -383,20 +378,14 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
     }
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setSelectedFile(e.target.files[0]);
-    }
-  };
-
   const handleTriggerDecomposition = async () => {
     if (!currentProject?.id) return;
     setDecomposing(true);
     setIngestStatus("Running 3-Agent pipeline (Lead Orchestrator -> Product Owner -> Technical Scrum Master)...");
     try {
       const res = await api.decomposeRequirements(currentProject.id, {
-        raw_requirements: requirements?.business_goal || pastedText,
-        sprint_goal: currentProject?.business_objective
+        raw_requirements: requirements?.business_goal || "Core functional requirements.",
+        sprint_goal: currentProject?.business_objective || requirements?.business_goal
       });
       setStrategyData({
         orchestrator_strategy: res.orchestrator_strategy,
@@ -414,62 +403,51 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
     }
   };
 
-  const handleProcessUpload = async () => {
-    if (!selectedFile && !pastedText.trim()) return;
+  const handleIngestConfluence = async (targetId?: string) => {
+    if (!confluencePages || confluencePages.length === 0) {
+      setIngestStatus("Please attach at least one Confluence page link first.");
+      return;
+    }
+    const pageId = targetId || selectedConfluencePageId;
+    let title = "";
+    let content = "";
+    let confUrl = "";
+    let confLinkId = "";
+
+    if (pageId === 'all' && confluencePages.length > 1) {
+      title = `${currentProject?.key || 'Project'} - Confluence Architecture Documentation`;
+      confLinkId = 'all';
+      confUrl = confluencePages[0]?.url || "";
+      content = confluencePages.map((p: any) =>
+        `# ${p.title}\nSource: ${p.url}\nSpace: ${p.space_key || 'GENERAL'}\n\n${p.content || p.description || p.title}`
+      ).join('\n\n---\n\n');
+    } else {
+      const page = (pageId && pageId !== 'all')
+        ? confluencePages.find((p: any) => p.id === pageId) || confluencePages[0]
+        : confluencePages[0];
+      title = page.title || `${currentProject?.key}_Confluence_Spec`;
+      confLinkId = page.id;
+      confUrl = page.url;
+      content = page.content || page.description || page.title;
+    }
+
     setIngesting(true);
-    setIngestStatus("Step 1: Document AI extracting layout & clauses...");
+    setIngestStatus("Step 1: Reading Confluence architecture pages & extracting clauses with Gemini...");
 
     try {
-      if (selectedFile) {
-        const reader = new FileReader();
-        const isText = selectedFile.type.includes("text") || selectedFile.name.endsWith(".md") || selectedFile.name.endsWith(".txt") || selectedFile.name.endsWith(".json");
-
-        if (isText) {
-          reader.onload = async (event) => {
-            const textContent = event.target?.result as string;
-            setIngestStatus("Step 2: 3-Agent Pipeline generating Epics, Gherkin Stories & Fibonacci Points...");
-            await api.ingestPRD({
-              project_id: currentProject.id,
-              file_name: selectedFile.name,
-              file_text: textContent
-            });
-            setIngestStatus("Complete! Decomposed Jira Stories created in Backlog.");
-            setIngesting(false);
-            setSelectedFile(null);
-            onRefresh();
-          };
-          reader.readAsText(selectedFile);
-        } else {
-          reader.onload = async (event) => {
-            const dataUrl = event.target?.result as string;
-            const base64 = dataUrl.split(",")[1];
-            setIngestStatus("Step 2: 3-Agent Pipeline generating Epics, Gherkin Stories & Fibonacci Points...");
-            await api.ingestPRD({
-              project_id: currentProject.id,
-              file_name: selectedFile.name,
-              file_content_base64: base64
-            });
-            setIngestStatus("Complete! Decomposed Jira Stories created in Backlog.");
-            setIngesting(false);
-            setSelectedFile(null);
-            onRefresh();
-          };
-          reader.readAsDataURL(selectedFile);
-        }
-      } else {
-        setIngestStatus("Step 2: 3-Agent Pipeline generating Epics, Gherkin Stories & Fibonacci Points...");
-        await api.ingestPRD({
-          project_id: currentProject.id,
-          file_name: `${currentProject.key}_Requirements.txt`,
-          file_text: pastedText
-        });
-        setIngestStatus("Complete! Decomposed Jira Stories created in Backlog.");
-        setIngesting(false);
-        setPastedText('');
-        onRefresh();
-      }
+      setIngestStatus("Step 2: 3-Agent Pipeline generating Epics, Gherkin Stories & Fibonacci Points...");
+      await api.ingestPRD({
+        project_id: currentProject.id,
+        file_name: `${title}.md`,
+        file_text: content,
+        confluence_link_id: confLinkId,
+        confluence_url: confUrl
+      });
+      setIngestStatus("Complete! Decomposed Jira Stories created in Backlog.");
+      setIngesting(false);
+      onRefresh();
     } catch (e) {
-      console.warn("Upload processing error:", e);
+      console.warn("Confluence ingestion error:", e);
       setIngestStatus("Ingestion finished with local fallback.");
       setIngesting(false);
       onRefresh();
@@ -809,6 +787,16 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
                   </div>
 
                   <div className="flex items-center gap-1.5 shrink-0 pt-0.5">
+                    <button
+                      onClick={() => handleIngestConfluence(page.id)}
+                      disabled={!can('canIngestPRD') || ingesting}
+                      className="px-2 py-1 rounded-lg bg-[#e8f0fe] hover:bg-[#d2e3fc] text-[#1a73e8] border border-[#d2e3fc] text-[11px] font-semibold flex items-center gap-1 transition shadow-2xs"
+                      title="Ingest & Run AI Understanding on this Confluence page"
+                    >
+                      <Sparkles className="w-3 h-3 text-[#1a73e8]" />
+                      <span className="hidden sm:inline">Ingest</span>
+                    </button>
+
                     {page.content && (
                       <button
                         onClick={() => setViewingConfluencePage(page)}
@@ -868,6 +856,41 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
                 )}
               </div>
             )}
+          </div>
+
+          {/* Confluence AI Understanding Action Bar */}
+          <div className="pt-3 border-t border-[#dadce0] flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              {confluencePages.length > 1 && (
+                <select
+                  value={selectedConfluencePageId}
+                  onChange={(e) => setSelectedConfluencePageId(e.target.value)}
+                  className="bg-[#f8f9fa] border border-[#dadce0] rounded-lg px-2.5 py-1 text-xs text-[#202124] focus:outline-none focus:border-[#1a73e8]"
+                >
+                  <option value="all">All Linked Pages ({confluencePages.length})</option>
+                  {confluencePages.map((p: any) => (
+                    <option key={p.id} value={p.id}>{p.title}</option>
+                  ))}
+                </select>
+              )}
+              <span className="text-[11px] text-[#5f6368] font-mono truncate">
+                {ingestStatus || (confluencePages.length > 0 ? `${confluencePages.length} Confluence link(s) attached` : 'Attach a Confluence link above to run AI Understanding')}
+              </span>
+            </div>
+
+            <button
+              onClick={() => handleIngestConfluence()}
+              disabled={!can('canIngestPRD') || ingesting || confluencePages.length === 0}
+              title={!can('canIngestPRD') ? "Restricted: Product Owner or Admin permission required" : confluencePages.length === 0 ? "Attach a Confluence page link first" : ""}
+              className={`px-3.5 py-2 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm transition shrink-0 ${
+                !can('canIngestPRD') || ingesting || confluencePages.length === 0
+                  ? 'bg-[#f1f3f4] text-[#80868b] border border-[#dadce0] cursor-not-allowed'
+                  : 'bg-[#1a73e8] hover:bg-[#1557b0] text-white shadow-sm'
+              }`}
+            >
+              {!can('canIngestPRD') ? <Lock className="w-3.5 h-3.5" /> : <Sparkles className="w-3.5 h-3.5" />}
+              <span>{ingesting ? "Analyzing with Gemini..." : !can('canIngestPRD') ? "Ingest (PO Only)" : "Ingest & Run AI Understanding"}</span>
+            </button>
           </div>
         </div>
 
@@ -1259,124 +1282,7 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
       </div>
 
       {/* ========================================================================= */}
-      {/* 3. REQUIREMENT SPECIFICATION INGESTION SECTION (RETAINED & POLISHED) */}
-      {/* ========================================================================= */}
-      <div className="p-5 rounded-2xl border border-[#dadce0] bg-white space-y-4 shadow-sm">
-        {!can('canIngestPRD') && (
-          <div className="p-2.5 rounded-lg bg-[#fef7e0] border border-[#feefc3] flex items-center justify-between text-xs text-[#b06000]">
-            <div className="flex items-center gap-2">
-              <Lock className="w-4 h-4 text-[#b06000] shrink-0" />
-              <span>Viewing as <strong>{profile.title}</strong> — PRD document ingestion & parsing are restricted to Product Owner and Admin.</span>
-            </div>
-            <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-white text-[#b06000] border border-[#feefc3] font-semibold">
-              Read Only Mode
-            </span>
-          </div>
-        )}
-
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <UploadCloud className="w-4 h-4 text-[#1a73e8]" />
-            <h3 className="text-xs font-bold text-[#202124] uppercase tracking-wider">Ingest New Requirement / Essential Documents</h3>
-          </div>
-          <div className="flex rounded-lg bg-[#f1f3f4] p-0.5 border border-[#dadce0] text-[11px]">
-            <button
-              onClick={() => setIngestTab('upload')}
-              className={`px-3 py-1 rounded-md font-medium transition ${ingestTab === 'upload' ? 'bg-white text-[#1a73e8] shadow-xs' : 'text-[#5f6368] hover:text-[#202124]'}`}
-            >
-              Upload File
-            </button>
-            <button
-              onClick={() => setIngestTab('paste')}
-              className={`px-3 py-1 rounded-md font-medium transition ${ingestTab === 'paste' ? 'bg-white text-[#1a73e8] shadow-xs' : 'text-[#5f6368] hover:text-[#202124]'}`}
-            >
-              Paste Text
-            </button>
-          </div>
-        </div>
-
-        {ingestTab === 'upload' ? (
-          <div>
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handleFileChange}
-              accept=".pdf,.txt,.md,.docx,.json"
-              className="hidden"
-              disabled={!can('canIngestPRD')}
-            />
-            {selectedFile ? (
-              <div className="p-4 rounded-xl bg-[#f8f9fa] border border-[#dadce0] flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <FileText className="w-6 h-6 text-[#1a73e8]" />
-                  <div>
-                    <span className="text-xs font-bold text-[#202124] block">{selectedFile.name}</span>
-                    <span className="text-[10px] text-[#5f6368] font-mono">{(selectedFile.size / 1024).toFixed(1)} KB</span>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setSelectedFile(null)}
-                  className="p-1 rounded-lg hover:bg-[#e8eaed] text-[#5f6368] hover:text-[#202124] transition"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            ) : (
-              <div
-                onClick={() => {
-                  if (can('canIngestPRD')) fileInputRef.current?.click();
-                }}
-                className={`border-2 border-dashed rounded-xl p-6 text-center transition space-y-2 ${
-                  can('canIngestPRD')
-                    ? 'border-[#dadce0] hover:border-[#1a73e8] cursor-pointer bg-[#f8f9fa] hover:bg-white'
-                    : 'border-[#dadce0] bg-[#f8f9fa]/50 cursor-not-allowed opacity-60'
-                }`}
-              >
-                <UploadCloud className="w-8 h-8 text-[#80868b] mx-auto" />
-                <p className="text-xs font-semibold text-[#202124]">
-                  {can('canIngestPRD') ? "Click to select PRD, Architecture Spec, or BRD document" : "Document upload disabled for current persona"}
-                </p>
-                <p className="text-[11px] text-[#5f6368]">
-                  Supports PDF, TXT, Markdown, Word (.docx), or JSON (max 25MB)
-                </p>
-              </div>
-            )}
-          </div>
-        ) : (
-          <textarea
-            value={pastedText}
-            onChange={(e) => setPastedText(e.target.value)}
-            disabled={!can('canIngestPRD')}
-            rows={4}
-            placeholder={can('canIngestPRD') ? `Paste requirement description, user stories, or API spec for ${currentProject?.name}...` : `Only Product Owner or Admin can paste requirement specs.`}
-            className={`w-full bg-[#f8f9fa] border border-[#dadce0] rounded-xl p-3 text-xs text-[#202124] placeholder-[#80868b] focus:outline-none focus:border-[#1a73e8] focus:bg-white font-mono transition ${
-              !can('canIngestPRD') ? 'opacity-50 cursor-not-allowed' : ''
-            }`}
-          />
-        )}
-
-        <div className="flex items-center justify-between pt-1">
-          <span className="text-xs text-[#5f6368] font-mono">
-            {ingestStatus || (selectedFile || pastedText ? "Ready for ingestion" : "Waiting for requirement source...")}
-          </span>
-          <button
-            onClick={handleProcessUpload}
-            disabled={!can('canIngestPRD') || ingesting || (!selectedFile && !pastedText.trim())}
-            title={!can('canIngestPRD') ? "Restricted: Product Owner or Admin permission required" : ""}
-            className={`px-4 py-2 rounded-xl font-bold text-xs flex items-center gap-1.5 shadow-sm transition ${
-              !can('canIngestPRD') || ingesting || (!selectedFile && !pastedText.trim())
-                ? 'bg-[#f1f3f4] text-[#80868b] border border-[#dadce0] cursor-not-allowed'
-                : 'bg-[#1a73e8] hover:bg-[#1557b0] text-white shadow-sm'
-            }`}
-          >
-            {!can('canIngestPRD') ? <Lock className="w-3.5 h-3.5" /> : <Sparkles className="w-3.5 h-3.5" />}
-            <span>{ingesting ? "Analyzing with Gemini..." : !can('canIngestPRD') ? "Ingest (PO Only)" : "Ingest & Run AI Understanding"}</span>
-          </button>
-        </div>
-      </div>
-
-      {/* ========================================================================= */}
-      {/* 4. WORKBENCH: INGESTED BASELINE & OPEN QUESTIONS */}
+      {/* 3. WORKBENCH: INGESTED BASELINE & OPEN QUESTIONS */}
       {/* ========================================================================= */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 flex-1 min-h-[460px]">
         {/* Left Pane: Ingested Baseline Text */}
@@ -1396,6 +1302,23 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
                   <span className="text-[#5f6368] uppercase text-[10px] font-bold block">Business Goal</span>
                   <p className="text-[#137333] font-semibold mt-0.5">{requirements.business_goal}</p>
                 </div>
+
+                {requirements.confluence_url && (
+                  <div className="flex flex-wrap items-center gap-2 py-2 border-b border-[#dadce0] text-[11px] font-mono">
+                    <span className="text-[#5f6368] font-semibold uppercase text-[10px]">Confluence Source:</span>
+                    <a
+                      href={requirements.confluence_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="px-2 py-0.5 rounded bg-[#f3e8fd] text-[#9334e6] border border-[#e9d5ff] truncate max-w-xs hover:underline flex items-center gap-1 font-medium"
+                      title={requirements.confluence_url}
+                    >
+                      <BookOpen className="w-3 h-3 shrink-0" />
+                      <span className="truncate">{requirements.confluence_url}</span>
+                      <ExternalLink className="w-2.5 h-2.5 shrink-0" />
+                    </a>
+                  </div>
+                )}
 
                 {requirements.gcs_uri && (
                   <div className="flex flex-wrap items-center gap-2 py-2 border-b border-[#dadce0] text-[11px] font-mono">
@@ -1467,7 +1390,7 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
               <div className="p-8 text-center text-[#5f6368] space-y-2">
                 <FileText className="w-8 h-8 text-[#80868b] mx-auto" />
                 <p>No requirement document ingested for {currentProject?.name} yet.</p>
-                <p className="text-[11px] text-[#80868b]">Select a specification file or paste text above to extract capabilities and clauses with Document AI and Gemini.</p>
+                <p className="text-[11px] text-[#80868b]">Attach a Confluence architecture link above and click 'Ingest &amp; Run AI Understanding' to extract capabilities and clauses with Document AI and Gemini.</p>
               </div>
             )}
           </div>
@@ -1531,7 +1454,7 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
             ) : (
               <div className="p-8 text-center text-[#5f6368] text-xs space-y-2">
                 <FileText className="w-8 h-8 text-[#80868b] mx-auto" />
-                <p>No open questions detected. Upload a PRD or paste requirements above to analyze ambiguities with Gemini.</p>
+                <p>No open questions detected. Ingest attached Confluence documentation above to analyze ambiguities with Gemini.</p>
               </div>
             )}
           </div>
@@ -1539,7 +1462,7 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
       </div>
 
       {/* ========================================================================= */}
-      {/* 5. 3-AGENT AGILE REQUIREMENTS & JIRA STORY DECOMPOSITION WORKBENCH */}
+      {/* 4. 3-AGENT AGILE REQUIREMENTS & JIRA STORY DECOMPOSITION WORKBENCH */}
       {/* ========================================================================= */}
       <div className="p-6 rounded-2xl border border-[#dadce0] bg-white shadow-sm space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-[#f1f3f4]">
@@ -1562,7 +1485,7 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
             <button
               type="button"
               onClick={handleTriggerDecomposition}
-              disabled={decomposing || (!requirements?.business_goal && !pastedText.trim())}
+              disabled={decomposing || !requirements?.business_goal}
               className="px-3.5 py-1.5 rounded-xl bg-white border border-[#dadce0] text-[#3c4043] hover:bg-[#f1f3f4] text-xs font-semibold flex items-center gap-1.5 transition shadow-sm disabled:opacity-50"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${decomposing ? 'animate-spin text-[#1a73e8]' : ''}`} />
