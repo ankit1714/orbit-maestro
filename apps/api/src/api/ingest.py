@@ -33,13 +33,13 @@ def get_project_strategy(project_id: str):
         return {}
     return doc.to_dict()
 
-@router.post("/{project_id}/decompose", response_model=RequirementDecompositionResponse)
-def trigger_requirement_decomposition(project_id: str, payload: Optional[dict] = None):
+def build_consolidated_requirements(project_id: str, custom_text: Optional[str] = None):
     """
-    On-demand execution of the 3-Agent Requirement Decomposition Pipeline:
-    - Agent 1: Lead Agile Scrum Orchestrator (Strategy & Sprint Guidelines)
-    - Agent 2: Agile Scrum Master & Product Owner (Epics & Gherkin User Stories)
-    - Agent 3: Technical Scrum Master (INVEST Validation, Fibonacci Story Points, and Jira export)
+    Consolidates requirements from:
+    1. Ingested Document Baseline (business_goal, capabilities, personas, clauses)
+    2. Attached Confluence Documentation & Architecture Pages (page titles, URLs, full body content)
+    3. Custom / additional user requirements
+    Returns (consolidated_requirements_text, sprint_goal)
     """
     req_doc = db.collection("requirements").document(f"req-{project_id}").get()
     req_data = req_doc.to_dict() if req_doc.exists else {}
@@ -47,19 +47,98 @@ def trigger_requirement_decomposition(project_id: str, payload: Optional[dict] =
     proj_doc = db.collection("projects").document(project_id).get()
     proj_data = proj_doc.to_dict() if proj_doc.exists else {}
 
-    raw_text = (
-        (payload and payload.get("raw_requirements"))
-        or req_data.get("business_goal")
+    sections = []
+
+    # 1. Ingested Document Baseline
+    if req_data:
+        doc_title = req_data.get("document_title", "Project Requirements Specification")
+        sections.append(f"# INGESTED DOCUMENT BASELINE: {doc_title}")
+        if req_data.get("business_goal"):
+            sections.append(f"## Business Goal & Scope:\n{req_data['business_goal']}")
+
+        personas = req_data.get("personas", [])
+        if personas:
+            p_lines = [f"- **{p.get('name', 'User')}**: {p.get('role_description', '')}" for p in personas]
+            sections.append("## Target User Personas:\n" + "\n".join(p_lines))
+
+        capabilities = req_data.get("capabilities", [])
+        if capabilities:
+            cap_lines = [f"- [{c.get('id', 'CAP')}] **{c.get('title', 'Capability')}**: {c.get('description', '')} (Ref: {c.get('section_ref', 'N/A')})" for c in capabilities]
+            sections.append("## Extracted System Capabilities:\n" + "\n".join(cap_lines))
+
+        clauses = req_data.get("clauses", [])
+        if clauses:
+            cl_lines = [f"- [{cl.get('clause_id', 'CLS')}] ({cl.get('clause_type', 'FUNCTIONAL')}) {cl.get('section_title', '')}: {cl.get('text', '')}" for cl in clauses]
+            sections.append("## Functional Clauses & Constraints:\n" + "\n".join(cl_lines))
+
+    # 2. Attached Confluence Documentation Pages
+    c_pages = list(proj_data.get("confluence_settings", {}).get("pages", []))
+    if c_pages:
+        sections.append("# ATTACHED CONFLUENCE DOCUMENTATION & ARCHITECTURE PAGES")
+        for page in c_pages:
+            p_title = page.get("title", "Confluence Page")
+            p_url = page.get("url", "")
+            p_body = page.get("content") or ""
+            # If body is empty, try live fetch
+            if len(p_body.strip()) < 50 and p_url:
+                try:
+                    doc_provider = provider_factory.get_doc_provider(project_id)
+                    from apps.api.src.core.providers.doc.confluence_provider import ConfluenceDocProvider
+                    if isinstance(doc_provider, ConfluenceDocProvider) and doc_provider._is_configured():
+                        fetched = doc_provider.fetch_page_content(p_url)
+                        if fetched and fetched.get("content"):
+                            p_body = fetched["content"]
+                            page["content"] = p_body
+                            page["content_length"] = len(p_body)
+                            page["fetch_status"] = "SYNCED"
+                            db.collection("projects").document(project_id).update({
+                                "confluence_settings.pages": c_pages
+                            })
+                except Exception as ex:
+                    logger.warning(f"Could not live fetch Confluence content: {ex}")
+
+            body_text = p_body or page.get("description") or "Architecture link attached."
+            sections.append(f"## Confluence Specification: {p_title}\nSource URL: {p_url}\nSpace: {page.get('space_key', 'GENERAL')}\n\n{body_text}")
+
+    # 3. Optional Custom Additions
+    if custom_text and custom_text.strip() and custom_text != req_data.get("business_goal"):
+        sections.append(f"# ADDITIONAL REQUIREMENT NOTES:\n{custom_text.strip()}")
+
+    if sections:
+        consolidated = "\n\n".join(sections)
+    else:
+        consolidated = (
+            proj_data.get("business_objective")
+            or proj_data.get("description")
+            or "Core functional requirements."
+        )
+
+    sprint_goal = (
+        req_data.get("business_goal")
         or proj_data.get("business_objective")
-        or proj_data.get("description")
-        or "Core functional requirements."
+        or f"Deliver core requirements for {proj_data.get('name', 'Project')}"
     )
-    sprint_goal = (payload and payload.get("sprint_goal")) or req_data.get("business_goal") or proj_data.get("business_objective")
+
+    return consolidated, sprint_goal
+
+@router.post("/{project_id}/decompose", response_model=RequirementDecompositionResponse)
+def trigger_requirement_decomposition(project_id: str, payload: Optional[dict] = None):
+    """
+    On-demand execution of the 3-Agent Requirement Decomposition Pipeline:
+    - Reads attached Confluence architecture documentation and Ingested Baseline
+    - Agent 1: Lead Agile Scrum Orchestrator (Strategy & Sprint Guidelines)
+    - Agent 2: Agile Scrum Master & Product Owner (Epics & Gherkin User Stories)
+    - Agent 3: Technical Scrum Master (INVEST Validation, Fibonacci Story Points, and Jira export)
+    """
+    custom_raw = payload.get("raw_requirements") if payload else None
+    raw_text, sprint_goal = build_consolidated_requirements(project_id, custom_raw)
+    custom_goal = payload.get("sprint_goal") if payload else None
+    goal = custom_goal or sprint_goal
 
     return requirements_pipeline.run_pipeline(
         project_id=project_id,
         raw_requirements=raw_text,
-        sprint_goal=sprint_goal,
+        sprint_goal=goal,
         auto_create_backlog=True
     )
 

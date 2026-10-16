@@ -96,6 +96,84 @@ class JiraBacklogProvider(BaseBacklogProvider):
                 logger.warning(f"Could not retrieve Jira accountId: {e}")
         return self.account_id
 
+    def fetch_jira_users(self) -> List[Dict[str, Any]]:
+        """
+        Fetches assignable users for the project directly from Jira Cloud.
+        Returns a list of dicts: accountId, displayName, emailAddress, active.
+        """
+        if not self._is_configured():
+            return []
+
+        target_key = (self.project_key or "SCRUM").upper()
+        # 1. Try assignable search by project
+        try:
+            url = f"{self.instance_url}/rest/api/3/user/assignable/search"
+            params = {"project": target_key, "maxResults": 50}
+            res = requests.get(url, headers=self._get_headers(), params=params, auth=self._get_auth(), timeout=8)
+            if res.status_code == 200:
+                users = res.json()
+                assignable = [
+                    {
+                        "accountId": u.get("accountId"),
+                        "displayName": u.get("displayName"),
+                        "emailAddress": u.get("emailAddress"),
+                        "active": u.get("active", True),
+                    }
+                    for u in users
+                    if u.get("accountType") != "app" and u.get("active", True)
+                ]
+                if assignable:
+                    logger.info(f"Fetched {len(assignable)} assignable users from Jira Cloud for project {target_key}")
+                    self._cached_jira_users = assignable
+                    return assignable
+        except Exception as e:
+            logger.debug(f"Jira assignable user search error: {e}")
+
+        # 2. Try general user search
+        try:
+            url_fallback = f"{self.instance_url}/rest/api/3/users/search"
+            res = requests.get(url_fallback, headers=self._get_headers(), params={"maxResults": 50}, auth=self._get_auth(), timeout=8)
+            if res.status_code == 200:
+                users = res.json()
+                assignable = [
+                    {
+                        "accountId": u.get("accountId"),
+                        "displayName": u.get("displayName"),
+                        "emailAddress": u.get("emailAddress"),
+                        "active": u.get("active", True),
+                    }
+                    for u in users
+                    if u.get("accountType") != "app" and u.get("active", True)
+                ]
+                self._cached_jira_users = assignable
+                return assignable
+        except Exception as e:
+            logger.debug(f"Jira users search error: {e}")
+
+        return []
+
+    def _find_jira_account_id(self, assignee_name_or_email: Optional[str]) -> Optional[str]:
+        """Resolves an engineer's name or email to a Jira accountId."""
+        if not assignee_name_or_email or not self._is_configured():
+            return None
+        target = assignee_name_or_email.strip().lower()
+
+        users = getattr(self, "_cached_jira_users", None) or self.fetch_jira_users()
+
+        for u in users:
+            d_name = (u.get("displayName") or "").lower()
+            email = (u.get("emailAddress") or "").lower()
+            if target == d_name or target == email:
+                return u.get("accountId")
+            if target in d_name or d_name in target:
+                return u.get("accountId")
+
+        # If connected Jira user's email matches
+        if self.user_email and (target in self.user_email.lower() or self.user_email.lower() in target):
+            return self._ensure_account_id()
+
+        return None
+
     def check_connection(self) -> Dict[str, Any]:
         """Verify Jira credentials and connectivity via /rest/api/3/myself."""
         if not self._is_configured():
