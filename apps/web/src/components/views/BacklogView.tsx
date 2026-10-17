@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Layers, Bookmark, CheckSquare, AlertCircle, TestTube, ChevronDown, Plus, Sparkles, Inbox, FileText, ArrowRight, UploadCloud, ExternalLink, CheckCircle2, X, RefreshCw, User, Calendar, Clock, Lock } from 'lucide-react';
 import { api, getJiraBoardUrl, getJiraBrowseUrl } from '@/lib/api';
 import { useRole } from '@/lib/roleContext';
@@ -24,11 +24,29 @@ export const BacklogView: React.FC<BacklogViewProps> = ({
   const [generating, setGenerating] = useState(false);
   const [uploadingJira, setUploadingJira] = useState(false);
   const [showJiraModal, setShowJiraModal] = useState(false);
-  const [targetJiraKey, setTargetJiraKey] = useState(
-    project?.jira_settings?.project_key || "SCRUM"
-  );
+  const defaultJiraInstance = project?.jira_project_link || project?.jira_settings?.instance_url || 'https://the-ai-scrum-master.atlassian.net';
+  const defaultJiraKey = project?.jira_settings?.project_key || project?.key || "SCRUM";
+
+  const [jiraInstance, setJiraInstance] = useState(defaultJiraInstance);
+  const [targetJiraKey, setTargetJiraKey] = useState(defaultJiraKey);
   const [jiraSyncResult, setJiraSyncResult] = useState<any>(null);
   const [jiraError, setJiraError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const inst = project?.jira_project_link || project?.jira_settings?.instance_url || 'https://the-ai-scrum-master.atlassian.net';
+    const key = project?.jira_settings?.project_key || project?.key || "SCRUM";
+    setJiraInstance(inst);
+    setTargetJiraKey(key);
+  }, [project?.id, project?.jira_project_link, project?.jira_settings?.instance_url, project?.jira_settings?.project_key, project?.key]);
+
+  const handleOpenJiraModal = () => {
+    const inst = project?.jira_project_link || project?.jira_settings?.instance_url || 'https://the-ai-scrum-master.atlassian.net';
+    const key = project?.jira_settings?.project_key || project?.key || "SCRUM";
+    setJiraInstance(inst);
+    setTargetJiraKey(key);
+    setJiraError(null);
+    setShowJiraModal(true);
+  };
 
   const epics = backlog?.epics || [];
   const hasBacklog = epics.length > 0;
@@ -56,9 +74,11 @@ export const BacklogView: React.FC<BacklogViewProps> = ({
     setJiraSyncResult(null);
     try {
       const res = await api.uploadBacklogToJira(project.id, {
-        project_key: targetJiraKey.trim().toUpperCase()
+        project_key: targetJiraKey.trim().toUpperCase(),
+        instance_url: jiraInstance.trim()
       });
       setJiraSyncResult(res);
+      setShowJiraModal(false);
       onRefresh();
     } catch (err: any) {
       setJiraError(err?.message || "Failed to upload backlog to Jira.");
@@ -133,7 +153,7 @@ export const BacklogView: React.FC<BacklogViewProps> = ({
           {hasBacklog && (
             can('canUploadToJira') ? (
               <button
-                onClick={() => setShowJiraModal(true)}
+                onClick={handleOpenJiraModal}
                 className="px-3.5 py-1.5 rounded-lg bg-[#1a73e8] hover:bg-[#1557b0] text-white text-xs font-semibold flex items-center gap-1.5 shadow-sm transition"
               >
                 <UploadCloud className="w-3.5 h-3.5" />
@@ -479,9 +499,17 @@ export const BacklogView: React.FC<BacklogViewProps> = ({
                 <label className="block text-[#5f6368] mb-1 font-medium">Jira Instance</label>
                 <input
                   type="text"
-                  disabled
-                  value="https://the-ai-scrum-master.atlassian.net"
-                  className="w-full px-3 py-2 rounded-xl bg-[#f8f9fa] border border-[#dadce0] text-[#5f6368] font-mono text-xs cursor-not-allowed"
+                  value={jiraInstance}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setJiraInstance(val);
+                    const mKey = val.match(/\/(?:projects|browse)\/([A-Za-z0-9_]+)/);
+                    if (mKey) {
+                      setTargetJiraKey(mKey[1].toUpperCase());
+                    }
+                  }}
+                  placeholder="https://company.atlassian.net"
+                  className="w-full px-3 py-2 rounded-xl bg-white border border-[#dadce0] text-[#202124] font-mono text-xs focus:outline-none focus:border-[#1a73e8] focus:ring-1 focus:ring-[#1a73e8] transition shadow-sm"
                 />
               </div>
 
@@ -492,10 +520,10 @@ export const BacklogView: React.FC<BacklogViewProps> = ({
                   value={targetJiraKey}
                   onChange={(e) => setTargetJiraKey(e.target.value)}
                   placeholder="e.g. SCRUM"
-                  className="w-full px-3 py-2 rounded-xl bg-white border border-[#dadce0] text-[#202124] font-mono text-xs focus:outline-none focus:border-[#1a73e8] focus:ring-1 focus:ring-[#1a73e8]"
+                  className="w-full px-3 py-2 rounded-xl bg-white border border-[#dadce0] text-[#202124] font-mono text-xs focus:outline-none focus:border-[#1a73e8] focus:ring-1 focus:ring-[#1a73e8] transition shadow-sm"
                 />
                 <span className="text-[11px] text-[#80868b] mt-1 block">
-                  Suggested key: <strong>SCRUM</strong>.
+                  Suggested key: <strong>{project?.key || 'SCRUM'}</strong>.
                 </span>
               </div>
             </div>
@@ -514,11 +542,8 @@ export const BacklogView: React.FC<BacklogViewProps> = ({
                 Cancel
               </button>
               <button
-                onClick={async () => {
-                  await handleUploadJira();
-                  setShowJiraModal(false);
-                }}
-                disabled={uploadingJira || !targetJiraKey.trim()}
+                onClick={handleUploadJira}
+                disabled={uploadingJira || !targetJiraKey.trim() || !jiraInstance.trim()}
                 className="px-4 py-2 rounded-xl bg-[#1a73e8] hover:bg-[#1557b0] text-white font-semibold text-xs flex items-center gap-1.5 shadow-sm disabled:opacity-50"
               >
                 <UploadCloud className="w-3.5 h-3.5" />

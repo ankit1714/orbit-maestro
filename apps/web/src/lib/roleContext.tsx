@@ -11,6 +11,7 @@ export type UserRole =
 
 export interface RolePermissions {
   canCreateProject: boolean;
+  canEditProject: boolean;
   canDeleteProject: boolean;
   canManageIntegrations: boolean;
   canIngestPRD: boolean;
@@ -54,6 +55,7 @@ export const ROLE_PROFILES: Record<UserRole, RoleProfile> = {
     badgeText: 'text-blue-700 font-semibold',
     permissions: {
       canCreateProject: true,
+      canEditProject: true,
       canDeleteProject: true,
       canManageIntegrations: true,
       canIngestPRD: true,
@@ -83,6 +85,7 @@ export const ROLE_PROFILES: Record<UserRole, RoleProfile> = {
     badgeText: 'text-emerald-700 font-semibold',
     permissions: {
       canCreateProject: false,
+      canEditProject: false,
       canDeleteProject: false,
       canManageIntegrations: false,
       canIngestPRD: false,
@@ -112,6 +115,7 @@ export const ROLE_PROFILES: Record<UserRole, RoleProfile> = {
     badgeText: 'text-amber-800 font-semibold',
     permissions: {
       canCreateProject: false,
+      canEditProject: false,
       canDeleteProject: false,
       canManageIntegrations: false,
       canIngestPRD: false,
@@ -141,6 +145,7 @@ export const ROLE_PROFILES: Record<UserRole, RoleProfile> = {
     badgeText: 'text-rose-700 font-semibold',
     permissions: {
       canCreateProject: false,
+      canEditProject: false,
       canDeleteProject: false,
       canManageIntegrations: false,
       canIngestPRD: false,
@@ -170,6 +175,7 @@ export const ROLE_PROFILES: Record<UserRole, RoleProfile> = {
     badgeText: 'text-red-700 font-semibold',
     permissions: {
       canCreateProject: true,
+      canEditProject: true,
       canDeleteProject: true,
       canManageIntegrations: true,
       canIngestPRD: true,
@@ -201,6 +207,7 @@ export interface DBUser {
   avatar_url?: string;
   status?: string;
   project_ids?: string[];
+  is_jira_project_user?: boolean;
 }
 
 interface RoleContextType {

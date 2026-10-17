@@ -1,4 +1,5 @@
 import logging
+import re
 from typing import Optional
 from apps.api.src.core.config import settings
 from apps.api.src.schemas.project import Project
@@ -27,6 +28,17 @@ class ProviderFactory:
     def get_backlog_provider(cls, project_id: str) -> BaseBacklogProvider:
         project = cls.get_project(project_id)
         if project and project.mode == ProjectMode.ENTERPRISE_SYNC and project.jira_settings.enabled:
+            raw_instance = (
+                project.jira_settings.instance_url
+                or getattr(project, "jira_project_link", None)
+                or settings.JIRA_INSTANCE_URL
+            )
+            instance_url = raw_instance
+            if raw_instance:
+                m_domain = re.search(r'(https?://[^/]+)', raw_instance.strip())
+                if m_domain:
+                    instance_url = m_domain.group(1)
+
             return JiraBacklogProvider(
                 instance_url=clean_jira_instance_url(project.jira_settings.instance_url or settings.JIRA_INSTANCE_URL),
                 user_email=project.jira_settings.user_email or settings.JIRA_USER_EMAIL,
@@ -36,7 +48,12 @@ class ProviderFactory:
         return NativeFirestoreBacklogProvider()
 
     @classmethod
-    def get_jira_provider(cls, project_id: str, target_project_key: Optional[str] = None) -> JiraBacklogProvider:
+    def get_jira_provider(
+        cls,
+        project_id: str,
+        target_project_key: Optional[str] = None,
+        target_instance_url: Optional[str] = None
+    ) -> JiraBacklogProvider:
         project = cls.get_project(project_id)
         jira_settings = project.jira_settings if project else None
 
