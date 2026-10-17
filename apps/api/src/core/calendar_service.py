@@ -206,6 +206,10 @@ class GoogleCalendarService:
             )
 
         target_redirect = redirect_uri or settings.GOOGLE_OAUTH_REDIRECT_URI or "http://localhost:3000/oauth/callback"
+        # Sanitize local development IP variants to the registered localhost redirect URI
+        if "127.0.0.1" in target_redirect or "0.0.0.0" in target_redirect:
+            target_redirect = target_redirect.replace("127.0.0.1", "localhost").replace("0.0.0.0", "localhost")
+
         scopes = "https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/drive.readonly email profile"
         
         state_payload = {"project_id": project_id or ""}
@@ -252,11 +256,15 @@ class GoogleCalendarService:
             )
 
         token_url = "https://oauth2.googleapis.com/token"
+        target_redirect = redirect_uri or settings.GOOGLE_OAUTH_REDIRECT_URI or "http://localhost:3000/oauth/callback"
+        if "127.0.0.1" in target_redirect or "0.0.0.0" in target_redirect:
+            target_redirect = target_redirect.replace("127.0.0.1", "localhost").replace("0.0.0.0", "localhost")
+
         data = {
             "code": code,
             "client_id": client_id,
             "client_secret": client_secret,
-            "redirect_uri": redirect_uri,
+            "redirect_uri": target_redirect,
             "grant_type": "authorization_code"
         }
 

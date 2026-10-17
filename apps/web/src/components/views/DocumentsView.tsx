@@ -407,10 +407,9 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
     }
 
     setIngesting(true);
-    setIngestStatus("Step 1: Reading Confluence architecture pages & extracting clauses with Gemini...");
+    setIngestStatus("Step 1: Reading Confluence architecture pages & decomposing requirements with Gemini...");
 
     try {
-      setIngestStatus("Step 2: 3-Agent Pipeline generating Epics, Gherkin Stories & Fibonacci Points...");
       await api.ingestPRD({
         project_id: currentProject.id,
         file_name: `${title}.md`,
@@ -694,7 +693,15 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         
         {/* CONFLUENCE DOCUMENTATION DIRECTORY */}
-        <div className="p-5 rounded-2xl border border-[#dadce0] bg-white shadow-sm space-y-3 flex flex-col">
+        <div className={`p-5 rounded-2xl border bg-white shadow-sm space-y-3 flex flex-col relative overflow-hidden transition-all duration-300 ${
+          ingesting
+            ? 'border-[#8b5cf6]/60 shadow-[0_4px_24px_rgba(139,92,246,0.18)] ring-1 ring-[#8b5cf6]/30'
+            : 'border-[#dadce0]'
+        }`}>
+          {ingesting && (
+            <div className="absolute top-0 left-0 right-0 h-1 gemini-gradient-flow shadow-sm z-10" />
+          )}
+
           <div className="flex items-center justify-between pb-2 border-b border-[#dadce0]">
             <div className="flex items-center gap-2">
               <BookOpen className="w-4 h-4 text-[#9334e6]" />
@@ -765,11 +772,15 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
                     <button
                       onClick={() => handleIngestConfluence(page.id)}
                       disabled={!can('canIngestPRD') || ingesting}
-                      className="px-2 py-1 rounded-lg bg-[#e8f0fe] hover:bg-[#d2e3fc] text-[#1a73e8] border border-[#d2e3fc] text-[11px] font-semibold flex items-center gap-1 transition shadow-2xs"
+                      className={`px-2 py-1 rounded-lg border text-[11px] font-semibold flex items-center gap-1 transition shadow-2xs ${
+                        ingesting
+                          ? 'bg-[#f3e8fd] text-[#7b1fa2] border-[#e9d5ff] cursor-wait'
+                          : 'bg-[#e8f0fe] hover:bg-[#d2e3fc] text-[#1a73e8] border-[#d2e3fc]'
+                      }`}
                       title="Ingest & Run AI Understanding on this Confluence page"
                     >
-                      <Sparkles className="w-3 h-3 text-[#1a73e8]" />
-                      <span className="hidden sm:inline">Ingest</span>
+                      <Sparkles className={`w-3 h-3 ${ingesting ? 'animate-spin text-[#9334e6]' : 'text-[#1a73e8]'}`} />
+                      <span className="hidden sm:inline">{ingesting ? "Analyzing..." : "Ingest"}</span>
                     </button>
 
                     {page.content && (
@@ -840,6 +851,7 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
                 <select
                   value={selectedConfluencePageId}
                   onChange={(e) => setSelectedConfluencePageId(e.target.value)}
+                  disabled={ingesting}
                   className="bg-[#f8f9fa] border border-[#dadce0] rounded-lg px-2.5 py-1 text-xs text-[#202124] focus:outline-none focus:border-[#1a73e8]"
                 >
                   <option value="all">All Linked Pages ({confluencePages.length})</option>
@@ -848,23 +860,55 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
                   ))}
                 </select>
               )}
-              <span className="text-[11px] text-[#5f6368] font-mono truncate">
-                {ingestStatus || (confluencePages.length > 0 ? `${confluencePages.length} Confluence link(s) attached` : 'Attach a Confluence link above to run AI Understanding')}
-              </span>
+              {ingesting ? (
+                <div className="flex items-center gap-2 px-2.5 py-1 rounded-lg bg-gradient-to-r from-[#e8f0fe] via-[#f3e8fd] to-[#fce8e6] border border-[#d2e3fc] animate-pulse max-w-full min-w-0">
+                  <div className="w-2 h-2 rounded-full gemini-gradient-flow animate-ping shrink-0" />
+                  <span className="text-[11px] font-medium text-[#1a73e8] font-mono truncate">
+                    {ingestStatus || "Gemini 3 Flash analyzing architecture specs in background..."}
+                  </span>
+                </div>
+              ) : (
+                <span className="text-[11px] text-[#5f6368] font-mono truncate">
+                  {ingestStatus || (confluencePages.length > 0 ? `${confluencePages.length} Confluence link(s) attached` : 'Attach a Confluence link above to run AI Understanding')}
+                </span>
+              )}
             </div>
 
             <button
               onClick={() => handleIngestConfluence()}
               disabled={!can('canIngestPRD') || ingesting || confluencePages.length === 0}
               title={!can('canIngestPRD') ? "Restricted: Scrum Master or Admin permission required" : confluencePages.length === 0 ? "Attach a Confluence page link first" : ""}
-              className={`px-3.5 py-2 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm transition shrink-0 ${
-                !can('canIngestPRD') || ingesting || confluencePages.length === 0
+              className={`px-4 py-2 rounded-xl font-bold text-xs flex items-center justify-center gap-2 shadow-sm transition-all duration-300 shrink-0 ${
+                ingesting
+                  ? 'gemini-gradient-flow gemini-ambient-glow gemini-shimmer-bar text-white border-0 shadow-lg cursor-wait scale-[1.02]'
+                  : !can('canIngestPRD') || confluencePages.length === 0
                   ? 'bg-[#f1f3f4] text-[#80868b] border border-[#dadce0] cursor-not-allowed'
                   : 'bg-[#1a73e8] hover:bg-[#1557b0] text-white shadow-sm'
               }`}
             >
-              {!can('canIngestPRD') ? <Lock className="w-3.5 h-3.5" /> : <Sparkles className="w-3.5 h-3.5" />}
-              <span>{ingesting ? "Analyzing with Gemini..." : !can('canIngestPRD') ? "Ingest (SM Only)" : "Ingest & Run AI Understanding"}</span>
+              {ingesting ? (
+                <>
+                  <Sparkles className="w-3.5 h-3.5 animate-spin text-white drop-shadow" />
+                  <span className="flex items-center gap-1.5 font-semibold text-white drop-shadow-sm tracking-wide">
+                    Analyzing with Gemini...
+                    <span className="inline-flex gap-0.5 ml-0.5 items-center">
+                      <span className="w-1 h-1 rounded-full bg-white animate-bounce" style={{ animationDelay: '0ms' }} />
+                      <span className="w-1 h-1 rounded-full bg-white animate-bounce" style={{ animationDelay: '150ms' }} />
+                      <span className="w-1 h-1 rounded-full bg-white animate-bounce" style={{ animationDelay: '300ms' }} />
+                    </span>
+                  </span>
+                </>
+              ) : !can('canIngestPRD') ? (
+                <>
+                  <Lock className="w-3.5 h-3.5" />
+                  <span>Ingest (SM Only)</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>Ingest & Run AI Understanding</span>
+                </>
+              )}
             </button>
           </div>
         </div>

@@ -5,9 +5,9 @@ from apps.api.src.schemas.project import Project
 from apps.api.src.schemas.common import ProjectMode
 from apps.api.src.core.providers.base import BaseBacklogProvider, BaseDocProvider, BaseGitProvider, BaseKnowledgeProvider
 from apps.api.src.core.providers.backlog.native_provider import NativeFirestoreBacklogProvider
-from apps.api.src.core.providers.backlog.jira_provider import JiraBacklogProvider
+from apps.api.src.core.providers.backlog.jira_provider import JiraBacklogProvider, clean_jira_instance_url
 from apps.api.src.core.providers.doc.native_provider import NativeFirestoreDocProvider
-from apps.api.src.core.providers.doc.confluence_provider import ConfluenceDocProvider
+from apps.api.src.core.providers.doc.confluence_provider import ConfluenceDocProvider, clean_confluence_instance_url
 from apps.api.src.core.providers.git.github_provider import GitHubTrackerProvider
 from apps.api.src.core.providers.git.native_provider import NativeGitTrackerProvider
 from apps.api.src.core.providers.notebooklm.notebooklm_provider import NotebookLMKnowledgeProvider
@@ -28,7 +28,7 @@ class ProviderFactory:
         project = cls.get_project(project_id)
         if project and project.mode == ProjectMode.ENTERPRISE_SYNC and project.jira_settings.enabled:
             return JiraBacklogProvider(
-                instance_url=project.jira_settings.instance_url or settings.JIRA_INSTANCE_URL,
+                instance_url=clean_jira_instance_url(project.jira_settings.instance_url or settings.JIRA_INSTANCE_URL),
                 user_email=project.jira_settings.user_email or settings.JIRA_USER_EMAIL,
                 api_token=project.jira_settings.api_token or settings.JIRA_API_TOKEN,
                 project_key=project.jira_settings.project_key or project.key
@@ -40,7 +40,8 @@ class ProviderFactory:
         project = cls.get_project(project_id)
         jira_settings = project.jira_settings if project else None
 
-        instance_url = (jira_settings.instance_url if jira_settings and jira_settings.instance_url else None) or settings.JIRA_INSTANCE_URL
+        raw_instance_url = (jira_settings.instance_url if jira_settings and jira_settings.instance_url else None) or settings.JIRA_INSTANCE_URL
+        instance_url = clean_jira_instance_url(raw_instance_url)
         user_email = (jira_settings.user_email if jira_settings and jira_settings.user_email else None) or settings.JIRA_USER_EMAIL
         api_token = (jira_settings.api_token if jira_settings and jira_settings.api_token else None) or settings.JIRA_API_TOKEN
         proj_key = (
@@ -64,11 +65,11 @@ class ProviderFactory:
         if not project:
             return NativeFirestoreDocProvider()
 
+        jira_base = clean_jira_instance_url(project.jira_settings.instance_url or settings.JIRA_INSTANCE_URL)
         instance_url = (
             project.confluence_settings.instance_url
-            or (f"{project.jira_settings.instance_url.rstrip('/')}/wiki" if project.jira_settings.instance_url else None)
             or settings.CONFLUENCE_INSTANCE_URL
-            or (f"{settings.JIRA_INSTANCE_URL.rstrip('/')}/wiki" if settings.JIRA_INSTANCE_URL else None)
+            or (f"{jira_base}/wiki" if jira_base else None)
         )
         user_email = (
             project.confluence_settings.user_email
@@ -86,7 +87,7 @@ class ProviderFactory:
 
         if instance_url and user_email and api_token:
             return ConfluenceDocProvider(
-                instance_url=instance_url,
+                instance_url=clean_confluence_instance_url(instance_url),
                 user_email=user_email,
                 api_token=api_token,
                 space_key=space_key,

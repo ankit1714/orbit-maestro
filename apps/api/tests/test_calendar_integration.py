@@ -124,3 +124,14 @@ Attendees: Sarah, Alex, David
     assert len(data["decisions"]) >= 1
     assert "Notes by Gemini" in data["transcript_text"]
     assert data["due_diligence"] is not None
+
+def test_calendar_oauth_url_sanitizes_local_redirect_uri():
+    """Verify that passing 127.0.0.1:3000 as redirect_uri is normalized to localhost:3000 to avoid redirect_uri_mismatch."""
+    res = client.get("/v1/meetings/calendar/oauth/url?redirect_uri=http://127.0.0.1:3000/oauth/callback")
+    assert res.status_code == 200
+    data = res.json()
+    assert data["client_id_configured"] is True
+    # The generated auth_url must have sanitized redirect_uri to localhost:3000
+    assert "redirect_uri=http%3A%2F%2Flocalhost%3A3000%2Foauth%2Fcallback" in data["auth_url"]
+    assert "127.0.0.1" not in data["auth_url"]
+

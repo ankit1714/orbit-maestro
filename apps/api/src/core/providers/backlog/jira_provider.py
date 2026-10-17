@@ -5,6 +5,7 @@ from requests.auth import HTTPBasicAuth
 from typing import List, Dict, Any, Optional
 from datetime import datetime, timezone
 import uuid
+from urllib.parse import urlparse
 
 from apps.api.src.core.config import settings
 from apps.api.src.core.providers.base import BaseBacklogProvider
@@ -14,6 +15,53 @@ from apps.api.src.schemas.backlog import Epic, UserStory, TaskItem, BacklogHiera
 from apps.api.src.schemas.sprint import Sprint, SprintCapacity
 
 logger = logging.getLogger("jira_provider")
+
+def clean_jira_instance_url(raw_url: Optional[str]) -> str:
+    """
+    Sanitizes Jira instance URL to guarantee it points strictly to scheme + netloc base.
+    Prevents appended UI paths like /jira/software/projects/... or /browse/...
+    which cause Jira SPA to return HTML 200 instead of REST JSON responses.
+    """
+    if not raw_url or not str(raw_url).strip():
+        return ""
+    clean = str(raw_url).strip()
+    if not clean.startswith(("http://", "https://")):
+        clean = "https://" + clean
+    try:
+        parsed = urlparse(clean)
+        if parsed.netloc:
+            return f"{parsed.scheme}://{parsed.netloc}".rstrip("/")
+    except Exception:
+        pass
+    return clean.rstrip("/")
+
+def safe_err_text(res: Optional[requests.Response], max_len: int = 250) -> str:
+    """Extracts a concise, single-line error message from a requests Response object without dumping HTML bodies."""
+    if res is None:
+        return "No response"
+    try:
+        data = res.json()
+        if isinstance(data, dict):
+            err_msgs = data.get("errorMessages") or []
+            errors = data.get("errors") or {}
+            combined = []
+            if err_msgs:
+                combined.extend(err_msgs)
+            if errors:
+                combined.extend([f"{k}: {v}" for k, v in errors.items()])
+            if combined:
+                return "; ".join(combined)[:max_len]
+            if "message" in data:
+                return str(data["message"])[:max_len]
+    except Exception:
+        pass
+    text = (res.text or "").strip()
+    if "<html" in text.lower() or "<!doctype" in text.lower():
+        title_match = re.search(r"<title[^>]*>(.*?)</title>", text, re.IGNORECASE)
+        title = title_match.group(1).strip() if title_match else "HTML Response"
+        return f"[{title}] HTTP {res.status_code}"
+    clean = re.sub(r"\s+", " ", text)
+    return clean[:max_len]
 
 def parse_jira_datetime(dt_str: Optional[str]) -> datetime:
     """Safely parse Jira ISO timestamps into datetime."""
@@ -63,7 +111,7 @@ class JiraBacklogProvider(BaseBacklogProvider):
         api_token: Optional[str] = None,
         project_key: Optional[str] = None
     ):
-        self.instance_url = (instance_url or settings.JIRA_INSTANCE_URL or "").rstrip("/")
+        self.instance_url = clean_jira_instance_url(instance_url or settings.JIRA_INSTANCE_URL)
         self.user_email = user_email or settings.JIRA_USER_EMAIL
         self.api_token = api_token or settings.JIRA_API_TOKEN
         self.project_key = (project_key or "SCRUM").upper()
@@ -91,7 +139,13 @@ class JiraBacklogProvider(BaseBacklogProvider):
                 url = f"{self.instance_url}/rest/api/3/myself"
                 res = requests.get(url, headers=self._get_headers(), auth=self._get_auth(), timeout=8)
                 if res.status_code == 200:
-                    self.account_id = res.json().get("accountId")
+                    ctype = res.headers.get("content-type", "")
+                    if "application/json" in ctype:
+                        self.account_id = res.json().get("accountId")
+                    else:
+                        logger.warning(f"Jira /rest/api/3/myself returned non-JSON response ({ctype}): {safe_err_text(res)}")
+                else:
+                    logger.warning(f"Jira /rest/api/3/myself returned {res.status_code}: {safe_err_text(res)}")
             except Exception as e:
                 logger.warning(f"Could not retrieve Jira accountId: {e}")
         return self.account_id

@@ -15,6 +15,26 @@ export const getApiBase = () => {
   return "http://localhost:8000/v1";
 };
 
+/**
+ * Returns the exact Authorized Redirect URI for Google OAuth 2.0.
+ * In Google Cloud Console, the authorized URIs are:
+ * 1) http://localhost:3000/oauth/callback (local development)
+ * 2) https://ai-scrum-cockpit-638799400872.us-central1.run.app/oauth/callback (production Cloud Run)
+ *
+ * Normalizes 127.0.0.1, 0.0.0.0, or local dev variants to http://localhost:3000/oauth/callback
+ * so Google never rejects the login with Error 400: redirect_uri_mismatch.
+ */
+export const getOAuthRedirectUri = (): string => {
+  if (typeof window === "undefined") {
+    return "http://localhost:3000/oauth/callback";
+  }
+  const hostname = window.location.hostname;
+  if (hostname.includes("run.app")) {
+    return `${window.location.origin}/oauth/callback`;
+  }
+  return "http://localhost:3000/oauth/callback";
+};
+
 export async function fetchApi<T>(endpoint: string, options?: RequestInit): Promise<T> {
   const base = getApiBase();
   const url = `${base}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
@@ -214,6 +234,24 @@ export const api = {
 };
 
 /**
+ * Sanitizes and normalizes any Jira instance URL down to its origin (protocol + host).
+ * Prevents appended paths (/jira/software/projects/... or /browse/...) from corrupting API calls or links.
+ */
+export const cleanJiraInstanceUrl = (rawUrl?: string): string => {
+  if (!rawUrl || !rawUrl.trim()) return 'https://the-ai-scrum-master.atlassian.net';
+  try {
+    let clean = rawUrl.trim();
+    if (!clean.startsWith('http://') && !clean.startsWith('https://')) {
+      clean = `https://${clean}`;
+    }
+    const parsed = new URL(clean);
+    return `${parsed.protocol}//${parsed.host}`;
+  } catch {
+    return rawUrl.replace(/\/+$/, '');
+  }
+};
+
+/**
  * Resolves the accurate Jira Agile Board / Project Dashboard URL for any given project.
  * Handles team-managed (next-gen) boards, company-managed boards, custom domains, and explicit links.
  */
@@ -225,8 +263,7 @@ export const getJiraBoardUrl = (project?: any, sprint?: any): string => {
     return project.jira_project_link.trim();
   }
 
-  const rawInstance = project?.jira_settings?.instance_url || 'https://the-ai-scrum-master.atlassian.net';
-  const instanceUrl = rawInstance.replace(/\/+$/, '');
+  const instanceUrl = cleanJiraInstanceUrl(project?.jira_settings?.instance_url);
   const projectKey = (project?.jira_settings?.project_key || project?.key || '').trim().toUpperCase();
 
   if (!projectKey) return instanceUrl;
@@ -253,7 +290,7 @@ export const getJiraBoardUrl = (project?: any, sprint?: any): string => {
  * Resolves the ticket browse URL for a Jira issue key.
  */
 export const getJiraBrowseUrl = (ticket: string, project?: any): string => {
-  const instanceUrl = (project?.jira_settings?.instance_url || 'https://the-ai-scrum-master.atlassian.net').replace(/\/+$/, '');
+  const instanceUrl = cleanJiraInstanceUrl(project?.jira_settings?.instance_url);
   return `${instanceUrl}/browse/${(ticket || '').trim().toUpperCase()}`;
 };
 

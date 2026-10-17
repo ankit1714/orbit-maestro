@@ -9,7 +9,34 @@ from apps.api.src.core.providers.base import BaseDocProvider
 from apps.api.src.core.providers.doc.native_provider import NativeFirestoreDocProvider
 from apps.api.src.core.firestore_client import db
 
+from urllib.parse import urlparse
+
 logger = logging.getLogger("confluence_provider")
+
+def clean_confluence_instance_url(raw_url: Optional[str]) -> str:
+    """
+    Sanitizes Confluence instance URL to guarantee it points to the correct base.
+    For Atlassian Cloud, standard base is https://<domain>.atlassian.net/wiki.
+    Prevents nested /wiki paths or appended page paths.
+    """
+    if not raw_url or not str(raw_url).strip():
+        return ""
+    clean = str(raw_url).strip()
+    if not clean.startswith(("http://", "https://")):
+        clean = "https://" + clean
+    try:
+        parsed = urlparse(clean)
+        if parsed.netloc:
+            base = f"{parsed.scheme}://{parsed.netloc}".rstrip("/")
+            if "atlassian.net" in parsed.netloc.lower():
+                return f"{base}/wiki"
+            path_parts = [p for p in parsed.path.split("/") if p]
+            if path_parts and path_parts[0].lower() == "wiki":
+                return f"{base}/wiki"
+            return base
+    except Exception:
+        pass
+    return clean.rstrip("/")
 
 def html_to_markdown(raw_html: str) -> str:
     """Converts Confluence XHTML storage format into clean, readable Markdown."""
@@ -71,10 +98,7 @@ class ConfluenceDocProvider(BaseDocProvider):
         space_key: Optional[str] = None,
         parent_page_id: Optional[str] = None
     ):
-        base_url = (instance_url or "").rstrip("/")
-        if base_url and not base_url.endswith("/wiki"):
-            base_url = f"{base_url}/wiki"
-        self.instance_url = base_url
+        self.instance_url = clean_confluence_instance_url(instance_url)
         self.user_email = user_email
         self.api_token = api_token
         self.space_key = space_key
