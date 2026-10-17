@@ -102,6 +102,7 @@ class ProjectCreate(ProjectBase):
 
 class ProjectUpdate(BaseModel):
     name: Optional[str] = None
+    key: Optional[str] = None
     description: Optional[str] = None
     business_objective: Optional[str] = None
     mode: Optional[ProjectMode] = None
@@ -114,6 +115,7 @@ class ProjectUpdate(BaseModel):
     team_members: Optional[List[TeamMember]] = None
     git_settings: Optional[GitSettings] = None
     jira_settings: Optional[JiraSettings] = None
+    jira_project_link: Optional[str] = None
     confluence_settings: Optional[ConfluenceSettings] = None
     notebooklm_settings: Optional[NotebookLMSettings] = None
 
@@ -127,3 +129,9 @@ class Project(ProjectBase):
     active_sprint_id: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+class SyncJiraUsersRequest(BaseModel):
+    project_key: Optional[str] = None
+    jira_link: Optional[str] = None
+    project_id: Optional[str] = None
+

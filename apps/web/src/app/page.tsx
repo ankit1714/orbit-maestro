@@ -120,6 +120,21 @@ export default function CockpitPage() {
     }
   };
 
+  const handleUpdateProject = async (projectId: string, projectData: any) => {
+    try {
+      const updated = await api.updateProject(projectId, projectData);
+      setProjects((prev) => prev.map((p) => (p.id === projectId ? updated : p)));
+      if (activeProject?.id === projectId) {
+        setActiveProject(updated);
+        loadProjectData(projectId);
+      }
+      return updated;
+    } catch (e) {
+      console.warn("Project update error:", e);
+      throw e;
+    }
+  };
+
   const handleDeleteProject = async (projectId: string) => {
     try {
       await api.deleteProject(projectId);
@@ -137,6 +152,12 @@ export default function CockpitPage() {
 
   const handleRefresh = () => {
     if (activeProject?.id) {
+      api.getProject(activeProject.id).then((updated) => {
+        if (updated) {
+          setActiveProject(updated);
+          setProjects((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
+        }
+      }).catch(() => {});
       loadProjectData(activeProject.id);
     }
   };
@@ -151,6 +172,7 @@ export default function CockpitPage() {
         projects={projects}
         activeProject={activeProject}
         onCreateProject={handleCreateProject}
+        onUpdateProject={handleUpdateProject}
         onSelectProject={(p) => {
           setActiveProject(p);
           if (typeof window !== 'undefined' && p?.id) {

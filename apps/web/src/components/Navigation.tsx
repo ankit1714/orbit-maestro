@@ -16,17 +16,20 @@ import {
   Lock,
   Search,
   Orbit,
-  X
+  X,
+  Pencil
 } from 'lucide-react';
 import { useRole } from '@/lib/roleContext';
 import { RoleSwitcher } from '@/components/RoleSwitcher';
 import { CreateProjectModal } from '@/components/CreateProjectModal';
+import { EditProjectModal } from '@/components/EditProjectModal';
 
 interface NavigationProps {
   projects: any[];
   activeProject: any;
   onSelectProject: (project: any) => void;
   onCreateProject: (projectData: any) => void;
+  onUpdateProject?: (projectId: string, projectData: any) => Promise<any> | void;
   onDeleteProject: (projectId: string) => void;
   onOpenSimulator: () => void;
   onOpenCommandPalette: () => void;
@@ -42,6 +45,7 @@ export const Navigation: React.FC<NavigationProps> = ({
   activeProject,
   onSelectProject,
   onCreateProject,
+  onUpdateProject,
   onDeleteProject,
   onOpenSimulator,
   onOpenCommandPalette,
@@ -53,6 +57,7 @@ export const Navigation: React.FC<NavigationProps> = ({
 }) => {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [editingProject, setEditingProject] = useState<any | null>(null);
   const [headerSearchQuery, setHeaderSearchQuery] = useState('');
   const { can, profile } = useRole();
 
@@ -173,6 +178,20 @@ export const Navigation: React.FC<NavigationProps> = ({
 
                       <div className="flex items-center gap-1.5 shrink-0">
                         {activeProject?.id === proj.id && <Check className="w-3.5 h-3.5 text-[#137333] shrink-0" />}
+                        {can('canEditProject') && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setDropdownOpen(false);
+                              setEditingProject(proj);
+                            }}
+                            className="p-1 rounded opacity-60 hover:opacity-100 hover:bg-[#e8f0fe] text-[#5f6368] hover:text-[#1a73e8] transition"
+                            title={`Edit project "${proj.name}" in GCP Firestore`}
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                         {can('canDeleteProject') && (
                           <button
                             type="button"
@@ -284,6 +303,21 @@ export const Navigation: React.FC<NavigationProps> = ({
           setCreateModalOpen(false);
         }}
       />
+
+      {/* EDIT PROJECT MODAL */}
+      {editingProject && (
+        <EditProjectModal
+          isOpen={!!editingProject}
+          project={editingProject}
+          onClose={() => setEditingProject(null)}
+          onProjectUpdated={(updated) => {
+            if (onUpdateProject) {
+              onUpdateProject(editingProject.id, updated);
+            }
+            setEditingProject(null);
+          }}
+        />
+      )}
     </>
   );
 };

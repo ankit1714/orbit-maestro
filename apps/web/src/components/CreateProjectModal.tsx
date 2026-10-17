@@ -73,12 +73,35 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [createdProjectSummary, setCreatedProjectSummary] = useState<any | null>(null);
 
-  // Fetch Firestore users when modal opens or step changes to 2
+  const [jiraSyncStatus, setJiraSyncStatus] = useState<string | null>(null);
+
+  // Fetch users: syncs assignable users from Jira Cloud for the selected project and pushes them to Firestore DB
   const fetchUsers = async () => {
     setIsLoadingUsers(true);
     setUsersError(null);
     try {
-      const users = await api.getUsers();
+      let users: DBUser[] = [];
+      const currentKey = projectKey.trim().toUpperCase();
+
+      if (currentKey || jiraLink.trim()) {
+        try {
+          const syncRes = await api.syncProjectJiraUsers({
+            project_key: currentKey || undefined,
+            jira_link: jiraLink.trim() || undefined,
+          });
+          users = (syncRes && syncRes.users) ? syncRes.users : [];
+          const jiraCount = syncRes?.synced_count ?? (users || []).filter(u => u.is_jira_project_user).length;
+          if (jiraCount > 0) {
+            setJiraSyncStatus(`Live Jira sync: ${jiraCount} user(s) fetched for [${currentKey || 'SCRUM'}] & pushed to Firestore DB.`);
+          }
+        } catch (jErr) {
+          console.warn("Jira user sync error, falling back to Firestore users:", jErr);
+          users = await api.getUsers();
+        }
+      } else {
+        users = await api.getUsers();
+      }
+
       setDbUsers(users || []);
 
       // Auto-suggest Scrum Master if not already selected
@@ -94,7 +117,7 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
 
       // Pre-select developers if none chosen yet
       if (selectedDevIds.length === 0) {
-        const devs = users.filter((u: DBUser) => u.role === 'DEVELOPER');
+        const devs = users.filter((u: DBUser) => u.role === 'DEVELOPER' || u.is_jira_project_user);
         if (devs.length > 0) {
           setSelectedDevIds(devs.map((d: DBUser) => d.id));
         }
@@ -121,6 +144,12 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
     }
   }, [isOpen]);
 
+  useEffect(() => {
+    if (step === 2) {
+      fetchUsers();
+    }
+  }, [step]);
+
   // Handle Project Name changes with intelligent Key suggestion
   const handleNameChange = (name: string) => {
     setProjectName(name);
@@ -143,26 +172,6 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
         setProjectKey(match[1].toUpperCase());
         setIsKeyManuallyEdited(true);
       }
-    }
-  };
-
-  // Quick Seed Team from defaults
-  const handleSeedDefaults = async () => {
-    setIsLoadingUsers(true);
-    try {
-      const seeded = await api.seedDefaultUsers();
-      setDbUsers(seeded || []);
-      // Auto-assign from newly seeded list
-      const sm = seeded.find((u: DBUser) => u.role === 'SCRUM_MASTER');
-      const devs = seeded.filter((u: DBUser) => u.role === 'DEVELOPER');
-      const qas = seeded.filter((u: DBUser) => u.role === 'QA_ENGINEER');
-      if (sm) setSelectedSM(sm);
-      if (devs.length > 0) setSelectedDevIds(devs.map((d: DBUser) => d.id));
-      if (qas.length > 0) setSelectedQAIds(qas.map((q: DBUser) => q.id));
-    } catch (err) {
-      console.warn("Could not seed default users:", err);
-    } finally {
-      setIsLoadingUsers(false);
     }
   };
 
@@ -530,11 +539,11 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
                     type="button"
                     onClick={fetchUsers}
                     disabled={isLoadingUsers}
-                    className="px-2.5 py-1.5 rounded-lg bg-[#f1f3f4] hover:bg-[#e8eaed] text-[#3c4043] border border-[#dadce0] text-xs flex items-center gap-1 transition"
-                    title="Refresh users from Firestore"
+                    className="px-2.5 py-1.5 rounded-lg bg-[#f1f3f4] hover:bg-[#e8eaed] text-[#3c4043] border border-[#dadce0] text-xs flex items-center gap-1.5 transition font-medium"
+                    title={`Fetch assignable users from Jira for [${projectKey || 'selected project'}] & push to Firestore`}
                   >
-                    <RefreshCw className={`w-3.5 h-3.5 ${isLoadingUsers ? 'animate-spin text-[#1a73e8]' : ''}`} />
-                    <span className="text-[11px] font-medium">Sync DB</span>
+                    <RefreshCw className={`w-3.5 h-3.5 ${isLoadingUsers ? 'animate-spin text-[#1a73e8]' : 'text-[#1a73e8]'}`} />
+                    <span className="text-[11px] font-medium">Sync Jira Team</span>
                   </button>
 
                   <button
@@ -548,11 +557,25 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
                 </div>
               </div>
 
+              {jiraSyncStatus && (
+                <div className="p-2.5 rounded-xl bg-[#e6f4ea] border border-[#ceead6] text-[#137333] text-xs flex items-center justify-between shadow-sm">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-[#137333] shrink-0" />
+                    <span className="font-medium">{jiraSyncStatus}</span>
+                  </div>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-white text-[#137333] border border-[#ceead6] font-mono font-bold">
+                    Firestore Synced
+                  </span>
+                </div>
+              )}
+
               {/* Status info & helper banner */}
               {isLoadingUsers && (
                 <div className="p-4 rounded-xl bg-[#f8f9fa] border border-[#dadce0] text-center space-y-2">
                   <div className="inline-block animate-spin rounded-full h-5 w-5 border-2 border-[#1a73e8] border-t-transparent" />
-                  <p className="text-xs text-[#5f6368]">Querying Firestore collection <code>users</code>...</p>
+                  <p className="text-xs text-[#5f6368]">
+                    Fetching users from Jira for <strong>[{projectKey || "SCRUM"}]</strong> &amp; syncing into Firestore DB...
+                  </p>
                 </div>
               )}
 
@@ -649,23 +672,6 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
                 </form>
               )}
 
-              {/* Seed Demo Team Prompt if few users */}
-              {dbUsers.length < 3 && !isLoadingUsers && (
-                <div className="p-3.5 rounded-xl bg-[#fef7e0] border border-[#feefc3] text-xs flex items-center justify-between shadow-sm">
-                  <div className="text-[#3c4043]">
-                    <span className="font-semibold text-[#b06000]">Tip: </span>
-                    Firestore DB currently contains only {dbUsers.length} user(s). You can seed standard team profiles with 1 click.
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleSeedDefaults}
-                    className="px-3 py-1 rounded-lg bg-[#b06000] hover:bg-[#8d4d00] text-white font-semibold text-[11px] whitespace-nowrap ml-2 shadow-sm"
-                  >
-                    ⚡ Seed Starter Team
-                  </button>
-                </div>
-              )}
-
               {/* 1. SCRUM MASTER SELECTION */}
               <div className="space-y-2">
                 <label className="block text-xs font-bold text-[#202124] flex items-center justify-between">
@@ -694,6 +700,11 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
                         <div className="truncate pr-2">
                           <div className="flex items-center gap-1.5 font-semibold text-[#202124]">
                             <span className="truncate">{user.name}</span>
+                            {user.is_jira_project_user && (
+                              <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-[#e8f0fe] text-[#1a73e8] border border-[#d2e3fc] font-mono font-semibold">
+                                Jira Team
+                              </span>
+                            )}
                             {isRecommended && (
                               <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-[#e8f0fe] text-[#1967d2] border border-[#d2e3fc] font-mono font-medium">
                                 {user.role}
@@ -744,6 +755,11 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
                         <div className="truncate pr-2">
                           <div className="flex items-center gap-1.5 font-semibold text-[#202124]">
                             <span className="truncate">{user.name}</span>
+                            {user.is_jira_project_user && (
+                              <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-[#e8f0fe] text-[#1a73e8] border border-[#d2e3fc] font-mono font-semibold">
+                                Jira Team
+                              </span>
+                            )}
                             <span className={`text-[9px] px-1.5 py-0.2 rounded-full font-mono font-medium ${
                               isDevRole ? 'bg-[#e6f4ea] text-[#137333] border border-[#ceead6]' : 'bg-[#f1f3f4] text-[#5f6368]'
                             }`}>
@@ -794,6 +810,11 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
                         <div className="truncate pr-2">
                           <div className="flex items-center gap-1.5 font-semibold text-[#202124]">
                             <span className="truncate">{user.name}</span>
+                            {user.is_jira_project_user && (
+                              <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-[#e8f0fe] text-[#1a73e8] border border-[#d2e3fc] font-mono font-semibold">
+                                Jira Team
+                              </span>
+                            )}
                             <span className={`text-[9px] px-1.5 py-0.2 rounded-full font-mono font-medium ${
                               isQARole ? 'bg-[#fef7e0] text-[#b06000] border border-[#feefc3]' : 'bg-[#f1f3f4] text-[#5f6368]'
                             }`}>
@@ -1062,7 +1083,10 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
                 <button
                   type="button"
                   disabled={!isEligible || !projectName.trim() || !projectKey.trim()}
-                  onClick={() => setStep(2)}
+                  onClick={() => {
+                    setStep(2);
+                    fetchUsers();
+                  }}
                   className="px-5 py-2.5 rounded-xl bg-[#1a73e8] hover:bg-[#1557b0] disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition"
                 >
                   <span>Next: Team Selection</span>

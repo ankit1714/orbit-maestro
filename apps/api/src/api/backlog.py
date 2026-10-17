@@ -1,9 +1,11 @@
+import re
 from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, HTTPException, Query
 from apps.api.src.schemas.backlog import BacklogHierarchyResponse, TaskItem, UserStory, Epic
 from apps.api.src.schemas.ambiguity import OpenQuestion, OpenQuestionResolveRequest
 from apps.api.src.core.provider_factory import provider_factory
 from apps.api.src.core.firestore_client import db
+from apps.api.src.core.config import settings
 
 try:
     from packages.agents.src.backlog_agent import backlog_agent
@@ -60,10 +62,48 @@ def get_jira_status():
 def upload_backlog_to_jira(project_id: str, payload: Optional[Dict[str, Any]] = None):
     """
     Upload and synchronize an existing backlog (Epics, Stories, Tasks) directly to Jira.
-    Accepts optional 'project_key' in the payload to target a specific Jira project (e.g. CKST2).
+    Accepts optional 'project_key' and 'instance_url' in the payload to target a specific Jira project and instance.
+    Persists updated Jira configuration in Firestore for the project.
     """
     target_key = payload.get("project_key") if payload else None
-    jira_provider = provider_factory.get_jira_provider(project_id, target_project_key=target_key)
+    instance_url = payload.get("instance_url") if payload else None
+
+    # Persist edited Jira instance or project key to Firestore project document
+    if instance_url or target_key:
+        try:
+            doc_ref = db.collection("projects").document(project_id)
+            doc = doc_ref.get()
+            if doc.exists:
+                current = doc.to_dict()
+                update_data = {}
+                current_js = current.get("jira_settings") or {}
+
+                if instance_url:
+                    raw_inst = instance_url.strip()
+                    update_data["jira_project_link"] = raw_inst
+                    m_domain = re.search(r'(https?://[^/]+)', raw_inst)
+                    if m_domain:
+                        current_js["instance_url"] = m_domain.group(1)
+                    else:
+                        current_js["instance_url"] = raw_inst
+
+                if target_key:
+                    clean_key = target_key.strip().upper()
+                    current_js["project_key"] = clean_key
+
+                current_js["enabled"] = True
+                current_js["user_email"] = current_js.get("user_email") or settings.JIRA_USER_EMAIL
+                current_js["api_token"] = current_js.get("api_token") or settings.JIRA_API_TOKEN
+                update_data["jira_settings"] = current_js
+                doc_ref.update(update_data)
+        except Exception as e:
+            print(f"Warning: could not update project {project_id} Jira settings in Firestore: {e}")
+
+    jira_provider = provider_factory.get_jira_provider(
+        project_id,
+        target_project_key=target_key,
+        target_instance_url=instance_url
+    )
 
     if not jira_provider._is_configured():
         raise HTTPException(

@@ -4,7 +4,7 @@ import logging
 from typing import List, Optional
 from datetime import datetime
 from fastapi import APIRouter, HTTPException
-from apps.api.src.schemas.project import Project, ProjectCreate, ProjectUpdate, TeamMember, JiraSettings, GitRepoLink, ConfluencePageLink
+from apps.api.src.schemas.project import Project, ProjectCreate, ProjectUpdate, TeamMember, JiraSettings, GitRepoLink, ConfluencePageLink, SyncJiraUsersRequest
 from apps.api.src.schemas.common import ProjectMode
 from apps.api.src.core.firestore_client import db
 from apps.api.src.core.config import settings
@@ -222,11 +222,31 @@ def create_project(data: ProjectCreate):
         except Exception as e:
             print(f"Warning: could not update user {uid} project_ids: {e}")
 
+    # Also link any users who were tagged with the project_key during pre-creation Jira sync
+    try:
+        proj_key = (data.key or "").strip().upper()
+        if proj_key:
+            users_with_key = db.collection("users").where("project_ids", "array_contains", proj_key).stream()
+            for u_snap in users_with_key:
+                u_data = u_snap.to_dict()
+                p_ids = u_data.get("project_ids", [])
+                if project_id not in p_ids:
+                    p_ids.append(project_id)
+                    u_snap.reference.update({
+                        "project_ids": p_ids,
+                        "updated_at": datetime.utcnow().isoformat()
+                    })
+    except Exception as e:
+        print(f"Warning: could not link project_key users to project_id: {e}")
+
     return project
 
 @router.put("/{project_id}", response_model=Project)
 def update_project(project_id: str, data: ProjectUpdate):
-    """Update project settings, mode, or team capacity."""
+    """
+    Update project configuration, Jira integration link, team members, or sprint cadence.
+    Persists all edited project information reliably into GCP Firestore DB.
+    """
     doc_ref = db.collection("projects").document(project_id)
     doc = doc_ref.get()
     if not doc.exists:
@@ -234,9 +254,82 @@ def update_project(project_id: str, data: ProjectUpdate):
 
     current = doc.to_dict()
     update_data = {k: v for k, v in data.dict().items() if v is not None}
+
+    # Normalize key if provided
+    if data.key:
+        update_data["key"] = data.key.strip().upper()
+
+    # Parse and update Jira link if edited
+    if data.jira_project_link is not None:
+        link = data.jira_project_link.strip()
+        if link:
+            current_js = current.get("jira_settings") or {}
+            m_domain = re.search(r'(https?://[^/]+)', link)
+            if m_domain:
+                current_js["instance_url"] = m_domain.group(1)
+            m_key = re.search(r'/(?:projects|browse)/([A-Za-z0-9_]+)', link)
+            if m_key:
+                current_js["project_key"] = m_key.group(1).upper()
+            m_board = re.search(r'/boards/(\d+)', link)
+            if m_board:
+                current_js["board_id"] = m_board.group(1)
+            current_js["enabled"] = True
+            current_js["user_email"] = current_js.get("user_email") or settings.JIRA_USER_EMAIL
+            current_js["api_token"] = current_js.get("api_token") or settings.JIRA_API_TOKEN
+            update_data["jira_settings"] = current_js
+            update_data["jira_project_link"] = link
+        else:
+            update_data["jira_project_link"] = None
+
+    # Sync and assemble team_members if roles were updated
+    if data.developers is not None or data.qa_engineers is not None or data.scrum_master is not None or data.product_owner is not None:
+        merged_team = []
+        seen_ids = set()
+
+        po = data.product_owner.dict() if data.product_owner else current.get("product_owner")
+        if po and po.get("id"):
+            merged_team.append(po)
+            seen_ids.add(po["id"])
+
+        sm = data.scrum_master.dict() if data.scrum_master else current.get("scrum_master")
+        if sm and sm.get("id") and sm["id"] not in seen_ids:
+            merged_team.append(sm)
+            seen_ids.add(sm["id"])
+
+        devs = [d.dict() if hasattr(d, "dict") else d for d in (data.developers if data.developers is not None else current.get("developers", []))]
+        for d in devs:
+            if d.get("id") and d["id"] not in seen_ids:
+                merged_team.append(d)
+                seen_ids.add(d["id"])
+
+        qas = [q.dict() if hasattr(q, "dict") else q for q in (data.qa_engineers if data.qa_engineers is not None else current.get("qa_engineers", []))]
+        for q in qas:
+            if q.get("id") and q["id"] not in seen_ids:
+                merged_team.append(q)
+                seen_ids.add(q["id"])
+
+        update_data["team_members"] = merged_team
+
+        # Update users collection with project_id
+        for uid in seen_ids:
+            try:
+                u_doc_ref = db.collection("users").document(uid)
+                u_doc = u_doc_ref.get()
+                if u_doc.exists:
+                    u_data = u_doc.to_dict()
+                    p_ids = u_data.get("project_ids", [])
+                    if project_id not in p_ids:
+                        p_ids.append(project_id)
+                        u_doc_ref.update({
+                            "project_ids": p_ids,
+                            "updated_at": datetime.utcnow().isoformat()
+                        })
+            except Exception as e:
+                logger.debug(f"Could not update user {uid} project_ids: {e}")
+
     update_data["updated_at"] = datetime.utcnow()
     current.update(update_data)
-    doc_ref.update(current)
+    doc_ref.set(current)
     return Project(**current)
 
 @router.post("/{project_id}/git-repos", response_model=Project)
@@ -732,78 +825,190 @@ def update_integrations(project_id: str, payload: dict):
     doc_ref.set(current)
     return Project(**current)
 
+@router.post("/sync-jira-users")
+def sync_project_jira_users(req: SyncJiraUsersRequest):
+    """
+    Fetch all assignable users from Jira for the specified project,
+    push them into Firestore DB 'users' collection associated with this project,
+    and return the updated list of users for team selection.
+    """
+    from apps.api.src.core.provider_factory import provider_factory
+
+    project_key = (req.project_key or "").strip().upper()
+    jira_link = (req.jira_link or "").strip()
+    project_id = (req.project_id or "").strip()
+
+    # If project_id provided, look up existing project metadata
+    if project_id:
+        p_snap = db.collection("projects").document(project_id).get()
+        if p_snap.exists:
+            p_data = p_snap.to_dict()
+            if not project_key:
+                project_key = (p_data.get("key") or "").strip().upper()
+            if not jira_link:
+                project_link = p_data.get("jira_project_link")
+                inst = p_data.get("jira_settings", {}).get("instance_url")
+                jira_link = project_link or inst or ""
+
+    # Parse key from Jira link if not explicitly given
+    if not project_key and jira_link:
+        m_key = re.search(r'/(?:projects|browse)/([A-Za-z0-9_]+)', jira_link)
+        if m_key:
+            project_key = m_key.group(1).upper()
+
+    if not project_key:
+        project_key = "SCRUM"
+
+    instance_url = None
+    if jira_link:
+        m_domain = re.search(r'(https?://[^/]+)', jira_link)
+        if m_domain:
+            instance_url = m_domain.group(1)
+
+    # 1. Fetch assignable users from Jira Cloud
+    jira_users = []
+    try:
+        jira_provider = provider_factory.get_jira_provider(
+            project_id=project_id or "default",
+            target_project_key=project_key,
+            target_instance_url=instance_url
+        )
+        if jira_provider._is_configured():
+            jira_users = jira_provider.fetch_jira_users()
+            logger.info(f"Retrieved {len(jira_users)} Jira users for project key {project_key}")
+    except Exception as e:
+        logger.warning(f"Could not fetch Jira users for {project_key}: {e}")
+
+    # 2. Match and push to Firestore DB users collection
+    project_tags = [t for t in [project_id, project_key] if t]
+
+    existing_docs = list(db.collection("users").stream())
+    existing_users = {d.id: d.to_dict() for d in existing_docs}
+
+    def match_user(ju):
+        j_email = (ju.get("emailAddress") or "").strip().lower()
+        j_name = (ju.get("displayName") or "").strip().lower()
+        j_name_parts = set(j_name.replace(".", " ").split())
+
+        # Email match
+        if j_email:
+            for uid, u in existing_users.items():
+                if (u.get("email") or "").strip().lower() == j_email:
+                    return uid
+
+        # Exact name match
+        for uid, u in existing_users.items():
+            if (u.get("name") or "").strip().lower() == j_name:
+                return uid
+
+        # Email username match
+        for uid, u in existing_users.items():
+            u_email = (u.get("email") or "").strip().lower()
+            u_user = u_email.split("@")[0] if "@" in u_email else ""
+            if u_user and (u_user == j_name or j_name in u_user or u_user in j_name):
+                return uid
+
+        # Partial name match
+        for uid, u in existing_users.items():
+            u_name = (u.get("name") or "").strip().lower()
+            u_parts = set(u_name.replace(".", " ").split())
+            common = j_name_parts.intersection(u_parts)
+            if len(common) >= 2 or (len(common) == 1 and len(u_parts) == 1):
+                return uid
+
+        return None
+
+    for ju in jira_users:
+        disp_name = (ju.get("displayName") or "").strip()
+        if not disp_name:
+            continue
+
+        matched_uid = match_user(ju)
+        if matched_uid:
+            u_data = existing_users[matched_uid]
+            p_ids = list(u_data.get("project_ids") or [])
+            changed = False
+            for tag in project_tags:
+                if tag not in p_ids:
+                    p_ids.append(tag)
+                    changed = True
+            if changed:
+                u_data["project_ids"] = p_ids
+                u_data["updated_at"] = datetime.utcnow().isoformat()
+                try:
+                    db.collection("users").document(matched_uid).update({
+                        "project_ids": p_ids,
+                        "updated_at": u_data["updated_at"]
+                    })
+                except Exception as e:
+                    logger.warning(f"Failed to update user {matched_uid} in Firestore: {e}")
+        else:
+            # Create new Firestore user
+            j_email = (ju.get("emailAddress") or "").strip()
+            if not j_email:
+                slug = re.sub(r'[^a-zA-Z0-9]', '', disp_name.lower())
+                j_email = f"{slug}@atlassian.net"
+
+            d_lower = disp_name.lower()
+            if "scrum" in d_lower or "lead" in d_lower:
+                role = "SCRUM_MASTER"
+            elif "qa" in d_lower or "test" in d_lower:
+                role = "QA_ENGINEER"
+            elif "admin" in d_lower:
+                role = "ADMIN"
+            else:
+                role = "DEVELOPER"
+
+            new_id = f"usr-jira-{uuid.uuid4().hex[:8]}"
+            now_iso = datetime.utcnow().isoformat()
+            new_u = {
+                "id": new_id,
+                "name": disp_name,
+                "email": j_email,
+                "role": role,
+                "title": "Software Developer" if role == "DEVELOPER" else role.replace("_", " ").title(),
+                "avatar_url": "",
+                "project_ids": project_tags,
+                "status": "ACTIVE",
+                "created_at": now_iso,
+                "updated_at": now_iso,
+            }
+            try:
+                db.collection("users").document(new_id).set(new_u)
+                existing_users[new_id] = new_u
+            except Exception as e:
+                logger.warning(f"Failed to persist new Jira user {new_id} to Firestore: {e}")
+
+    # Return refreshed users from Firestore
+    all_users = []
+    for uid, u in existing_users.items():
+        user_obj = dict(u)
+        p_ids = user_obj.get("project_ids") or []
+        user_obj["is_jira_project_user"] = any(t in p_ids for t in project_tags)
+        all_users.append(user_obj)
+
+    # Sort users: project-specific Jira users first, then by name
+    all_users.sort(key=lambda x: (not x.get("is_jira_project_user", False), x.get("name", "").lower()))
+    
+    return {
+        "status": "success",
+        "project_key": project_key,
+        "synced_count": len(jira_users),
+        "jira_count": sum(1 for u in all_users if u.get("is_jira_project_user")),
+        "users": all_users,
+    }
+
 @router.get("/{project_id}/jira-users")
 def get_project_jira_users(project_id: str):
     """
     Fetch all team members and Jira assignable users for the given project.
-    Combines live Jira assignable users with project registered team members and Firestore users.
+    Syncs live Jira assignable users with Firestore and combines with registered members.
     """
-    from apps.api.src.core.provider_factory import provider_factory
-
-    users = []
-    seen_names = set()
-
-    # 1. Fetch live Jira assignable users if Jira is configured
-    try:
-        jira_provider = provider_factory.get_jira_provider(project_id)
-        if jira_provider._is_configured():
-            j_users = jira_provider.fetch_jira_users()
-            for u in j_users:
-                name = (u.get("displayName") or "").strip()
-                if name and name.lower() not in seen_names:
-                    seen_names.add(name.lower())
-                    users.append({
-                        "id": u.get("accountId") or f"jira-{len(users)}",
-                        "name": name,
-                        "email": u.get("emailAddress") or "",
-                        "role": "Jira Team Member",
-                        "source": "JIRA",
-                        "active": u.get("active", True)
-                    })
-    except Exception as e:
-        logger.warning(f"Could not fetch Jira users for {project_id}: {e}")
-
-    # 2. Add project team members from Firestore
-    try:
-        doc = db.collection("projects").document(project_id).get()
-        if doc.exists:
-            p_data = doc.to_dict()
-            for m in p_data.get("team_members", []):
-                name = (m.get("name") or "").strip()
-                if name and name.lower() not in seen_names:
-                    seen_names.add(name.lower())
-                    users.append({
-                        "id": m.get("id") or f"team-{len(users)}",
-                        "name": name,
-                        "email": m.get("email") or "",
-                        "role": m.get("role") or "Developer",
-                        "source": "PROJECT",
-                        "available_hours_per_week": m.get("available_hours_per_week", 40.0)
-                    })
-    except Exception as e:
-        logger.warning(f"Could not fetch project team members for {project_id}: {e}")
-
-    # 3. Add any Firestore users assigned to this project
-    try:
-        u_docs = list(db.collection("users").stream())
-        for u in u_docs:
-            ud = u.to_dict()
-            p_ids = ud.get("project_ids", [])
-            if project_id in p_ids:
-                name = (ud.get("name") or "").strip()
-                if name and name.lower() not in seen_names:
-                    seen_names.add(name.lower())
-                    users.append({
-                        "id": u.id,
-                        "name": name,
-                        "email": ud.get("email") or "",
-                        "role": ud.get("title") or ud.get("role") or "Team Member",
-                        "source": "FIRESTORE"
-                    })
-    except Exception as e:
-        logger.warning(f"Could not fetch Firestore users for {project_id}: {e}")
-
-    return users
+    req = SyncJiraUsersRequest(project_id=project_id)
+    res = sync_project_jira_users(req)
+    if isinstance(res, dict) and "users" in res:
+        return res["users"]
+    return res
 
 @router.delete("/{project_id}")
 def delete_project(project_id: str):

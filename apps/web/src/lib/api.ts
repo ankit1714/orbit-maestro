@@ -65,6 +65,8 @@ export const api = {
     fetchApi<any>(`/projects/${projectId}/jira-sync`, { method: 'POST' }),
   getProjectJiraUsers: (projectId: string) =>
     fetchApi<any[]>(`/projects/${projectId}/jira-users`),
+  syncProjectJiraUsers: (data: { project_key?: string; jira_link?: string; project_id?: string }) =>
+    fetchApi<{ status: string; project_key?: string; synced_count: number; jira_users: any[]; users: any[] }>('/projects/sync-jira-users', { method: 'POST', body: JSON.stringify(data) }),
   updateIntegrations: (projectId: string, data: any) =>
     fetchApi<any>(`/projects/${projectId}/integrations`, { method: 'PATCH', body: JSON.stringify(data) }),
 
@@ -95,7 +97,7 @@ export const api = {
   updateTaskStatus: (projectId: string, taskId: string, newStatus: string) =>
     fetchApi<any>(`/backlog/tasks/${taskId}/status?project_id=${projectId}&new_status=${newStatus}`, { method: 'PUT' }),
   getJiraStatus: () => fetchApi<any>('/backlog/jira/status'),
-  uploadBacklogToJira: (projectId: string, payload?: { project_key?: string }) =>
+  uploadBacklogToJira: (projectId: string, payload?: { project_key?: string; instance_url?: string }) =>
     fetchApi<any>(`/backlog/${projectId}/upload-jira`, { method: 'POST', body: JSON.stringify(payload || {}) }),
 
   // Sprints

@@ -1,4 +1,5 @@
 import logging
+import re
 from typing import Optional
 from apps.api.src.core.config import settings
 from apps.api.src.schemas.project import Project
@@ -27,8 +28,19 @@ class ProviderFactory:
     def get_backlog_provider(cls, project_id: str) -> BaseBacklogProvider:
         project = cls.get_project(project_id)
         if project and project.mode == ProjectMode.ENTERPRISE_SYNC and project.jira_settings.enabled:
+            raw_instance = (
+                project.jira_settings.instance_url
+                or getattr(project, "jira_project_link", None)
+                or settings.JIRA_INSTANCE_URL
+            )
+            instance_url = raw_instance
+            if raw_instance:
+                m_domain = re.search(r'(https?://[^/]+)', raw_instance.strip())
+                if m_domain:
+                    instance_url = m_domain.group(1)
+
             return JiraBacklogProvider(
-                instance_url=project.jira_settings.instance_url or settings.JIRA_INSTANCE_URL,
+                instance_url=instance_url,
                 user_email=project.jira_settings.user_email or settings.JIRA_USER_EMAIL,
                 api_token=project.jira_settings.api_token or settings.JIRA_API_TOKEN,
                 project_key=project.jira_settings.project_key or project.key
@@ -36,11 +48,27 @@ class ProviderFactory:
         return NativeFirestoreBacklogProvider()
 
     @classmethod
-    def get_jira_provider(cls, project_id: str, target_project_key: Optional[str] = None) -> JiraBacklogProvider:
+    def get_jira_provider(
+        cls,
+        project_id: str,
+        target_project_key: Optional[str] = None,
+        target_instance_url: Optional[str] = None
+    ) -> JiraBacklogProvider:
         project = cls.get_project(project_id)
         jira_settings = project.jira_settings if project else None
 
-        instance_url = (jira_settings.instance_url if jira_settings and jira_settings.instance_url else None) or settings.JIRA_INSTANCE_URL
+        raw_instance = (
+            target_instance_url
+            or (jira_settings.instance_url if jira_settings and jira_settings.instance_url else None)
+            or (project.jira_project_link if project and getattr(project, "jira_project_link", None) else None)
+            or settings.JIRA_INSTANCE_URL
+        )
+        instance_url = raw_instance
+        if raw_instance:
+            m_domain = re.search(r'(https?://[^/]+)', raw_instance.strip())
+            if m_domain:
+                instance_url = m_domain.group(1)
+
         user_email = (jira_settings.user_email if jira_settings and jira_settings.user_email else None) or settings.JIRA_USER_EMAIL
         api_token = (jira_settings.api_token if jira_settings and jira_settings.api_token else None) or settings.JIRA_API_TOKEN
         proj_key = (
