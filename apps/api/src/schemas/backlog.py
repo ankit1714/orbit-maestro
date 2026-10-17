@@ -31,6 +31,8 @@ class TaskItem(BaseModel):
     created_at: Optional[datetime] = Field(default_factory=datetime.utcnow)
     updated_at: Optional[datetime] = Field(default_factory=datetime.utcnow)
     jira_url: Optional[str] = None
+    sprint_id: Optional[str] = None
+    sprint_name: Optional[str] = None
 
 class UserStory(BaseModel):
     id: str
@@ -53,6 +55,8 @@ class UserStory(BaseModel):
     created_at: Optional[datetime] = Field(default_factory=datetime.utcnow)
     updated_at: Optional[datetime] = Field(default_factory=datetime.utcnow)
     jira_url: Optional[str] = None
+    sprint_id: Optional[str] = None
+    sprint_name: Optional[str] = None
 
 class Epic(BaseModel):
     id: str

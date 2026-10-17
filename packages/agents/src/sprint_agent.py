@@ -73,6 +73,7 @@ class SprintPlanningAgent:
             total_days=proj_data.get("sprint_duration_days", 14),
             start_date=now - timedelta(days=7 if tasks else 0),
             end_date=now + timedelta(days=7 if tasks else 14),
+            committed_story_ids=[t.get("key") or t.get("id") for t in tasks if (t.get("key") or t.get("id"))],
             capacity=capacity
         )
 

@@ -21,7 +21,11 @@ class ProviderFactory:
     def get_project(project_id: str) -> Optional[Project]:
         snap = db.collection("projects").document(project_id).get()
         if snap.exists:
-            return Project(**snap.to_dict())
+            try:
+                return Project(**snap.to_dict())
+            except Exception as e:
+                logger.warning(f"Could not parse project {project_id}: {e}")
+                return None
         return None
 
     @classmethod

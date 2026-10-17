@@ -398,7 +398,8 @@ class JiraBacklogProvider(BaseBacklogProvider):
                 "maxResults": 100,
                 "fields": [
                     "summary", "status", "issuetype", "assignee", "description",
-                    "customfield_10016", "parent", "created", "updated", "reporter", "subtasks"
+                    "customfield_10016", "parent", "created", "updated", "reporter", "subtasks",
+                    "customfield_10020"
                 ]
             }
             res = requests.post(url, headers=self._get_headers(), json=payload, auth=self._get_auth(), timeout=12)
@@ -439,6 +440,18 @@ class JiraBacklogProvider(BaseBacklogProvider):
                 parent = fields.get("parent")
                 parent_key = parent.get("key") if parent else None
 
+                # Extract Jira sprint metadata if present
+                sprint_id = None
+                sprint_name = None
+                raw_sprints = fields.get("customfield_10020") or fields.get("sprint")
+                if isinstance(raw_sprints, dict):
+                    raw_sprints = [raw_sprints]
+                if raw_sprints and isinstance(raw_sprints, list) and len(raw_sprints) > 0:
+                    active_sp = next((sp for sp in raw_sprints if isinstance(sp, dict) and sp.get("state") == "active"), raw_sprints[-1] if isinstance(raw_sprints[-1], dict) else None)
+                    if active_sp and isinstance(active_sp, dict):
+                        sprint_id = str(active_sp.get("id"))
+                        sprint_name = active_sp.get("name")
+
                 if it_name == "epic":
                     epics_dict[key] = Epic(
                         id=item.get("id", key),
@@ -469,7 +482,9 @@ class JiraBacklogProvider(BaseBacklogProvider):
                         effort_days=1.5,
                         created_at=created_dt,
                         updated_at=updated_dt,
-                        jira_url=jira_link
+                        jira_url=jira_link,
+                        sprint_id=sprint_id,
+                        sprint_name=sprint_name
                     )
                     if parent_key:
                         parent_story_map[key] = parent_key
@@ -491,16 +506,21 @@ class JiraBacklogProvider(BaseBacklogProvider):
                         tasks=[],
                         created_at=created_dt,
                         updated_at=updated_dt,
-                        jira_url=jira_link
+                        jira_url=jira_link,
+                        sprint_id=sprint_id,
+                        sprint_name=sprint_name
                     )
                     if parent_key:
                         parent_epic_map[key] = parent_key
 
-            # 2. Attach subtasks to their parent stories
+            # 2. Attach subtasks to their parent stories (inheriting sprint metadata if missing)
             for t_key, t_item in tasks_dict.items():
                 p_key = parent_story_map.get(t_key)
                 if p_key and p_key in stories_dict:
-                    stories_dict[p_key].tasks.append(t_item)
+                    parent_st = stories_dict[p_key]
+                    t_item.sprint_id = t_item.sprint_id or parent_st.sprint_id
+                    t_item.sprint_name = t_item.sprint_name or parent_st.sprint_name
+                    parent_st.tasks.append(t_item)
                 else:
                     # If subtask points directly to epic or standalone, create placeholder story
                     orphan_story_key = p_key or f"{t_key}-parent"
@@ -519,7 +539,9 @@ class JiraBacklogProvider(BaseBacklogProvider):
                             tasks=[],
                             created_at=t_item.created_at,
                             updated_at=t_item.updated_at,
-                            jira_url=f"{self.instance_url}/browse/{p_key}" if p_key else None
+                            jira_url=f"{self.instance_url}/browse/{p_key}" if p_key else None,
+                            sprint_id=t_item.sprint_id,
+                            sprint_name=t_item.sprint_name
                         )
                     stories_dict[orphan_story_key].tasks.append(t_item)
 
@@ -620,9 +642,14 @@ class JiraBacklogProvider(BaseBacklogProvider):
 
             if board_id and project_id:
                 try:
-                    db.collection("projects").document(project_id).update({
-                        "jira_settings.board_id": str(board_id)
-                    })
+                    p_doc = db.collection("projects").document(project_id).get()
+                    if p_doc.exists:
+                        p_data = p_doc.to_dict()
+                        if "jira_settings" in p_data and isinstance(p_data["jira_settings"], dict):
+                            p_data["jira_settings"]["board_id"] = str(board_id)
+                        else:
+                            p_data["jira_settings"] = {"board_id": str(board_id)}
+                        db.collection("projects").document(project_id).set(p_data)
                 except Exception as ex:
                     logger.debug(f"Could not persist board_id {board_id} for {project_id}: {ex}")
 
@@ -631,13 +658,11 @@ class JiraBacklogProvider(BaseBacklogProvider):
             if board_id:
                 url_sprints = f"{self.instance_url}/rest/agile/1.0/board/{board_id}/sprint"
                 res_s = requests.get(url_sprints, headers=self._get_headers(), auth=self._get_auth(), timeout=8)
-
-            active_sprint_data = None
-            if res_s.status_code == 200:
-                sprints = res_s.json().get("values", [])
-                active_sprint_data = next((s for s in sprints if s.get("state") == "active"), None)
-                if not active_sprint_data and sprints:
-                    active_sprint_data = sprints[-1]
+                if res_s.status_code == 200:
+                    sprints = res_s.json().get("values", [])
+                    active_sprint_data = next((s for s in sprints if s.get("state") == "active"), None)
+                    if not active_sprint_data and sprints:
+                        active_sprint_data = sprints[-1]
 
             if active_sprint_data:
                 s_id = active_sprint_data.get("id")
@@ -655,7 +680,7 @@ class JiraBacklogProvider(BaseBacklogProvider):
                 total_days = max(1, (end_utc - start_utc).days)
 
                 # 3. Fetch issues inside this sprint and project for capacity calculation
-                issues_url = f"{self.instance_url}/rest/agile/1.0/sprint/{s_id}/issue"
+                issues_url = f"{self.instance_url}/rest/agile/1.0/sprint/{s_id}/issue?maxResults=100"
                 res_i = requests.get(issues_url, headers=self._get_headers(), auth=self._get_auth(), timeout=8)
                 committed_keys = []
                 planned_pts = 0
@@ -665,7 +690,16 @@ class JiraBacklogProvider(BaseBacklogProvider):
                     sp_issues = res_i.json().get("issues", [])
                     for i in sp_issues:
                         k = i.get("key")
-                        committed_keys.append(k)
+                        if k:
+                            committed_keys.append(k)
+                        i_id = i.get("id")
+                        if i_id:
+                            committed_keys.append(str(i_id))
+                        for sub in i.get("fields", {}).get("subtasks", []):
+                            if sub.get("key"):
+                                committed_keys.append(sub.get("key"))
+                            if sub.get("id"):
+                                committed_keys.append(str(sub.get("id")))
                         f = i.get("fields", {})
                         pts = int(f.get("customfield_10016") or 5)
                         planned_pts += pts
