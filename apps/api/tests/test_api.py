@@ -13,7 +13,7 @@ def test_health_check():
 def test_root():
     res = client.get("/")
     assert res.status_code == 200
-    assert res.json()["service"] == "AI Scrum Master Core API"
+    assert "Orbit Maestro AI" in res.json()["service"]
 
 def test_projects_crud():
     import uuid
@@ -73,7 +73,7 @@ def test_backlog_and_questions():
     resolve_res = client.post("/v1/backlog/questions/resolve", json={
         "question_id": questions[0]["id"],
         "resolved_answer": "PDF, JPG, PNG max 25MB",
-        "resolved_by": "Product Owner"
+        "resolved_by": "Scrum Master"
     })
     assert resolve_res.status_code == 200
     assert resolve_res.json()["resolved"] is True

@@ -22,8 +22,8 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("ai_scrum_api")
 
 app = FastAPI(
-    title="AI Scrum Master — Autonomous Delivery Orchestration API",
-    description="Multi-agent Scrum Master API supporting Standalone Firestore Mode, Enterprise Jira/Confluence/GitHub sync, and Google NotebookLM knowledge spaces.",
+    title="Orbit Maestro AI — Your Intelligent Scrum Partner API",
+    description="Autonomous Scrum Master API supporting Standalone Firestore Mode, Enterprise Jira/Confluence/GitHub sync, and Google NotebookLM knowledge spaces.",
     version="1.0.0"
 )
 
@@ -58,7 +58,7 @@ app.include_router(users_router, prefix=api_prefix)
 @app.get("/")
 def root():
     return {
-        "service": "AI Scrum Master Core API",
+        "service": "Orbit Maestro AI Core API",
         "version": "1.0.0",
         "status": "ONLINE",
         "docs_url": "/docs"

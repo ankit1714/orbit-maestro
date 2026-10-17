@@ -13,7 +13,10 @@ import {
   Trash2,
   Users,
   Link as LinkIcon,
-  Lock
+  Lock,
+  Search,
+  Orbit,
+  X
 } from 'lucide-react';
 import { useRole } from '@/lib/roleContext';
 import { RoleSwitcher } from '@/components/RoleSwitcher';
@@ -27,8 +30,9 @@ interface NavigationProps {
   onDeleteProject: (projectId: string) => void;
   onOpenSimulator: () => void;
   onOpenCommandPalette: () => void;
-  onToggleCopilot: () => void;
+  onToggleCopilot?: () => void;
   onSwitchView: (view: string) => void;
+  onAskOrbit?: (query: string) => void;
   approvalsCount: number;
   flashStatus: string;
 }
@@ -43,11 +47,13 @@ export const Navigation: React.FC<NavigationProps> = ({
   onOpenCommandPalette,
   onToggleCopilot,
   onSwitchView,
+  onAskOrbit,
   approvalsCount,
   flashStatus,
 }) => {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [headerSearchQuery, setHeaderSearchQuery] = useState('');
   const { can, profile } = useRole();
 
   React.useEffect(() => {
@@ -104,10 +110,9 @@ export const Navigation: React.FC<NavigationProps> = ({
             </div>
             <div className="leading-none">
               <span className="font-bold text-sm tracking-tight text-[#202124] flex items-center gap-1.5">
-                AI Scrum Master
-                <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded-full bg-[#e8f0fe] text-[#1a73e8] border border-[#d2e3fc] font-medium">ADK Agent</span>
+                Orbit Maestro AI
               </span>
-              <span className="text-[11px] text-[#5f6368] font-normal">Autonomous Execution Loop</span>
+              <span className="text-[11px] text-[#5f6368] font-normal">Your Intelligent Scrum Partner</span>
             </div>
           </div>
 
@@ -203,7 +208,7 @@ export const Navigation: React.FC<NavigationProps> = ({
                   ) : (
                     <div 
                       className="w-full p-2 rounded-lg text-xs text-[#80868b] flex items-center gap-2 font-medium cursor-not-allowed opacity-60"
-                      title="Only Product Owner, Scrum Master, or Admin can create projects"
+                      title="Only Scrum Master or Admin can create projects"
                     >
                       <Lock className="w-3.5 h-3.5 text-[#80868b]" />
                       <span>Create Project (Restricted)</span>
@@ -215,21 +220,55 @@ export const Navigation: React.FC<NavigationProps> = ({
           </div>
         </div>
 
+        {/* Center: Searchbox & AskOrbit Button */}
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            const q = headerSearchQuery.trim();
+            if (onAskOrbit) {
+              onAskOrbit(q);
+            } else {
+              onSwitchView('orbitbot');
+            }
+          }}
+          className="flex-1 max-w-xl mx-4 flex items-center"
+        >
+          <div className="relative w-full flex items-center">
+            <Search className="w-4 h-4 text-[#80868b] absolute left-3 pointer-events-none" />
+            <input
+              type="text"
+              value={headerSearchQuery}
+              onChange={(e) => setHeaderSearchQuery(e.target.value)}
+              placeholder="Ask Orbit Maestro anything (PRD, Jira, Git, Confluence)..."
+              className="w-full bg-[#f1f3f4] hover:bg-[#e8eaed]/70 focus:bg-white border border-[#dadce0] focus:border-[#1a73e8] rounded-xl pl-9 pr-28 py-1.5 text-xs text-[#202124] placeholder-[#80868b] focus:outline-none transition-all shadow-2xs focus:shadow-xs"
+            />
+            {headerSearchQuery && (
+              <button
+                type="button"
+                onClick={() => setHeaderSearchQuery('')}
+                className="absolute right-24 text-[#80868b] hover:text-[#202124] p-1 transition"
+                title="Clear query"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+            <button
+              type="submit"
+              className="absolute right-1 px-3 py-1 rounded-lg bg-[#1a73e8] hover:bg-[#1557b0] text-white text-xs font-semibold flex items-center gap-1.5 shadow-2xs transition active:scale-95"
+              title="Ask OrbitBot"
+            >
+              <Orbit className="w-3.5 h-3.5" />
+              <span>AskOrbit</span>
+            </button>
+          </div>
+        </form>
+
         {/* Right: Governance Badges & AI Status */}
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center space-x-3 shrink-0">
           {/* GitHub Live Flash Health Indicator */}
           {getFlashBadge()}
 
           <div className="h-5 w-[1px] bg-[#dadce0]"></div>
-
-          {/* Copilot Drawer Toggle */}
-          <button
-            onClick={onToggleCopilot}
-            className="p-2 text-[#5f6368] hover:text-[#1a73e8] hover:bg-[#e8f0fe] rounded-full transition"
-            title="Toggle AI Copilot (⌘J)"
-          >
-            <Sparkles className="w-4 h-4 text-[#1a73e8]" />
-          </button>
 
           {/* Interactive Role Switcher Dropdown */}
           <RoleSwitcher />

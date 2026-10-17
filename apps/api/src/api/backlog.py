@@ -29,7 +29,7 @@ def generate_backlog(payload: Dict[str, Any]):
 
 @router.get("/questions/{project_id}", response_model=List[OpenQuestion])
 def list_open_questions(project_id: str, resolved: Optional[bool] = None):
-    """List open questions / ambiguities requiring Product Owner input."""
+    """List open questions / ambiguities requiring Scrum Master input."""
     q = db.collection("open_questions").where("project_id", "==", project_id)
     if resolved is not None:
         q = q.where("resolved", "==", resolved)
@@ -38,7 +38,7 @@ def list_open_questions(project_id: str, resolved: Optional[bool] = None):
 
 @router.post("/questions/resolve", response_model=OpenQuestion)
 def resolve_question(req: OpenQuestionResolveRequest):
-    """Resolve an open ambiguity with PO answer, unblocking story acceptance criteria."""
+    """Resolve an open ambiguity with Scrum Master answer, unblocking story acceptance criteria."""
     return ambiguity_agent.resolve_question(req.question_id, req.resolved_answer, req.resolved_by)
 
 @router.put("/tasks/{task_id}/status", response_model=TaskItem)

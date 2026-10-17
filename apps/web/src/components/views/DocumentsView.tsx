@@ -34,7 +34,7 @@ import {
   CornerDownLeft,
   Eye
 } from 'lucide-react';
-import { api } from '@/lib/api';
+import { api, getJiraBoardUrl } from '@/lib/api';
 import { useRole } from '@/lib/roleContext';
 
 interface DocumentsViewProps {
@@ -90,11 +90,6 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
   const [jiraInstanceUrl, setJiraInstanceUrl] = useState('');
   const [jiraProjectKey, setJiraProjectKey] = useState('');
   const [isSavingJira, setIsSavingJira] = useState(false);
-  // AI Knowledge Search Bot State
-  const [aiSearchQuery, setAiSearchQuery] = useState('');
-  const [isAiSearching, setIsAiSearching] = useState(false);
-  const [aiSearchResult, setAiSearchResult] = useState<any>(null);
-  const [isSyncingKnowledge, setIsSyncingKnowledge] = useState(false);
   const [syncNotice, setSyncNotice] = useState<string | null>(null);
 
   // 3-Agent Decomposition & Strategy State
@@ -114,45 +109,6 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
         .catch(() => {});
     }
   }, [currentProject?.id]);
-
-  const handleAiSearch = async (queryOverride?: string) => {
-    const q = (queryOverride !== undefined ? queryOverride : aiSearchQuery).trim();
-    if (!q || !currentProject?.id) return;
-    if (queryOverride) {
-      setAiSearchQuery(queryOverride);
-    }
-    setIsAiSearching(true);
-    setAiSearchResult(null);
-    try {
-      const res = await api.searchKnowledge(currentProject.id, q);
-      setAiSearchResult(res);
-    } catch (err) {
-      setAiSearchResult({
-        has_details: false,
-        answer: "No details available anywhere. Search service encountered an error or sources are unreachable.",
-        citations: []
-      });
-    } finally {
-      setIsAiSearching(false);
-    }
-  };
-
-  const handleSyncKnowledge = async () => {
-    if (!currentProject?.id) return;
-    setIsSyncingKnowledge(true);
-    setSyncNotice(null);
-    try {
-      const res = await api.syncKnowledge(currentProject.id);
-      setSyncNotice(res.message || "Knowledge base refreshed successfully!");
-      setTimeout(() => setSyncNotice(null), 6000);
-      onRefresh();
-    } catch (err) {
-      setSyncNotice("Could not sync knowledge sources from database.");
-      setTimeout(() => setSyncNotice(null), 5000);
-    } finally {
-      setIsSyncingKnowledge(false);
-    }
-  };
 
   // Confluence Full Content Viewer & Real-time Sync State
   const [viewingConfluencePage, setViewingConfluencePage] = useState<any>(null);
@@ -488,9 +444,6 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
             <h1 className="text-xl font-bold text-[#202124] tracking-tight">
               Document Studio & Project Knowledge Hub
             </h1>
-            <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-[#e6f4ea] text-[#137333] border border-[#ceead6] font-semibold">
-              Single Source of Truth
-            </span>
           </div>
           <p className="text-xs text-[#5f6368] mt-1">
             Centralized hub for Confluence design spaces, multi-repository Git links, JIRA integration, and Document AI requirement ingestion.
@@ -498,12 +451,7 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
-          {canManage ? (
-            <span className="text-[11px] font-mono px-2 py-1 rounded bg-[#fce8e6] text-[#c5221f] border border-[#fad2cf] flex items-center gap-1 font-medium">
-              <ShieldCheck className="w-3.5 h-3.5 text-[#c5221f]" />
-              <span>Admin: Resource Management Active</span>
-            </span>
-          ) : (
+          {!canManage && (
             <span className="text-[11px] font-mono px-2 py-1 rounded bg-[#f1f3f4] text-[#5f6368] border border-[#dadce0] flex items-center gap-1">
               <Lock className="w-3 h-3 text-[#5f6368]" />
               <span>Read-Only Mode ({profile.shortLabel})</span>
@@ -511,6 +459,14 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
           )}
         </div>
       </div>
+
+      {/* Sync notification message */}
+      {syncNotice && (
+        <div className="p-3 rounded-xl bg-[#e6f4ea] border border-[#ceead6] text-[#137333] text-xs flex items-center gap-2 animate-in fade-in">
+          <CheckCircle2 className="w-4 h-4 text-[#137333] shrink-0" />
+          <span className="font-medium">{syncNotice}</span>
+        </div>
+      )}
 
       {/* ========================================================================= */}
       {/* 1. ENTERPRISE INTEGRATION STATUS COMMAND BAR (JIRA, CONFLUENCE, GIT) */}
@@ -562,9 +518,9 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
           </div>
 
           <div className="pt-3 border-t border-[#dadce0] flex items-center justify-between mt-3 text-xs">
-            {currentProject?.jira_settings?.instance_url ? (
+            {currentProject?.jira_settings?.instance_url || currentProject?.jira_project_link ? (
               <a
-                href={currentProject.jira_settings.instance_url}
+                href={getJiraBoardUrl(currentProject)}
                 target="_blank"
                 rel="noreferrer"
                 className="text-[#1a73e8] hover:text-[#1557b0] flex items-center gap-1 font-semibold text-[11px]"
@@ -900,7 +856,7 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
             <button
               onClick={() => handleIngestConfluence()}
               disabled={!can('canIngestPRD') || ingesting || confluencePages.length === 0}
-              title={!can('canIngestPRD') ? "Restricted: Product Owner or Admin permission required" : confluencePages.length === 0 ? "Attach a Confluence page link first" : ""}
+              title={!can('canIngestPRD') ? "Restricted: Scrum Master or Admin permission required" : confluencePages.length === 0 ? "Attach a Confluence page link first" : ""}
               className={`px-3.5 py-2 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm transition shrink-0 ${
                 !can('canIngestPRD') || ingesting || confluencePages.length === 0
                   ? 'bg-[#f1f3f4] text-[#80868b] border border-[#dadce0] cursor-not-allowed'
@@ -908,7 +864,7 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
               }`}
             >
               {!can('canIngestPRD') ? <Lock className="w-3.5 h-3.5" /> : <Sparkles className="w-3.5 h-3.5" />}
-              <span>{ingesting ? "Analyzing with Gemini..." : !can('canIngestPRD') ? "Ingest (PO Only)" : "Ingest & Run AI Understanding"}</span>
+              <span>{ingesting ? "Analyzing with Gemini..." : !can('canIngestPRD') ? "Ingest (SM Only)" : "Ingest & Run AI Understanding"}</span>
             </button>
           </div>
         </div>
@@ -1050,255 +1006,7 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
 
       </div>
 
-      {/* ========================================================================= */}
-      {/* 2.5 AI PROJECT KNOWLEDGE SEARCH BOT (GROUNDED IN JIRA, CONFLUENCE, GIT, PRD) */}
-      {/* ========================================================================= */}
-      <div className="p-5 rounded-2xl border border-[#dadce0] bg-white shadow-sm space-y-4">
-        {/* Header Bar */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#dadce0]">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-[#e8f0fe] text-[#1a73e8] border border-[#d2e3fc] flex items-center justify-center shrink-0">
-              <Sparkles className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-sm font-bold text-[#202124]">AI Project Search Bot & Knowledge Assistant</h2>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#e8f0fe] text-[#1967d2] border border-[#d2e3fc] font-semibold">
-                  NotebookLM Engine
-                </span>
-              </div>
-              <p className="text-[11px] text-[#5f6368] mt-0.5">
-                Grounded Q&A scanning all connected Confluence spaces, JIRA work items/bugs, Git repositories, and PRDs.
-              </p>
-            </div>
-          </div>
 
-          <div className="flex items-center gap-2 shrink-0">
-            <button
-              onClick={handleSyncKnowledge}
-              disabled={isSyncingKnowledge}
-              className="px-3 py-1.5 rounded-lg bg-[#f1f3f4] hover:bg-[#e8eaed] disabled:opacity-50 text-[#3c4043] text-xs font-medium flex items-center gap-1.5 border border-[#dadce0] transition"
-              title="Re-scan and refresh index from Firestore DB"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${isSyncingKnowledge ? 'animate-spin text-[#1a73e8]' : ''}`} />
-              <span>{isSyncingKnowledge ? 'Syncing...' : 'Sync Knowledge'}</span>
-            </button>
-
-            <a
-              href={`https://notebooklm.google.com/notebook/nb-${currentProject?.key?.toLowerCase() || 'hub'}-01`}
-              target="_blank"
-              rel="noreferrer"
-              className="px-3 py-1.5 rounded-lg bg-[#1a73e8] hover:bg-[#1557b0] text-white text-xs font-semibold flex items-center gap-1.5 shadow-sm transition"
-              title="Open Google NotebookLM workspace"
-            >
-              <span>Google NotebookLM</span>
-              <ExternalLink className="w-3.5 h-3.5" />
-            </a>
-          </div>
-        </div>
-
-        {/* Sync notification message */}
-        {syncNotice && (
-          <div className="p-2.5 rounded-lg bg-[#e6f4ea] border border-[#ceead6] text-[#137333] text-xs flex items-center gap-2 animate-in fade-in">
-            <CheckCircle2 className="w-4 h-4 text-[#137333] shrink-0" />
-            <span>{syncNotice}</span>
-          </div>
-        )}
-
-        {/* Grounded Source Coverage Badges */}
-        <div className="flex flex-wrap items-center gap-2 p-2.5 rounded-xl bg-[#f8f9fa] border border-[#dadce0] text-[11px] font-mono">
-          <span className="text-[#5f6368] font-semibold uppercase text-[10px] mr-1">Grounded Sources:</span>
-          
-          <span className="px-2 py-0.5 rounded bg-[#e8f0fe] text-[#1967d2] border border-[#d2e3fc] flex items-center gap-1">
-            <Layers className="w-3 h-3 text-[#1a73e8]" />
-            <span>JIRA ({currentProject?.jira_settings?.project_key || currentProject?.key || 'Connected'})</span>
-          </span>
-
-          <span className="px-2 py-0.5 rounded bg-[#f3e8fd] text-[#9334e6] border border-[#e9d5ff] flex items-center gap-1">
-            <BookOpen className="w-3 h-3 text-[#9334e6]" />
-            <span>Confluence ({confluencePages.length} pages)</span>
-          </span>
-
-          <span className="px-2 py-0.5 rounded bg-[#e6f4ea] text-[#137333] border border-[#ceead6] flex items-center gap-1">
-            <GitBranch className="w-3 h-3 text-[#137333]" />
-            <span>Git ({gitRepositories.length} repos)</span>
-          </span>
-
-          <span className="px-2 py-0.5 rounded bg-[#feefc3] text-[#b06000] border border-[#fdd663] flex items-center gap-1">
-            <FileText className="w-3 h-3 text-[#b06000]" />
-            <span>PRD ({requirements?.document_title ? 'Ingested' : 'Baseline'})</span>
-          </span>
-        </div>
-
-        {/* Search Input Box */}
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            handleAiSearch();
-          }}
-          className="flex items-center gap-2"
-        >
-          <div className="relative flex-1">
-            <Search className="w-4 h-4 text-[#80868b] absolute left-3.5 top-3" />
-            <input
-              type="text"
-              value={aiSearchQuery}
-              onChange={(e) => setAiSearchQuery(e.target.value)}
-              placeholder="Ask anything about the project (e.g. Git repository links, Jira bugs, Confluence specs, PRD goals)..."
-              className="w-full bg-[#f8f9fa] border border-[#dadce0] rounded-xl pl-10 pr-10 py-2.5 text-xs text-[#202124] placeholder-[#80868b] focus:outline-none focus:border-[#1a73e8] focus:bg-white transition font-sans"
-            />
-            {aiSearchQuery && (
-              <button
-                type="button"
-                onClick={() => {
-                  setAiSearchQuery('');
-                  setAiSearchResult(null);
-                }}
-                className="absolute right-3.5 top-3 text-[#80868b] hover:text-[#202124]"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </div>
-
-          <button
-            type="submit"
-            disabled={isAiSearching || !aiSearchQuery.trim()}
-            className="px-4 py-2.5 rounded-xl bg-[#1a73e8] hover:bg-[#1557b0] disabled:opacity-50 text-white font-semibold text-xs flex items-center gap-1.5 shrink-0 transition shadow-sm"
-          >
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>{isAiSearching ? 'Searching...' : 'Ask AI'}</span>
-          </button>
-        </form>
-
-        {/* Suggestion Prompt Pills */}
-        <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-          <span className="text-[10px] font-mono text-[#5f6368] uppercase mr-1">Quick Prompts:</span>
-          {[
-            "What Git repositories are connected?",
-            "Summarize active Jira stories & backlog",
-            "What Confluence architecture docs exist?",
-            "What is the main business goal from the PRD?",
-            "Who are the assigned developers and QA?",
-          ].map((promptText, idx) => (
-            <button
-              key={idx}
-              type="button"
-              onClick={() => handleAiSearch(promptText)}
-              className="px-2.5 py-1 rounded-lg bg-white border border-[#dadce0] hover:border-[#1a73e8] hover:bg-[#f8f9fa] text-[11px] text-[#5f6368] hover:text-[#202124] transition flex items-center gap-1 shadow-2xs"
-            >
-              <span>{promptText}</span>
-              <CornerDownLeft className="w-2.5 h-2.5 text-[#80868b]" />
-            </button>
-          ))}
-        </div>
-
-        {/* Search Results Display */}
-        {isAiSearching && (
-          <div className="p-8 text-center bg-[#f8f9fa] rounded-xl border border-[#dadce0] space-y-3">
-            <div className="w-8 h-8 rounded-full border-2 border-[#1a73e8] border-t-transparent animate-spin mx-auto" />
-            <div className="space-y-1">
-              <p className="text-xs font-semibold text-[#202124]">Scanning Grounded Project Records...</p>
-              <p className="text-[11px] text-[#5f6368] font-mono">
-                Thoroughly checking Confluence pages, JIRA tasks/stories/bugs, Git repositories, and PRD specifications...
-              </p>
-            </div>
-          </div>
-        )}
-
-        {aiSearchResult && !isAiSearching && (
-          <div className="space-y-3 pt-1">
-            {aiSearchResult.has_details && aiSearchResult.answer !== "No details available anywhere" ? (
-              <div className="p-4 rounded-xl bg-[#f8f9fa] border border-[#dadce0] space-y-3 shadow-xs">
-                <div className="flex items-center justify-between text-xs pb-2 border-b border-[#dadce0]">
-                  <div className="flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-[#1a73e8]" />
-                    <span className="font-bold text-[#202124]">Grounded Project AI Response</span>
-                  </div>
-                  <div className="flex items-center gap-2 font-mono text-[10px]">
-                    <span className="px-2 py-0.5 rounded bg-[#e6f4ea] text-[#137333] border border-[#ceead6] font-semibold">
-                      {Math.round((aiSearchResult.confidence_score || 0.96) * 100)}% Verified Grounding
-                    </span>
-                  </div>
-                </div>
-
-                <div className="text-xs text-[#202124] leading-relaxed whitespace-pre-line font-sans">
-                  {aiSearchResult.answer}
-                </div>
-
-                {/* Citations List */}
-                {aiSearchResult.citations && aiSearchResult.citations.length > 0 && (
-                  <div className="pt-3 border-t border-[#dadce0] space-y-2">
-                    <span className="text-[10px] font-mono uppercase text-[#5f6368] font-semibold block">
-                      Grounded Citations & Verifiable Sources ({aiSearchResult.citations.length}):
-                    </span>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
-                      {aiSearchResult.citations.map((c: any, idx: number) => {
-                        const isJira = c.source_type?.includes('JIRA');
-                        const isConf = c.source_type?.includes('CONFLUENCE');
-                        const isGit = c.source_type?.includes('GIT');
-
-                        return (
-                          <div
-                            key={idx}
-                            className="p-3 rounded-lg bg-white border border-[#dadce0] hover:border-[#1a73e8] transition flex flex-col justify-between space-y-2 shadow-2xs"
-                          >
-                            <div className="space-y-1">
-                              <div className="flex items-center justify-between gap-1 text-[11px]">
-                                <span className="font-bold text-[#202124] truncate flex items-center gap-1.5">
-                                  {isJira && <Layers className="w-3.5 h-3.5 text-[#1a73e8] shrink-0" />}
-                                  {isConf && <BookOpen className="w-3.5 h-3.5 text-[#9334e6] shrink-0" />}
-                                  {isGit && <GitBranch className="w-3.5 h-3.5 text-[#137333] shrink-0" />}
-                                  {!isJira && !isConf && !isGit && <FileText className="w-3.5 h-3.5 text-[#b06000] shrink-0" />}
-                                  <span className="truncate">{c.source_title}</span>
-                                </span>
-                                <span className="font-mono text-[10px] text-[#5f6368] shrink-0">{c.section_or_page}</span>
-                              </div>
-                              {c.snippet_text && (
-                                <p className="text-[11px] text-[#5f6368] line-clamp-2 italic">
-                                  "{c.snippet_text}"
-                                </p>
-                              )}
-                            </div>
-
-                            {c.source_uri && (
-                              <div className="pt-1.5 border-t border-[#dadce0]">
-                                <a
-                                  href={c.source_uri}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="text-[10px] font-semibold text-[#1a73e8] hover:text-[#1557b0] flex items-center gap-1 transition truncate"
-                                >
-                                  <span className="truncate">Open {isJira ? 'Jira Ticket' : isConf ? 'Confluence Page' : isGit ? 'Git Repository' : 'Document'}</span>
-                                  <ExternalLink className="w-2.5 h-2.5 shrink-0" />
-                                </a>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-              </div>
-            ) : (
-              /* Irrelevant / Negative Fallback */
-              <div className="p-4 rounded-xl bg-[#fef7e0] border border-[#feefc3] text-[#b06000] space-y-2">
-                <div className="flex items-center gap-2 font-bold text-xs text-[#b06000]">
-                  <AlertCircle className="w-4 h-4 text-[#b06000] shrink-0" />
-                  <span>No details available anywhere</span>
-                </div>
-                <p className="text-xs text-[#5f6368] leading-relaxed">
-                  The AI bot thoroughly scanned your project's connected <strong className="text-[#202124]">Confluence pages</strong>, <strong className="text-[#202124]">JIRA stories & bugs</strong>, <strong className="text-[#202124]">Git repositories</strong>, and <strong className="text-[#202124]">PRD specifications</strong> for project <em className="text-[#202124]">{currentProject?.name}</em>, but found no matching records for this query.
-                </p>
-                <div className="pt-2 border-t border-[#feefc3] text-[11px] text-[#5f6368]">
-                  <span>Ensure related links or documents have been added in the sections above.</span>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
 
       {/* ========================================================================= */}
       {/* 3. WORKBENCH: INGESTED BASELINE & OPEN QUESTIONS */}
@@ -1311,7 +1019,6 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
               <FileCode className="w-4 h-4 text-[#1a73e8]" />
               Ingested Document Baseline: <strong className="text-[#202124]">{requirements?.document_title || "Pending Ingestion"}</strong>
             </span>
-            <span className="font-mono text-[10px] text-[#5f6368]">Firestore Indexed</span>
           </div>
 
           <div className="flex-1 font-mono text-xs text-[#202124] space-y-3 leading-relaxed overflow-y-auto pr-2 bg-[#f8f9fa] p-3 rounded-xl border border-[#dadce0]">
@@ -1424,7 +1131,6 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
                 Open Questions Requiring Human Input ({questions?.length || 0})
               </h3>
             </div>
-            <span className="text-[10px] text-[#5f6368] font-mono">FR-03 Ambiguity Engine</span>
           </div>
 
           <div className="space-y-3 overflow-y-auto flex-1 pr-1">
@@ -1460,10 +1166,10 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
                       ) : (
                         <div
                           className="flex items-center gap-1 px-2.5 py-1 text-xs rounded-lg bg-[#f1f3f4] border border-[#dadce0] text-[#80868b] cursor-not-allowed"
-                          title="Ambiguity resolution requires Product Owner or Admin"
+                          title="Ambiguity resolution requires Scrum Master or Admin"
                         >
                           <Lock className="w-3 h-3 text-[#80868b]" />
-                          <span>Resolve (PO Only)</span>
+                          <span>Resolve (SM Only)</span>
                         </div>
                       )}
                     </div>

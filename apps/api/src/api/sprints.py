@@ -57,7 +57,7 @@ def commit_sprint_scope(req: SprintScopeCommitRequest):
     orchestrator.log_activity(
         project_id=req.project_id,
         action_type=AuditActionType.SPRINT_COMMITTED,
-        actor="Product Owner",
+        actor="Scrum Master",
         description=f"Committed {sprint.name} scope with goal: '{req.goal}'",
         target=sprint.name,
         tier=GovernanceTier.APPROVAL_REQUIRED

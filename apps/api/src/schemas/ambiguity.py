@@ -22,7 +22,7 @@ class OpenQuestion(BaseModel):
 class OpenQuestionResolveRequest(BaseModel):
     question_id: str
     resolved_answer: str
-    resolved_by: str = "Product Owner"
+    resolved_by: str = "Scrum Master"
 
 class Assumption(BaseModel):
     id: str

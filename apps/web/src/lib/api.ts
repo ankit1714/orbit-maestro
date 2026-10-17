@@ -63,6 +63,8 @@ export const api = {
     fetchApi<any>(`/projects/${projectId}/git-sync`, { method: 'POST' }),
   syncJira: (projectId: string) =>
     fetchApi<any>(`/projects/${projectId}/jira-sync`, { method: 'POST' }),
+  getProjectJiraUsers: (projectId: string) =>
+    fetchApi<any[]>(`/projects/${projectId}/jira-users`),
   updateIntegrations: (projectId: string, data: any) =>
     fetchApi<any>(`/projects/${projectId}/integrations`, { method: 'PATCH', body: JSON.stringify(data) }),
 
@@ -83,7 +85,7 @@ export const api = {
   getProjectStrategy: (projectId: string) =>
     fetchApi<any>(`/ingest/${projectId}/strategy`),
   getOpenQuestions: (projectId: string) => fetchApi<any[]>(`/backlog/questions/${projectId}`),
-  resolveQuestion: (questionId: string, answer: string, resolvedBy = "Product Owner") =>
+  resolveQuestion: (questionId: string, answer: string, resolvedBy = "Scrum Master") =>
     fetchApi<any>('/backlog/questions/resolve', { method: 'POST', body: JSON.stringify({ question_id: questionId, resolved_answer: answer, resolved_by: resolvedBy }) }),
 
   // Backlog
@@ -210,3 +212,48 @@ export const api = {
   seedDefaultUsers: () =>
     fetchApi<any[]>('/users/seed-defaults', { method: 'POST' }),
 };
+
+/**
+ * Resolves the accurate Jira Agile Board / Project Dashboard URL for any given project.
+ * Handles team-managed (next-gen) boards, company-managed boards, custom domains, and explicit links.
+ */
+export const getJiraBoardUrl = (project?: any, sprint?: any): string => {
+  if (!project) return 'https://the-ai-scrum-master.atlassian.net';
+
+  // 1. If explicit jira_project_link is provided, prioritize it
+  if (project.jira_project_link && typeof project.jira_project_link === 'string' && project.jira_project_link.trim()) {
+    return project.jira_project_link.trim();
+  }
+
+  const rawInstance = project?.jira_settings?.instance_url || 'https://the-ai-scrum-master.atlassian.net';
+  const instanceUrl = rawInstance.replace(/\/+$/, '');
+  const projectKey = (project?.jira_settings?.project_key || project?.key || '').trim().toUpperCase();
+
+  if (!projectKey) return instanceUrl;
+
+  // Board ID discovery
+  let boardId = project?.jira_settings?.board_id || sprint?.jira_board_id;
+
+  // Normalization for known project boards
+  if (projectKey === 'HM' && (boardId === '1' || boardId === 1 || !boardId)) {
+    boardId = '67';
+  } else if (projectKey === 'IRIS' && !boardId) {
+    boardId = '1';
+  }
+
+  if (boardId && String(boardId).trim() && !isNaN(Number(boardId))) {
+    return `${instanceUrl}/jira/software/c/projects/${projectKey}/boards/${boardId}`;
+  }
+
+  // Canonical fallback route for Jira Software projects
+  return `${instanceUrl}/jira/software/projects/${projectKey}/boards`;
+};
+
+/**
+ * Resolves the ticket browse URL for a Jira issue key.
+ */
+export const getJiraBrowseUrl = (ticket: string, project?: any): string => {
+  const instanceUrl = (project?.jira_settings?.instance_url || 'https://the-ai-scrum-master.atlassian.net').replace(/\/+$/, '');
+  return `${instanceUrl}/browse/${(ticket || '').trim().toUpperCase()}`;
+};
+

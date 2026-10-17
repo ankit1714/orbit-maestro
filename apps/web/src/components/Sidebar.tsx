@@ -7,10 +7,11 @@ import {
   ListTree,
   Kanban,
   Mic,
+  Gauge,
   CheckCheck,
   BarChart3,
   Bot,
-  Users
+  Orbit
 } from 'lucide-react';
 import { useRole } from '@/lib/roleContext';
 
@@ -35,26 +36,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
   sprint,
   project,
 }) => {
-  const { profile } = useRole();
+  const { role, profile } = useRole();
   const navItemClass = (view: string) => `
     w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition
     ${currentView === view 
       ? 'text-[#1967d2] bg-[#e8f0fe] font-semibold' 
       : 'text-[#3c4043] hover:text-[#202124] hover:bg-[#f1f3f4]'}
   `;
-
-  const capacity = sprint?.capacity;
-  const devAllocs = capacity?.developer_allocations || [];
-  const overallLoad = capacity?.overall_load_pct ?? 0;
-
-  const getLoadColor = (pct: number) => {
-    if (pct === 0) return { text: 'text-[#80868b] font-normal', bar: 'bg-[#dadce0]' };
-    if (pct > 100) return { text: 'text-[#c5221f] font-bold', bar: 'bg-[#c5221f]' };
-    if (pct >= 85) return { text: 'text-[#b06000] font-semibold', bar: 'bg-[#b06000]' };
-    return { text: 'text-[#137333] font-medium', bar: 'bg-[#137333]' };
-  };
-
-  const overallStyle = getLoadColor(overallLoad);
 
   return (
     <aside className="w-64 border-r border-[#dadce0] bg-white flex flex-col justify-between select-none">
@@ -132,6 +120,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <span>Meeting Intelligence</span>
               </div>
             </button>
+            {(role === 'ADMIN' || role === 'SCRUM_MASTER') && (
+              <button onClick={() => onSwitchView('capacity')} className={navItemClass('capacity')}>
+                <div className="flex items-center space-x-2.5">
+                  <Gauge className={`w-4 h-4 ${currentView === 'capacity' ? 'text-[#1967d2]' : 'text-[#5f6368]'}`} />
+                  <span>Sprint Capacity Utilization</span>
+                </div>
+              </button>
+            )}
           </nav>
         </div>
 
@@ -159,63 +155,26 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </button>
           </nav>
         </div>
-      </div>
 
-      {/* Capacity & Telemetry Footer */}
-      <div className="p-3.5 border-t border-[#dadce0] bg-[#f8f9fa] space-y-2.5">
-        <div className="flex items-center justify-between text-xs">
-          <span className="text-[#3c4043] font-semibold flex items-center gap-1.5">
-            <Users className="w-3.5 h-3.5 text-[#5f6368]" />
-            <span>Sprint Capacity</span>
-          </span>
-          <span className={`font-mono text-xs ${overallStyle.text}`}>
-            {overallLoad}% Loaded
-          </span>
-        </div>
-
-        {/* Developer Workload Allocations from Jira */}
-        {devAllocs.length > 0 ? (
-          <div className="space-y-2 max-h-36 overflow-y-auto pr-0.5">
-            {devAllocs.slice(0, 3).map((dev: any, i: number) => {
-              const style = getLoadColor(dev.load_pct);
-              return (
-                <div key={i} className="space-y-1">
-                  <div className="flex justify-between text-[11px]">
-                    <span className="text-[#3c4043] font-medium truncate max-w-[130px]">{dev.name}</span>
-                    <span className={style.text}>
-                      {dev.load_pct}% {dev.load_pct > 100 && '(Alert)'}
-                    </span>
-                  </div>
-                  <div className="w-full bg-[#e8eaed] h-1.5 rounded-full overflow-hidden">
-                    <div
-                      className={`${style.bar} h-full rounded-full transition-all`}
-                      style={{ width: `${Math.min(dev.load_pct, 100)}%` }}
-                    />
-                  </div>
-                </div>
-              );
-            })}
+        {/* Utilities */}
+        <div>
+          <div className="px-2 mb-2 text-[10px] font-bold text-[#5f6368] uppercase tracking-wider font-mono">
+            Utilities
           </div>
-        ) : (
-          <div className="space-y-1.5">
-            <div className="flex justify-between text-[11px] text-[#5f6368]">
-              <span>Sprint Workload</span>
-              <span className="text-[#137333] font-semibold">Optimal 🟢</span>
-            </div>
-            <div className="w-full bg-[#e8eaed] h-1.5 rounded-full overflow-hidden">
-              <div className="bg-[#137333] h-full rounded-full" style={{ width: '45%' }} />
-            </div>
-          </div>
-        )}
-
-        <div className="pt-2 border-t border-[#dadce0] flex items-center justify-between text-[10px] text-[#5f6368] font-mono">
-          <span className="flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#137333] animate-pulse" />
-            Jira Capacity Sync
-          </span>
-          <span className="text-[#3c4043] font-medium">{capacity?.team_total_hours ?? 0}h Total</span>
+          <nav className="space-y-0.5">
+            <button onClick={() => onSwitchView('orbitbot')} className={navItemClass('orbitbot')}>
+              <div className="flex items-center space-x-2.5">
+                <Orbit className={`w-4 h-4 ${currentView === 'orbitbot' ? 'text-[#1967d2]' : 'text-[#5f6368]'}`} />
+                <span>OrbitBot</span>
+              </div>
+              <span className="text-[10px] bg-[#e8f0fe] text-[#1967d2] border border-[#d2e3fc] px-1.5 py-0.2 rounded font-mono font-semibold">
+                AI Bot
+              </span>
+            </button>
+          </nav>
         </div>
       </div>
     </aside>
   );
 };
+

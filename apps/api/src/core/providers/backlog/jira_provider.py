@@ -541,6 +541,10 @@ class JiraBacklogProvider(BaseBacklogProvider):
                 name="Sprint 1",
                 goal="Baseline delivery",
                 status="ACTIVE",
+                planned_points=0,
+                delivered_points=0,
+                remaining_days=0,
+                total_days=14,
                 start_date=now,
                 end_date=now,
                 source="FIRESTORE"
@@ -556,13 +560,23 @@ class JiraBacklogProvider(BaseBacklogProvider):
                 if values:
                     board_id = values[0].get("id")
 
-            if not board_id:
-                # Default board ID 1 fallback
+            if not board_id and self.project_key.upper() == "IRIS":
+                # Fallback to board 1 only for IRIS
                 board_id = 1
 
+            if board_id and project_id:
+                try:
+                    db.collection("projects").document(project_id).update({
+                        "jira_settings.board_id": str(board_id)
+                    })
+                except Exception as ex:
+                    logger.debug(f"Could not persist board_id {board_id} for {project_id}: {ex}")
+
             # 2. Discover active or future sprint for board
-            url_sprints = f"{self.instance_url}/rest/agile/1.0/board/{board_id}/sprint"
-            res_s = requests.get(url_sprints, headers=self._get_headers(), auth=self._get_auth(), timeout=8)
+            active_sprint_data = None
+            if board_id:
+                url_sprints = f"{self.instance_url}/rest/agile/1.0/board/{board_id}/sprint"
+                res_s = requests.get(url_sprints, headers=self._get_headers(), auth=self._get_auth(), timeout=8)
 
             active_sprint_data = None
             if res_s.status_code == 200:
@@ -751,8 +765,8 @@ class JiraBacklogProvider(BaseBacklogProvider):
                     name=s_name,
                     goal=active_sprint_data.get("goal") or f"Direct live sprint from Jira ({self.project_key})",
                     status=s_state,
-                    planned_points=planned_pts or 24,
-                    delivered_points=delivered_pts or 8,
+                    planned_points=planned_pts,
+                    delivered_points=delivered_pts,
                     remaining_days=remaining_days,
                     total_days=total_days,
                     start_date=start_dt,
@@ -775,9 +789,9 @@ class JiraBacklogProvider(BaseBacklogProvider):
             name=f"{self.project_key} Sprint 1",
             goal=f"Live Jira Project {self.project_key}",
             status="ACTIVE",
-            planned_points=32,
-            delivered_points=12,
-            remaining_days=7,
+            planned_points=0,
+            delivered_points=0,
+            remaining_days=0,
             total_days=14,
             start_date=now,
             end_date=now,

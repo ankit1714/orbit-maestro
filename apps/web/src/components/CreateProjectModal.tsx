@@ -56,7 +56,6 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
   const [usersError, setUsersError] = useState<string | null>(null);
 
   // Selected Team Assignments
-  const [selectedPO, setSelectedPO] = useState<DBUser | null>(null);
   const [selectedSM, setSelectedSM] = useState<DBUser | null>(null);
   const [selectedDevIds, setSelectedDevIds] = useState<string[]>([]);
   const [selectedQAIds, setSelectedQAIds] = useState<string[]>([]);
@@ -65,7 +64,7 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
   const [showQuickAddUser, setShowQuickAddUser] = useState(false);
   const [quickName, setQuickName] = useState('');
   const [quickEmail, setQuickEmail] = useState('');
-  const [quickRole, setQuickRole] = useState<'DEVELOPER' | 'QA_ENGINEER' | 'PRODUCT_OWNER' | 'SCRUM_MASTER'>('DEVELOPER');
+  const [quickRole, setQuickRole] = useState<'DEVELOPER' | 'QA_ENGINEER' | 'SCRUM_MASTER'>('DEVELOPER');
   const [quickTitle, setQuickTitle] = useState('');
   const [isSubmittingQuickUser, setIsSubmittingQuickUser] = useState(false);
 
@@ -82,7 +81,7 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
       const users = await api.getUsers();
       setDbUsers(users || []);
 
-      // Auto-suggest PO and SM if not already selected
+      // Auto-suggest Scrum Master if not already selected
       if (!selectedSM) {
         // If logged-in user is Scrum Master or Admin, preselect them
         if (activeUser && (activeUser.role === 'SCRUM_MASTER' || activeUser.role === 'ADMIN')) {
@@ -90,15 +89,6 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
         } else {
           const sm = users.find((u: DBUser) => u.role === 'SCRUM_MASTER') || users.find((u: DBUser) => u.role === 'ADMIN');
           if (sm) setSelectedSM(sm);
-        }
-      }
-
-      if (!selectedPO) {
-        if (activeUser && activeUser.role === 'PRODUCT_OWNER') {
-          setSelectedPO(activeUser);
-        } else {
-          const po = users.find((u: DBUser) => u.role === 'PRODUCT_OWNER') || users.find((u: DBUser) => u.role === 'ADMIN');
-          if (po) setSelectedPO(po);
         }
       }
 
@@ -163,11 +153,9 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
       const seeded = await api.seedDefaultUsers();
       setDbUsers(seeded || []);
       // Auto-assign from newly seeded list
-      const po = seeded.find((u: DBUser) => u.role === 'PRODUCT_OWNER');
       const sm = seeded.find((u: DBUser) => u.role === 'SCRUM_MASTER');
       const devs = seeded.filter((u: DBUser) => u.role === 'DEVELOPER');
       const qas = seeded.filter((u: DBUser) => u.role === 'QA_ENGINEER');
-      if (po) setSelectedPO(po);
       if (sm) setSelectedSM(sm);
       if (devs.length > 0) setSelectedDevIds(devs.map((d: DBUser) => d.id));
       if (qas.length > 0) setSelectedQAIds(qas.map((q: DBUser) => q.id));
@@ -194,9 +182,7 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
       // Refetch and select
       await fetchUsers();
 
-      if (quickRole === 'PRODUCT_OWNER') {
-        setSelectedPO(newUser);
-      } else if (quickRole === 'SCRUM_MASTER') {
+      if (quickRole === 'SCRUM_MASTER') {
         setSelectedSM(newUser);
       } else if (quickRole === 'DEVELOPER') {
         setSelectedDevIds(prev => [...prev, newUser.id]);
@@ -247,21 +233,12 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
         description: projectDesc.trim() || `${projectName} agile workspace`,
         jira_project_link: jiraLink.trim() || undefined,
         mode: projectMode,
-        product_owner: selectedPO ? {
-          id: selectedPO.id,
-          name: selectedPO.name,
-          role: 'Product Owner',
-          email: selectedPO.email,
-          skills: ['Product Strategy', 'Roadmapping', 'Backlog Refinement'],
-          available_hours_per_week: 40.0,
-          current_workload_hours: 0.0
-        } : undefined,
         scrum_master: selectedSM ? {
           id: selectedSM.id,
           name: selectedSM.name,
           role: 'Scrum Master',
           email: selectedSM.email,
-          skills: ['Sprint Planning', 'Agile Facilitation', 'Risk Mitigation'],
+          skills: ['Sprint Planning', 'Agile Facilitation', 'Scope & PRD Ingestion', 'Risk Mitigation'],
           available_hours_per_week: 40.0,
           current_workload_hours: 0.0
         } : undefined,
@@ -413,7 +390,7 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
                 <span>Eligibility Restriction</span>
               </div>
               <p className="text-xs text-[#3c4043]">
-                Only users with the role of <strong>Product Owner</strong>, <strong>Scrum Master</strong>, or <strong>Admin</strong> are permitted to initiate and configure new Scrum Projects.
+                Only users with the role of <strong>Scrum Master</strong> or <strong>Admin</strong> are permitted to initiate and configure new Scrum Projects.
               </p>
               <p className="text-xs text-[#5f6368]">
                 Please switch to an eligible account using the Role Switcher at the top right before continuing.
@@ -544,7 +521,7 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
                     <span>Scrum Master: Select Project Team</span>
                   </h4>
                   <p className="text-xs text-[#5f6368] mt-0.5">
-                    Associate the Product Owner, Scrum Master, Developers, and QA Engineers from your Firestore DB.
+                    Associate the Scrum Master, Developers, and QA Engineers from your Firestore DB.
                   </p>
                 </div>
 
@@ -638,7 +615,6 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
                       >
                         <option value="DEVELOPER">DEVELOPER</option>
                         <option value="QA_ENGINEER">QA_ENGINEER</option>
-                        <option value="PRODUCT_OWNER">PRODUCT_OWNER</option>
                         <option value="SCRUM_MASTER">SCRUM_MASTER</option>
                       </select>
                     </div>
@@ -690,60 +666,12 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
                 </div>
               )}
 
-              {/* 1. PRODUCT OWNER SELECTION */}
-              <div className="space-y-2">
-                <label className="block text-xs font-bold text-[#202124] flex items-center justify-between">
-                  <span className="flex items-center gap-1.5">
-                    <Crown className="w-3.5 h-3.5 text-[#7b1fa2]" />
-                    <span>Project Owner / Product Owner</span>
-                  </span>
-                  <span className="text-[10px] text-[#5f6368] font-mono">1 Required</span>
-                </label>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {dbUsers.map(user => {
-                    const isSelected = selectedPO?.id === user.id;
-                    const isRecommended = user.role === 'PRODUCT_OWNER' || user.role === 'ADMIN';
-
-                    return (
-                      <div
-                        key={`po-${user.id}`}
-                        onClick={() => setSelectedPO(user)}
-                        className={`p-3 rounded-xl border text-xs cursor-pointer transition flex items-center justify-between ${
-                          isSelected
-                            ? 'bg-[#f3e8fd]/60 border-[#7b1fa2] shadow-sm'
-                            : 'bg-[#f8f9fa] border-[#dadce0] hover:border-[#7b1fa2]/40 hover:bg-white'
-                        }`}
-                      >
-                        <div className="truncate pr-2">
-                          <div className="flex items-center gap-1.5 font-semibold text-[#202124]">
-                            <span className="truncate">{user.name}</span>
-                            {isRecommended && (
-                              <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-[#f3e8fd] text-[#7b1fa2] border border-[#e1bee7] font-mono font-medium">
-                                {user.role}
-                              </span>
-                            )}
-                          </div>
-                          <div className="text-[10px] text-[#5f6368] truncate mt-0.5">{user.email}</div>
-                        </div>
-
-                        <div className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${
-                          isSelected ? 'border-[#7b1fa2] bg-[#7b1fa2] text-white' : 'border-[#dadce0]'
-                        }`}>
-                          {isSelected && <Check className="w-2.5 h-2.5" />}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* 2. SCRUM MASTER SELECTION */}
+              {/* 1. SCRUM MASTER SELECTION */}
               <div className="space-y-2">
                 <label className="block text-xs font-bold text-[#202124] flex items-center justify-between">
                   <span className="flex items-center gap-1.5">
                     <Briefcase className="w-3.5 h-3.5 text-[#1a73e8]" />
-                    <span>Scrum Master (Facilitator & Flow Lead)</span>
+                    <span>Scrum Master (Scope, PRD &amp; Sprint Lead)</span>
                   </span>
                   <span className="text-[10px] text-[#5f6368] font-mono">1 Required</span>
                 </label>
@@ -950,24 +878,15 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
                     <span>Assigned Scrum Team Roster</span>
                   </span>
                   <span className="text-[#1a73e8] font-mono text-[11px] font-bold">
-                    {1 + 1 + selectedDevIds.length + selectedQAIds.length} Members
+                    {1 + selectedDevIds.length + selectedQAIds.length} Members
                   </span>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-                  {/* PO */}
-                  <div className="p-3 rounded-xl bg-white border border-[#dadce0] shadow-sm">
-                    <div className="text-[10px] font-mono text-[#7b1fa2] uppercase font-semibold flex items-center gap-1">
-                      <Crown className="w-3 h-3" /> Product Owner
-                    </div>
-                    <div className="font-bold text-[#202124] mt-1">{selectedPO ? selectedPO.name : 'Unassigned'}</div>
-                    <div className="text-[10px] text-[#5f6368]">{selectedPO ? selectedPO.email : '-'}</div>
-                  </div>
-
+                <div className="text-xs">
                   {/* SM */}
                   <div className="p-3 rounded-xl bg-white border border-[#dadce0] shadow-sm">
                     <div className="text-[10px] font-mono text-[#1967d2] uppercase font-semibold flex items-center gap-1">
-                      <Briefcase className="w-3 h-3" /> Scrum Master
+                      <Briefcase className="w-3 h-3" /> Scrum Master (Scope, PRD &amp; Sprint Lead)
                     </div>
                     <div className="font-bold text-[#202124] mt-1">{selectedSM ? selectedSM.name : 'Unassigned'}</div>
                     <div className="text-[10px] text-[#5f6368]">{selectedSM ? selectedSM.email : '-'}</div>
@@ -1080,11 +999,7 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
                     <span className="font-mono text-[#1a73e8] font-semibold">projects</span>
                   </div>
                   <div>
-                    <span className="text-[#5f6368] text-[10px] block uppercase font-mono">Product Owner</span>
-                    <span className="text-[#202124] font-medium">{selectedPO ? selectedPO.name : 'None'}</span>
-                  </div>
-                  <div>
-                    <span className="text-[#5f6368] text-[10px] block uppercase font-mono">Scrum Master</span>
+                    <span className="text-[#5f6368] text-[10px] block uppercase font-mono">Scrum Master (Lead)</span>
                     <span className="text-[#202124] font-medium">{selectedSM ? selectedSM.name : 'None'}</span>
                   </div>
                   <div>
@@ -1158,7 +1073,7 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
               {step === 2 && (
                 <button
                   type="button"
-                  disabled={!isEligible || (!selectedPO && !selectedSM && selectedDevIds.length === 0)}
+                  disabled={!isEligible || (!selectedSM && selectedDevIds.length === 0)}
                   onClick={() => setStep(3)}
                   className="px-5 py-2.5 rounded-xl bg-[#1a73e8] hover:bg-[#1557b0] disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition"
                 >

@@ -13,11 +13,13 @@ import { DocumentsView } from '@/components/views/DocumentsView';
 import { BacklogView } from '@/components/views/BacklogView';
 import { PlanningView } from '@/components/views/PlanningView';
 import { SprintBoardView } from '@/components/views/SprintBoardView';
+import { CapacityUtilizationView } from '@/components/views/CapacityUtilizationView';
 import { MeetingsView } from '@/components/views/MeetingsView';
 import { RisksView } from '@/components/views/RisksView';
 import { GovernanceView } from '@/components/views/GovernanceView';
 import { KnowledgeView } from '@/components/views/KnowledgeView';
 import { ReportsView } from '@/components/views/ReportsView';
+import { OrbitBotView } from '@/components/views/OrbitBotView';
 import { api } from '@/lib/api';
 
 export default function CockpitPage() {
@@ -37,7 +39,9 @@ export default function CockpitPage() {
   const [activityLogs, setActivityLogs] = useState<any[]>([]);
   const [notebookInfo, setNotebookInfo] = useState<any>(null);
   const [knowledgeItems, setKnowledgeItems] = useState<any[]>([]);
+  const [actionsDecisions, setActionsDecisions] = useState<any[]>([]);
   const [actionsDecisionsCount, setActionsDecisionsCount] = useState<number>(0);
+  const [orbitSearchQuery, setOrbitSearchQuery] = useState('');
 
   // Modals & Drawers
   const [simulatorOpen, setSimulatorOpen] = useState(false);
@@ -89,8 +93,15 @@ export default function CockpitPage() {
     api.getNotebookLMDetails(projectId).then(setNotebookInfo).catch(() => { });
     api.getKnowledgeItems(projectId).then(setKnowledgeItems).catch(() => setKnowledgeItems([]));
     api.getActionsAndDecisions(projectId)
-      .then((items) => setActionsDecisionsCount(Array.isArray(items) ? items.length : 0))
-      .catch(() => setActionsDecisionsCount(0));
+      .then((items) => {
+        const list = Array.isArray(items) ? items : [];
+        setActionsDecisions(list);
+        setActionsDecisionsCount(list.length);
+      })
+      .catch(() => {
+        setActionsDecisions([]);
+        setActionsDecisionsCount(0);
+      });
   }, []);
 
   useEffect(() => {
@@ -139,18 +150,22 @@ export default function CockpitPage() {
       <Navigation
         projects={projects}
         activeProject={activeProject}
+        onCreateProject={handleCreateProject}
         onSelectProject={(p) => {
           setActiveProject(p);
           if (typeof window !== 'undefined' && p?.id) {
             localStorage.setItem('ai_scrum_active_project_id', p.id);
           }
         }}
-        onCreateProject={handleCreateProject}
         onDeleteProject={handleDeleteProject}
         onOpenSimulator={() => setSimulatorOpen(true)}
         onOpenCommandPalette={() => setCommandPaletteOpen(true)}
         onToggleCopilot={() => setCopilotOpen(!copilotOpen)}
         onSwitchView={(v) => setCurrentView(v)}
+        onAskOrbit={(q) => {
+          setOrbitSearchQuery(q);
+          setCurrentView('orbitbot');
+        }}
         approvalsCount={approvalsCount}
         flashStatus={flashHealth?.status || "ON_TRACK"}
       />
@@ -179,6 +194,7 @@ export default function CockpitPage() {
               healthMatrix={healthMatrix}
               flashHealth={flashHealth}
               activityLogs={activityLogs}
+              actionsDecisions={actionsDecisions}
               onSwitchView={(v) => setCurrentView(v)}
               onOpenSimulator={() => setSimulatorOpen(true)}
             />
@@ -237,6 +253,16 @@ export default function CockpitPage() {
             />
           )}
 
+          {currentView === 'capacity' && (
+            <CapacityUtilizationView
+              project={activeProject}
+              sprint={sprint}
+              backlog={backlog}
+              onSwitchView={(v) => setCurrentView(v)}
+              onRefresh={handleRefresh}
+            />
+          )}
+
           {currentView === 'risks' && (
             <RisksView
               project={activeProject}
@@ -271,6 +297,20 @@ export default function CockpitPage() {
             <ReportsView
               project={activeProject}
               sprint={sprint}
+              backlog={backlog}
+              healthMatrix={healthMatrix}
+              flashHealth={flashHealth}
+              onRefresh={handleRefresh}
+              onSwitchView={(v) => setCurrentView(v)}
+            />
+          )}
+
+          {currentView === 'orbitbot' && (
+            <OrbitBotView
+              project={activeProject}
+              requirements={requirements}
+              initialQuery={orbitSearchQuery}
+              onRefresh={handleRefresh}
               onSwitchView={(v) => setCurrentView(v)}
             />
           )}

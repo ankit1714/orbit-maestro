@@ -24,14 +24,14 @@ class GovernanceApproval(BaseModel):
 class ApprovalActionRequest(BaseModel):
     approval_id: str
     action: str # "APPROVE" or "REJECT"
-    reviewed_by: str = "Product Owner"
+    reviewed_by: str = "Scrum Master"
     review_notes: Optional[str] = None
 
 class ActivityLogEntry(BaseModel):
     id: str
     project_id: str
     action_type: AuditActionType
-    actor: str # e.g. "Workflow Agent", "Product Owner", "Task Agent"
+    actor: str # e.g. "Workflow Agent", "Scrum Master", "Task Agent"
     description: str
     target_entity: str
     governance_tier: GovernanceTier

@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { TrendingDown, AlertOctagon, Check, Play, CheckCircle2, ChevronRight, ExternalLink, RefreshCw, Calendar, Clock, User, Lock } from 'lucide-react';
-import { api } from '@/lib/api';
+import { api, getJiraBoardUrl, getJiraBrowseUrl } from '@/lib/api';
 import { useRole } from '@/lib/roleContext';
 
 interface SprintBoardViewProps {
@@ -42,7 +42,7 @@ export const SprintBoardView: React.FC<SprintBoardViewProps> = ({
           assignee_name: s.assignee_name || "Unassigned",
           effort_days: s.story_points ? s.story_points * 0.5 : 1.0,
           story_title: e.title,
-          jira_url: s.jira_url || `https://the-ai-scrum-master.atlassian.net/browse/${s.key}`,
+          jira_url: s.jira_url || getJiraBrowseUrl(s.key, project),
           created_at: s.created_at,
           updated_at: s.updated_at
         });
@@ -199,7 +199,7 @@ export const SprintBoardView: React.FC<SprintBoardViewProps> = ({
               >
                 <div className="flex items-center justify-between text-[10px]">
                   <a
-                    href={`https://the-ai-scrum-master.atlassian.net/browse/${t.key}`}
+                    href={t.jira_url || getJiraBrowseUrl(t.key, project)}
                     target="_blank"
                     rel="noreferrer"
                     className="font-mono text-[#1a73e8] hover:underline flex items-center gap-0.5 font-bold"
@@ -263,7 +263,7 @@ export const SprintBoardView: React.FC<SprintBoardViewProps> = ({
               >
                 <div className="flex items-center justify-between text-[10px]">
                   <a
-                    href={`https://the-ai-scrum-master.atlassian.net/browse/${t.key}`}
+                    href={t.jira_url || getJiraBrowseUrl(t.key, project)}
                     target="_blank"
                     rel="noreferrer"
                     className="font-mono text-[#1a73e8] hover:underline flex items-center gap-0.5 font-bold"
@@ -327,7 +327,7 @@ export const SprintBoardView: React.FC<SprintBoardViewProps> = ({
               >
                 <div className="flex items-center justify-between text-[10px]">
                   <a
-                    href={`https://the-ai-scrum-master.atlassian.net/browse/${t.key}`}
+                    href={t.jira_url || getJiraBrowseUrl(t.key, project)}
                     target="_blank"
                     rel="noreferrer"
                     className="font-mono text-[#c5221f] hover:underline flex items-center gap-0.5 font-bold"
@@ -376,7 +376,7 @@ export const SprintBoardView: React.FC<SprintBoardViewProps> = ({
               >
                 <div className="flex items-center justify-between text-[10px]">
                   <a
-                    href={`https://the-ai-scrum-master.atlassian.net/browse/${t.key}`}
+                    href={t.jira_url || getJiraBrowseUrl(t.key, project)}
                     target="_blank"
                     rel="noreferrer"
                     className="font-mono text-[#5f6368] line-through hover:underline flex items-center gap-0.5"
@@ -420,7 +420,7 @@ export const SprintBoardView: React.FC<SprintBoardViewProps> = ({
               Open Backlog Tab
             </button>
             <a
-              href="https://the-ai-scrum-master.atlassian.net/jira/software/projects/SCRUM/boards"
+              href={getJiraBoardUrl(project, sprint)}
               target="_blank"
               rel="noreferrer"
               className="px-4 py-2 rounded-lg border border-[#dadce0] bg-white hover:bg-[#f1f3f4] text-[#3c4043] font-semibold text-xs flex items-center gap-1.5 shadow-sm transition"

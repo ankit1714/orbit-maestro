@@ -306,8 +306,7 @@ export const RoleSwitcher: React.FC = () => {
                   onChange={(e) => setNewRole(e.target.value as UserRole)}
                   className="w-full bg-[#f8f9fa] border border-[#dadce0] rounded-xl p-2 text-[#202124] focus:bg-white focus:outline-none focus:border-[#1a73e8] focus:ring-1 focus:ring-[#1a73e8] font-mono text-[11px] transition"
                 >
-                  <option value="PRODUCT_OWNER">👑 Product Owner (Scope & PRD)</option>
-                  <option value="SCRUM_MASTER">🎛️ Scrum Master (Ceremonies & Planning)</option>
+                  <option value="SCRUM_MASTER">🎛️ Scrum Master (Scope, Ceremonies & Planning)</option>
                   <option value="DEVELOPER">💻 Senior Developer (Task Delivery)</option>
                   <option value="QA_ENGINEER">🧪 QA Engineer (Quality & Verification)</option>
                   <option value="EXECUTIVE">👁️ Executive / VP (Read-Only Briefs)</option>

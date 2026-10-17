@@ -80,6 +80,10 @@ def create_project(data: ProjectCreate):
             project_key = extracted_key
             jira_settings.project_key = extracted_key
 
+        m_board = re.search(r'/boards/(\d+)', link)
+        if m_board:
+            jira_settings.board_id = m_board.group(1)
+
         jira_settings.enabled = True
         jira_settings.user_email = jira_settings.user_email or settings.JIRA_USER_EMAIL
         jira_settings.api_token = jira_settings.api_token or settings.JIRA_API_TOKEN
@@ -181,6 +185,7 @@ def create_project(data: ProjectCreate):
         team_members=team_members,
         git_settings=data.git_settings or GitSettings(),
         jira_settings=jira_settings,
+        jira_project_link=data.jira_project_link.strip() if data.jira_project_link else None,
         confluence_settings=data.confluence_settings,
         notebooklm_settings=data.notebooklm_settings,
         created_at=datetime.utcnow(),
@@ -720,10 +725,85 @@ def update_integrations(project_id: str, payload: dict):
         git = current.get("git_settings") or {}
         git.update(payload["git_settings"])
         current["git_settings"] = git
+    if "jira_project_link" in payload and payload["jira_project_link"] is not None:
+        current["jira_project_link"] = payload["jira_project_link"]
 
     current["updated_at"] = datetime.utcnow()
     doc_ref.set(current)
     return Project(**current)
+
+@router.get("/{project_id}/jira-users")
+def get_project_jira_users(project_id: str):
+    """
+    Fetch all team members and Jira assignable users for the given project.
+    Combines live Jira assignable users with project registered team members and Firestore users.
+    """
+    from apps.api.src.core.provider_factory import provider_factory
+
+    users = []
+    seen_names = set()
+
+    # 1. Fetch live Jira assignable users if Jira is configured
+    try:
+        jira_provider = provider_factory.get_jira_provider(project_id)
+        if jira_provider._is_configured():
+            j_users = jira_provider.fetch_jira_users()
+            for u in j_users:
+                name = (u.get("displayName") or "").strip()
+                if name and name.lower() not in seen_names:
+                    seen_names.add(name.lower())
+                    users.append({
+                        "id": u.get("accountId") or f"jira-{len(users)}",
+                        "name": name,
+                        "email": u.get("emailAddress") or "",
+                        "role": "Jira Team Member",
+                        "source": "JIRA",
+                        "active": u.get("active", True)
+                    })
+    except Exception as e:
+        logger.warning(f"Could not fetch Jira users for {project_id}: {e}")
+
+    # 2. Add project team members from Firestore
+    try:
+        doc = db.collection("projects").document(project_id).get()
+        if doc.exists:
+            p_data = doc.to_dict()
+            for m in p_data.get("team_members", []):
+                name = (m.get("name") or "").strip()
+                if name and name.lower() not in seen_names:
+                    seen_names.add(name.lower())
+                    users.append({
+                        "id": m.get("id") or f"team-{len(users)}",
+                        "name": name,
+                        "email": m.get("email") or "",
+                        "role": m.get("role") or "Developer",
+                        "source": "PROJECT",
+                        "available_hours_per_week": m.get("available_hours_per_week", 40.0)
+                    })
+    except Exception as e:
+        logger.warning(f"Could not fetch project team members for {project_id}: {e}")
+
+    # 3. Add any Firestore users assigned to this project
+    try:
+        u_docs = list(db.collection("users").stream())
+        for u in u_docs:
+            ud = u.to_dict()
+            p_ids = ud.get("project_ids", [])
+            if project_id in p_ids:
+                name = (ud.get("name") or "").strip()
+                if name and name.lower() not in seen_names:
+                    seen_names.add(name.lower())
+                    users.append({
+                        "id": u.id,
+                        "name": name,
+                        "email": ud.get("email") or "",
+                        "role": ud.get("title") or ud.get("role") or "Team Member",
+                        "source": "FIRESTORE"
+                    })
+    except Exception as e:
+        logger.warning(f"Could not fetch Firestore users for {project_id}: {e}")
+
+    return users
 
 @router.delete("/{project_id}")
 def delete_project(project_id: str):

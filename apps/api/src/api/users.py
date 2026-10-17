@@ -118,20 +118,8 @@ def delete_user(user_id: str):
 
 @router.post("/seed-defaults", response_model=List[User])
 def seed_default_users():
-    """Seeds the 6 primary persona users into the Firestore 'users' collection."""
+    """Seeds the 5 primary persona users into the Firestore 'users' collection."""
     default_users = [
-        {
-            "id": "usr-sarah-connor",
-            "name": "Sarah Connor",
-            "email": "sarah.connor@ai-scrum.io",
-            "role": UserRole.PRODUCT_OWNER.value,
-            "title": "Product Owner",
-            "avatar_url": "",
-            "project_ids": [],
-            "status": "ACTIVE",
-            "created_at": datetime.utcnow().isoformat(),
-            "updated_at": datetime.utcnow().isoformat(),
-        },
         {
             "id": "usr-david-vance",
             "name": "David Vance",

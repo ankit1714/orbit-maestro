@@ -16,7 +16,8 @@ import {
   X,
   Compass,
   CornerDownLeft,
-  Bot
+  Bot,
+  Orbit
 } from 'lucide-react';
 import { api } from '@/lib/api';
 
@@ -384,6 +385,15 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                   <LayoutDashboard className="w-4 h-4 text-[#1a73e8]" /> Go to Delivery Cockpit
                 </span>
                 <span className="text-[10px] text-[#80868b] font-mono">Jump</span>
+              </button>
+              <button
+                onClick={() => navigate('orbitbot')}
+                className="w-full text-left px-3.5 py-2.5 rounded-xl hover:bg-[#f1f3f4] flex items-center justify-between text-[#202124] transition font-medium"
+              >
+                <span className="flex items-center gap-2.5">
+                  <Orbit className="w-4 h-4 text-[#1a73e8]" /> OrbitBot (AI Project Search & Knowledge Assistant)
+                </span>
+                <span className="text-[10px] text-[#1967d2] bg-[#e8f0fe] border border-[#d2e3fc] px-1.5 py-0.5 rounded font-mono font-semibold">Utility</span>
               </button>
               <button
                 onClick={() => navigate('documents')}

@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { Layers, Bookmark, CheckSquare, AlertCircle, TestTube, ChevronDown, Plus, Sparkles, Inbox, FileText, ArrowRight, UploadCloud, ExternalLink, CheckCircle2, X, RefreshCw, User, Calendar, Clock, Lock } from 'lucide-react';
-import { api } from '@/lib/api';
+import { api, getJiraBoardUrl, getJiraBrowseUrl } from '@/lib/api';
 import { useRole } from '@/lib/roleContext';
 
 interface BacklogViewProps {
@@ -182,7 +182,7 @@ export const BacklogView: React.FC<BacklogViewProps> = ({
             </span>
           </div>
           <a
-            href="https://the-ai-scrum-master.atlassian.net/jira/software/projects/SCRUM/boards"
+            href={getJiraBoardUrl(project)}
             target="_blank"
             rel="noreferrer"
             className="px-2.5 py-1 rounded-lg border border-[#1a73e8] hover:bg-[#d2e3fc] text-[#1a73e8] font-semibold text-[11px] flex items-center gap-1 shrink-0 bg-white shadow-sm"
@@ -266,7 +266,7 @@ export const BacklogView: React.FC<BacklogViewProps> = ({
                   <div className="col-span-1 font-mono text-[#1a73e8] font-bold flex items-center gap-1">
                     {isJiraKey(epic.key) ? (
                       <a
-                        href={`https://the-ai-scrum-master.atlassian.net/browse/${epic.key}`}
+                        href={getJiraBrowseUrl(epic.key, project)}
                         target="_blank"
                         rel="noreferrer"
                         className="hover:underline flex items-center gap-0.5 text-[#1a73e8] font-bold"
@@ -308,7 +308,7 @@ export const BacklogView: React.FC<BacklogViewProps> = ({
                       <div className="col-span-1 font-mono text-[#5f6368] pl-4 flex items-center gap-1">
                         {isJiraKey(story.key) ? (
                           <a
-                            href={`https://the-ai-scrum-master.atlassian.net/browse/${story.key}`}
+                            href={getJiraBrowseUrl(story.key, project)}
                             target="_blank"
                             rel="noreferrer"
                             className="hover:underline flex items-center gap-0.5 text-[#1a73e8] font-semibold"
@@ -361,7 +361,7 @@ export const BacklogView: React.FC<BacklogViewProps> = ({
                           <div className={`col-span-1 font-mono pl-8 flex items-center gap-1 ${isBlocked ? 'text-[#c5221f]' : 'text-[#80868b]'}`}>
                             {isJiraKey(task.key) ? (
                               <a
-                                href={`https://the-ai-scrum-master.atlassian.net/browse/${task.key}`}
+                                href={getJiraBrowseUrl(task.key, project)}
                                 target="_blank"
                                 rel="noreferrer"
                                 className="hover:underline flex items-center gap-0.5 text-[#1a73e8] font-semibold"

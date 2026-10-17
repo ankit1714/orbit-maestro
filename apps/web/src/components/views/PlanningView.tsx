@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { Compass, CheckCircle, Sparkles, Users, ExternalLink, User, Lock } from 'lucide-react';
-import { api } from '@/lib/api';
+import { api, getJiraBrowseUrl } from '@/lib/api';
 import { useRole } from '@/lib/roleContext';
 
 interface PlanningViewProps {
@@ -59,7 +59,7 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
         <div className="p-3.5 rounded-xl border border-[#dadce0] bg-[#f8f9fa] flex items-center justify-between text-xs text-[#3c4043] shadow-sm">
           <div className="flex items-center gap-2">
             <Lock className="w-4 h-4 text-[#c5221f] shrink-0" />
-            <span>Viewing as <strong className="text-[#202124]">{profile.title}</strong> — Sprint planning is in read-only observation mode. Scope commitment is restricted to Scrum Master, Product Owner, or Admin.</span>
+            <span>Viewing as <strong className="text-[#202124]">{profile.title}</strong> — Sprint planning is in read-only observation mode. Scope commitment is restricted to Scrum Master or Admin.</span>
           </div>
           <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-white text-[#5f6368] border border-[#dadce0] font-bold shadow-sm">
             Read Only
@@ -213,7 +213,7 @@ export const PlanningView: React.FC<PlanningViewProps> = ({
                   <input type="checkbox" defaultChecked className="rounded border-[#dadce0] text-[#1a73e8] focus:ring-[#1a73e8] w-4 h-4" />
                   <div>
                     <a
-                      href={`https://the-ai-scrum-master.atlassian.net/browse/${story.key}`}
+                      href={getJiraBrowseUrl(story.key, project)}
                       target="_blank"
                       rel="noreferrer"
                       className="font-mono text-[#1a73e8] font-semibold mr-2 hover:underline inline-flex items-center gap-0.5"

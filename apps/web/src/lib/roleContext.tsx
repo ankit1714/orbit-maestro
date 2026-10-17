@@ -3,7 +3,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
 export type UserRole =
-  | 'PRODUCT_OWNER'
   | 'SCRUM_MASTER'
   | 'DEVELOPER'
   | 'QA_ENGINEER'
@@ -43,16 +42,16 @@ export interface RoleProfile {
 }
 
 export const ROLE_PROFILES: Record<UserRole, RoleProfile> = {
-  PRODUCT_OWNER: {
-    id: 'PRODUCT_OWNER',
-    name: 'Sarah Connor (PO)',
-    shortLabel: 'PO',
-    title: 'Product Owner',
-    description: 'Scope definition, PRD ingestion, ambiguity resolution & backlog synthesis.',
-    avatarBg: 'from-purple-600 via-indigo-600 to-purple-700',
-    badgeBg: 'bg-purple-50',
-    badgeBorder: 'border-purple-200',
-    badgeText: 'text-purple-700 font-semibold',
+  SCRUM_MASTER: {
+    id: 'SCRUM_MASTER',
+    name: 'David Vance (SM)',
+    shortLabel: 'SM',
+    title: 'Scrum Master',
+    description: 'Full product scope, PRD ingestion, ambiguity resolution, sprint planning & capacity allocation.',
+    avatarBg: 'from-indigo-600 via-blue-600 to-indigo-700',
+    badgeBg: 'bg-blue-50',
+    badgeBorder: 'border-blue-200',
+    badgeText: 'text-blue-700 font-semibold',
     permissions: {
       canCreateProject: true,
       canDeleteProject: true,
@@ -68,35 +67,6 @@ export const ROLE_PROFILES: Record<UserRole, RoleProfile> = {
       canProcessMeetings: true,
       canActOnApprovals: true,
       canClearDatabase: true,
-      canManageActionsAndDecisions: true,
-      isReadOnly: false,
-    },
-  },
-  SCRUM_MASTER: {
-    id: 'SCRUM_MASTER',
-    name: 'David Vance (SM)',
-    shortLabel: 'SM',
-    title: 'Scrum Master',
-    description: 'Sprint planning, capacity allocation, meeting intelligence & risk triage.',
-    avatarBg: 'from-indigo-600 via-blue-600 to-indigo-700',
-    badgeBg: 'bg-blue-50',
-    badgeBorder: 'border-blue-200',
-    badgeText: 'text-blue-700 font-semibold',
-    permissions: {
-      canCreateProject: true,
-      canDeleteProject: false,
-      canManageIntegrations: true,
-      canIngestPRD: false,
-      canResolveQuestions: false,
-      canSynthesizeBacklog: true,
-      canUploadToJira: true,
-      canPlanSprint: true,
-      canCommitSprint: true,
-      canMoveTasks: true,
-      canTriageSpillover: true,
-      canProcessMeetings: true,
-      canActOnApprovals: true,
-      canClearDatabase: false,
       canManageActionsAndDecisions: true,
       isReadOnly: false,
     },
@@ -219,6 +189,9 @@ export const ROLE_PROFILES: Record<UserRole, RoleProfile> = {
   },
 };
 
+// Legacy fallback mapping: Product Owner seamlessly maps to Scrum Master
+(ROLE_PROFILES as any)['PRODUCT_OWNER'] = ROLE_PROFILES.SCRUM_MASTER;
+
 export interface DBUser {
   id: string;
   name: string;
@@ -251,6 +224,11 @@ export const RoleProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (storedUser) {
         try {
           const parsed = JSON.parse(storedUser);
+          if ((parsed.role as string) === 'PRODUCT_OWNER') {
+            parsed.role = 'SCRUM_MASTER';
+            if (parsed.title === 'Product Owner') parsed.title = 'Scrum Master';
+            localStorage.setItem('ai_scrum_current_user', JSON.stringify(parsed));
+          }
           setCurrentUserState(parsed);
           if (parsed.role && ROLE_PROFILES[parsed.role as UserRole]) {
             setRoleState(parsed.role as UserRole);
@@ -258,14 +236,25 @@ export const RoleProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
         } catch {}
       }
-      const storedRole = localStorage.getItem('ai_scrum_user_role') as UserRole;
-      if (storedRole && ROLE_PROFILES[storedRole]) {
-        setRoleState(storedRole);
+      let storedRole = localStorage.getItem('ai_scrum_user_role') as string;
+      if (storedRole === 'PRODUCT_OWNER') {
+        storedRole = 'SCRUM_MASTER';
+        localStorage.setItem('ai_scrum_user_role', 'SCRUM_MASTER');
+      }
+      if (storedRole && ROLE_PROFILES[storedRole as UserRole]) {
+        setRoleState(storedRole as UserRole);
       }
     }
   }, []);
 
   const setCurrentUser = (user: DBUser | null) => {
+    if (user && (user.role as string) === 'PRODUCT_OWNER') {
+      user = {
+        ...user,
+        role: 'SCRUM_MASTER',
+        title: user.title === 'Product Owner' ? 'Scrum Master' : user.title,
+      };
+    }
     setCurrentUserState(user);
     if (typeof window !== 'undefined') {
       if (user) {
@@ -279,13 +268,14 @@ export const RoleProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const setRole = (newRole: UserRole) => {
-    setRoleState(newRole);
+    const effectiveRole = (newRole as string) === 'PRODUCT_OWNER' ? 'SCRUM_MASTER' : newRole;
+    setRoleState(effectiveRole);
     if (typeof window !== 'undefined') {
-      localStorage.setItem('ai_scrum_user_role', newRole);
+      localStorage.setItem('ai_scrum_user_role', effectiveRole);
     }
   };
 
-  const baseProfile = ROLE_PROFILES[role] || ROLE_PROFILES.ADMIN;
+  const baseProfile = ROLE_PROFILES[role] || ROLE_PROFILES.SCRUM_MASTER;
   const profile: RoleProfile = currentUser
     ? {
         ...baseProfile,

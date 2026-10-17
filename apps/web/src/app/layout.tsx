@@ -3,7 +3,7 @@ import "./globals.css";
 import { RoleProvider } from "@/lib/roleContext";
 
 export const metadata: Metadata = {
-  title: "AI Scrum Master — Executive Delivery Cockpit",
+  title: "Orbit Maestro AI — Your Intelligent Scrum Partner",
   description: "Enterprise multi-agent autonomous Scrum Master with Jira & Confluence Sync and Google NotebookLM.",
 };
 

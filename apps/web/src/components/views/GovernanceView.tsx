@@ -102,6 +102,39 @@ export const GovernanceView: React.FC<GovernanceViewProps> = ({
     fetchActionsAndDecisions();
   }, [project?.id]);
 
+  useEffect(() => {
+    const handleFocus = (e?: any) => {
+      const targetId = e?.detail?.id || (typeof window !== 'undefined' ? sessionStorage.getItem('highlight_action_decision') : null);
+      if (targetId) {
+        setActiveTab('actions_decisions');
+        setTypeFilter('ALL');
+        setStatusFilter('ALL');
+        setAssigneeFilter('ALL');
+        setSearchQuery('');
+
+        setTimeout(() => {
+          const el = document.getElementById(`action-decision-${targetId}`);
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            el.classList.add('ring-4', 'ring-[#1a73e8]', 'bg-[#e8f0fe]/40');
+            setTimeout(() => {
+              el.classList.remove('ring-4', 'ring-[#1a73e8]', 'bg-[#e8f0fe]/40');
+              if (typeof window !== 'undefined') {
+                sessionStorage.removeItem('highlight_action_decision');
+              }
+            }, 3000);
+          }
+        }, 200);
+      }
+    };
+
+    window.addEventListener('focus-action-decision', handleFocus);
+    handleFocus();
+    return () => {
+      window.removeEventListener('focus-action-decision', handleFocus);
+    };
+  }, [items]);
+
   // Unique Assignees and Decision Makers for Filter Dropdown
   const uniquePeople = useMemo(() => {
     const peopleSet = new Set<string>();
@@ -349,7 +382,7 @@ export const GovernanceView: React.FC<GovernanceViewProps> = ({
             <Lock className="w-4 h-4 text-[#b06000] shrink-0" />
             <span>
               Viewing as <strong>{profile.title}</strong> — Actions and Decisions editing & removal are restricted to{' '}
-              <strong>Scrum Master</strong>, <strong>Product Owner</strong>, and <strong>Workspace Admin</strong>.
+              <strong>Scrum Master</strong> and <strong>Workspace Admin</strong>.
             </span>
           </div>
           <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full bg-white text-[#5f6368] border border-[#dadce0] font-bold shadow-sm">
@@ -630,7 +663,8 @@ export const GovernanceView: React.FC<GovernanceViewProps> = ({
                 return (
                   <div
                     key={item.id}
-                    className={`p-4 rounded-xl border transition group hover:shadow-[0_2px_8px_rgba(60,64,67,0.15)] bg-white shadow-[0_1px_2px_rgba(60,64,67,0.1)] space-y-3 ${
+                    id={`action-decision-${item.id}`}
+                    className={`p-4 rounded-xl border transition-all duration-300 group hover:shadow-[0_2px_8px_rgba(60,64,67,0.15)] bg-white shadow-[0_1px_2px_rgba(60,64,67,0.1)] space-y-3 ${
                       isDecision ? 'border-l-4 border-l-[#137333] border-[#dadce0]' : 'border-l-4 border-l-[#1a73e8] border-[#dadce0]'
                     }`}
                   >

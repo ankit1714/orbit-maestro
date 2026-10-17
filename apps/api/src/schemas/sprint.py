@@ -15,18 +15,18 @@ class DeveloperCapacity(BaseModel):
     status: str = "BALANCED" # HEALTHY, BALANCED, HIGH_LOAD, OVERLOADED
 
 class SprintCapacity(BaseModel):
-    team_total_hours: float = 160.0
-    committed_hours: float = 120.0
-    overall_load_pct: float = 75.0
-    frontend_hours: float = 60.0
-    frontend_committed_hours: float = 40.0
-    frontend_load_pct: float = 66.7
-    backend_hours: float = 80.0
-    backend_committed_hours: float = 64.0
-    backend_load_pct: float = 80.0
-    qa_hours: float = 20.0
-    qa_committed_hours: float = 16.0
-    qa_load_pct: float = 80.0
+    team_total_hours: float = 0.0
+    committed_hours: float = 0.0
+    overall_load_pct: float = 0.0
+    frontend_hours: float = 0.0
+    frontend_committed_hours: float = 0.0
+    frontend_load_pct: float = 0.0
+    backend_hours: float = 0.0
+    backend_committed_hours: float = 0.0
+    backend_load_pct: float = 0.0
+    qa_hours: float = 0.0
+    qa_committed_hours: float = 0.0
+    qa_load_pct: float = 0.0
     developer_allocations: List[DeveloperCapacity] = Field(default_factory=list)
 
 class SpilloverItem(BaseModel):
@@ -46,10 +46,10 @@ class Sprint(BaseModel):
     name: str
     goal: str
     status: str = "ACTIVE" # PLANNING, ACTIVE, COMPLETED
-    planned_points: int = 32
-    delivered_points: int = 24
-    remaining_days: int = 3
-    total_days: int = 10
+    planned_points: int = 0
+    delivered_points: int = 0
+    remaining_days: int = 0
+    total_days: int = 14
     start_date: datetime
     end_date: datetime
     committed_story_ids: List[str] = Field(default_factory=list)

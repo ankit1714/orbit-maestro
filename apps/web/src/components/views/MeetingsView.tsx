@@ -476,7 +476,7 @@ Product Owner: Approved priority for HM-3 and will unblock API access today.`);
           <div className="flex items-center gap-2">
             <Lock className="w-4 h-4 text-[#1a73e8] shrink-0" />
             <span>
-              Viewing as <strong className="text-[#202124]">{profile.title}</strong> — Meeting intelligence processing is restricted to Scrum Master, Product Owner, and Workspace Admin.
+              Viewing as <strong className="text-[#202124]">{profile.title}</strong> — Meeting intelligence processing is restricted to Scrum Master and Workspace Admin.
             </span>
           </div>
           <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-white text-[#5f6368] border border-[#dadce0] font-bold shadow-sm">
