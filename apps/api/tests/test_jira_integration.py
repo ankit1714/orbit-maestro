@@ -11,7 +11,8 @@ client = TestClient(app)
 
 @pytest.fixture(autouse=True)
 def setup_db():
-    seed()
+    # Tests should not seed demo data into live Firestore
+    pass
 
 def test_jira_adf_builder():
     provider = JiraBacklogProvider(
@@ -79,6 +80,8 @@ def test_jira_create_story_with_parent_mocked():
         "project_id": "proj-claims-auto",
         "key": "TEST-101",
         "title": "Parent Epic",
+        "description": "Parent Epic description",
+        "requirement_origin": "PRD",
         "status": "TODO"
     })
 
@@ -133,6 +136,45 @@ def test_jira_api_upload_endpoint_mocked():
         assert data["total_tasks_synced"] == 4
         assert len(data["epics"]) == 1
 
+def test_upload_backlog_to_jira_with_custom_instance_url():
+    from apps.api.src.core.firestore_client import db
+
+    mock_sync_result = {
+        "status": "SUCCESS",
+        "project_id": "proj-claims-auto",
+        "jira_project_key": "CUSTOM",
+        "jira_instance_url": "https://custom-instance.atlassian.net",
+        "total_epics_synced": 1,
+        "total_stories_synced": 1,
+        "total_tasks_synced": 2,
+        "epics": [],
+        "stories": [],
+        "tasks": [],
+        "errors": []
+    }
+
+    with patch.object(JiraBacklogProvider, "upload_project_backlog", return_value=mock_sync_result):
+        res = client.post(
+            "/v1/backlog/proj-claims-auto/upload-jira",
+            json={
+                "project_key": "CUSTOM",
+                "instance_url": "https://custom-instance.atlassian.net/jira/software/projects/CUSTOM"
+            }
+        )
+        assert res.status_code == 200
+        data = res.json()
+        assert data["status"] == "SUCCESS"
+
+        # Verify Firestore project document got updated
+        proj_doc = db.collection("projects").document("proj-claims-auto").get()
+        if proj_doc.exists:
+            p_data = proj_doc.to_dict()
+            assert p_data.get("jira_project_link") == "https://custom-instance.atlassian.net/jira/software/projects/CUSTOM"
+            assert p_data.get("jira_settings", {}).get("instance_url") == "https://custom-instance.atlassian.net"
+            assert p_data.get("jira_settings", {}).get("project_key") == "CUSTOM"
+
+
+
 def test_skill_matching_and_developer_profiling():
     from packages.agents.src.backlog_agent import match_developer_by_skills
 
@@ -156,3 +198,58 @@ def test_skill_matching_and_developer_profiling():
     assert dev_qa == "David Kim"
     assert pct_qa >= 90
     assert "QA" in rat_qa or "Automation" in rat_qa
+
+
+def test_sync_jira_users_and_push_to_firestore():
+    """
+    Verify that sync-jira-users fetches assignable users for a project,
+    matches existing Firestore users and appends project tags,
+    creates new Firestore users for unfamiliar Jira accounts,
+    and returns users marked with is_jira_project_user.
+    """
+    mock_jira_users = [
+        {
+            "accountId": "acc-ankit-123",
+            "displayName": "Ankit Maurya",
+            "emailAddress": "ankit1714@gmail.com",
+            "active": True
+        },
+        {
+            "accountId": "acc-new-dev-456",
+            "displayName": "Priya Sharma",
+            "emailAddress": "priya.sharma@example.com",
+            "active": True
+        }
+    ]
+
+    with patch.object(JiraBacklogProvider, "fetch_jira_users", return_value=mock_jira_users):
+        res = client.post(
+            "/v1/projects/sync-jira-users",
+            json={"project_key": "PROJ_ALPHA", "jira_link": "https://test.atlassian.net/browse/PROJ_ALPHA"}
+        )
+        assert res.status_code == 200
+        data = res.json()
+        assert data["status"] == "success"
+        assert data["project_key"] == "PROJ_ALPHA"
+        assert data["synced_count"] == 2
+        
+        users = data["users"]
+        assert len(users) >= 2
+        
+        # Verify Ankit Maurya was matched and tagged
+        ankit = next((u for u in users if "ankit" in u.get("email", "").lower() or "ankit" in u.get("name", "").lower()), None)
+        assert ankit is not None
+        assert "PROJ_ALPHA" in ankit.get("project_ids", [])
+        assert ankit.get("is_jira_project_user") is True
+
+        # Verify new user Priya Sharma was inserted into Firestore DB
+        priya = next((u for u in users if "priya" in u.get("name", "").lower()), None)
+        assert priya is not None
+        assert "PROJ_ALPHA" in priya.get("project_ids", [])
+        assert priya.get("is_jira_project_user") is True
+
+        # Check directly in Firestore
+        priya_doc = db.collection("users").document(priya["id"]).get()
+        assert priya_doc.exists
+        assert priya_doc.to_dict()["email"] == "priya.sharma@example.com"
+

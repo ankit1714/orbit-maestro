@@ -14,8 +14,10 @@ from apps.api.src.schemas.project import (
     ProjectUpdate,
     TeamMember,
     GitSettings,
+    GitRepoLink,
     JiraSettings,
     ConfluenceSettings,
+    ConfluencePageLink,
     NotebookLMSettings
 )
 from apps.api.src.schemas.requirement import (
@@ -48,6 +50,10 @@ from apps.api.src.schemas.meeting import (
     ExtractedDecision,
     ExtractedBlocker,
     ExtractedAction,
+    LinkedJiraIssue,
+    LinkedGitArtifact,
+    LinkedConfluencePage,
+    MeetingDueDiligenceResult,
     MeetingIngestRequest,
     MeetingExtractResponse
 )
@@ -67,14 +73,19 @@ from apps.api.src.schemas.git_telemetry import (
 from apps.api.src.schemas.governance import (
     GovernanceApproval,
     ApprovalActionRequest,
-    ActivityLogEntry
+    ActivityLogEntry,
+    ActionDecisionItem,
+    ActionDecisionCreate,
+    ActionDecisionUpdate
 )
 from apps.api.src.schemas.knowledge import (
     NotebookLMReference,
     CitationSnippet,
     KnowledgeItem,
     KnowledgeSearchQuery,
-    KnowledgeSearchResponse
+    KnowledgeSearchResponse,
+    ScannedSourcesStats,
+    ProjectKnowledgeSyncResponse
 )
 from apps.api.src.schemas.analytics import (
     SprintSnapshot,

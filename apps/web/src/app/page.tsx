@@ -13,11 +13,13 @@ import { DocumentsView } from '@/components/views/DocumentsView';
 import { BacklogView } from '@/components/views/BacklogView';
 import { PlanningView } from '@/components/views/PlanningView';
 import { SprintBoardView } from '@/components/views/SprintBoardView';
+import { CapacityUtilizationView } from '@/components/views/CapacityUtilizationView';
 import { MeetingsView } from '@/components/views/MeetingsView';
 import { RisksView } from '@/components/views/RisksView';
 import { GovernanceView } from '@/components/views/GovernanceView';
 import { KnowledgeView } from '@/components/views/KnowledgeView';
 import { ReportsView } from '@/components/views/ReportsView';
+import { OrbitBotView } from '@/components/views/OrbitBotView';
 import { api } from '@/lib/api';
 
 export default function CockpitPage() {
@@ -37,6 +39,9 @@ export default function CockpitPage() {
   const [activityLogs, setActivityLogs] = useState<any[]>([]);
   const [notebookInfo, setNotebookInfo] = useState<any>(null);
   const [knowledgeItems, setKnowledgeItems] = useState<any[]>([]);
+  const [actionsDecisions, setActionsDecisions] = useState<any[]>([]);
+  const [actionsDecisionsCount, setActionsDecisionsCount] = useState<number>(0);
+  const [orbitSearchQuery, setOrbitSearchQuery] = useState('');
 
   // Modals & Drawers
   const [simulatorOpen, setSimulatorOpen] = useState(false);
@@ -48,8 +53,24 @@ export default function CockpitPage() {
   useEffect(() => {
     api.getProjects().then((projs) => {
       if (projs && projs.length > 0) {
-        setProjects(projs);
-        setActiveProject(projs[0]);
+        const filtered = projs.filter((p: any) => p.mode !== 'STANDALONE');
+        const map = new Map<string, any>();
+        for (const p of filtered) {
+          const k = (p.key || p.id || '').toUpperCase();
+          if (!map.has(k)) map.set(k, p);
+        }
+        const unique = Array.from(map.values());
+        setProjects(unique);
+
+        const savedId = typeof window !== 'undefined' ? localStorage.getItem('ai_scrum_active_project_id') : null;
+        const matched = savedId ? unique.find((p) => p.id === savedId) : null;
+        const hmProject = unique.find((p) => (p.key || '').toUpperCase() === 'HM' || p.id === 'proj-094bb3e8');
+        const target = matched || hmProject || unique[0];
+
+        setActiveProject(target);
+        if (typeof window !== 'undefined' && target?.id) {
+          localStorage.setItem('ai_scrum_active_project_id', target.id);
+        }
       }
     }).catch((err) => {
       console.warn("Could not fetch projects:", err);
@@ -62,15 +83,25 @@ export default function CockpitPage() {
 
     api.getRequirements(projectId).then(setRequirements).catch(() => setRequirements(null));
     api.getBacklog(projectId).then(setBacklog).catch(() => setBacklog({ epics: [], total_points: 0 }));
-    api.getActiveSprint(projectId).then(setSprint).catch(() => {});
+    api.getActiveSprint(projectId).then(setSprint).catch(() => { });
     api.getOpenQuestions(projectId).then(setQuestions).catch(() => setQuestions([]));
     api.getPendingApprovals(projectId).then(setApprovals).catch(() => setApprovals([]));
-    api.getDependencyDAG(projectId).then(setDag).catch(() => {});
-    api.getHealthMatrix(projectId).then(setHealthMatrix).catch(() => {});
-    api.getFlashHealth(projectId).then(setFlashHealth).catch(() => {});
+    api.getDependencyDAG(projectId).then(setDag).catch(() => { });
+    api.getHealthMatrix(projectId).then(setHealthMatrix).catch(() => { });
+    api.getFlashHealth(projectId).then(setFlashHealth).catch(() => { });
     api.getActivityLog(projectId).then(setActivityLogs).catch(() => setActivityLogs([]));
-    api.getNotebookLMDetails(projectId).then(setNotebookInfo).catch(() => {});
+    api.getNotebookLMDetails(projectId).then(setNotebookInfo).catch(() => { });
     api.getKnowledgeItems(projectId).then(setKnowledgeItems).catch(() => setKnowledgeItems([]));
+    api.getActionsAndDecisions(projectId)
+      .then((items) => {
+        const list = Array.isArray(items) ? items : [];
+        setActionsDecisions(list);
+        setActionsDecisionsCount(list.length);
+      })
+      .catch(() => {
+        setActionsDecisions([]);
+        setActionsDecisionsCount(0);
+      });
   }, []);
 
   useEffect(() => {
@@ -86,6 +117,21 @@ export default function CockpitPage() {
       setActiveProject(created);
     } catch (e) {
       console.warn("Project creation error:", e);
+    }
+  };
+
+  const handleUpdateProject = async (projectId: string, projectData: any) => {
+    try {
+      const updated = await api.updateProject(projectId, projectData);
+      setProjects((prev) => prev.map((p) => (p.id === projectId ? updated : p)));
+      if (activeProject?.id === projectId) {
+        setActiveProject(updated);
+        loadProjectData(projectId);
+      }
+      return updated;
+    } catch (e) {
+      console.warn("Project update error:", e);
+      throw e;
     }
   };
 
@@ -106,6 +152,12 @@ export default function CockpitPage() {
 
   const handleRefresh = () => {
     if (activeProject?.id) {
+      api.getProject(activeProject.id).then((updated) => {
+        if (updated) {
+          setActiveProject(updated);
+          setProjects((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
+        }
+      }).catch(() => {});
       loadProjectData(activeProject.id);
     }
   };
@@ -114,18 +166,28 @@ export default function CockpitPage() {
   const approvalsCount = (approvals || []).filter((a) => a.status === "PENDING").length;
 
   return (
-    <div className="flex-1 flex flex-col min-h-screen bg-surface-950">
+    <div className="flex-1 flex flex-col min-h-screen bg-[#f8f9fa] text-[#202124]">
       {/* Top Header */}
       <Navigation
         projects={projects}
         activeProject={activeProject}
-        onSelectProject={(p) => setActiveProject(p)}
         onCreateProject={handleCreateProject}
+        onUpdateProject={handleUpdateProject}
+        onSelectProject={(p) => {
+          setActiveProject(p);
+          if (typeof window !== 'undefined' && p?.id) {
+            localStorage.setItem('ai_scrum_active_project_id', p.id);
+          }
+        }}
         onDeleteProject={handleDeleteProject}
         onOpenSimulator={() => setSimulatorOpen(true)}
         onOpenCommandPalette={() => setCommandPaletteOpen(true)}
         onToggleCopilot={() => setCopilotOpen(!copilotOpen)}
         onSwitchView={(v) => setCurrentView(v)}
+        onAskOrbit={(q) => {
+          setOrbitSearchQuery(q);
+          setCurrentView('orbitbot');
+        }}
         approvalsCount={approvalsCount}
         flashStatus={flashHealth?.status || "ON_TRACK"}
       />
@@ -138,13 +200,14 @@ export default function CockpitPage() {
           onSwitchView={(v) => setCurrentView(v)}
           openQuestionsCount={openQuestionsCount}
           approvalsCount={approvalsCount}
+          actionsDecisionsCount={actionsDecisionsCount}
           hasBlocker={flashHealth?.status === "OFF_TRACK"}
           sprint={sprint}
           project={activeProject}
         />
 
         {/* Center Workspace Canvas */}
-        <main className="flex-1 overflow-y-auto bg-surface-950 flex flex-col">
+        <main className="flex-1 overflow-y-auto bg-[#f8f9fa] flex flex-col">
           {currentView === 'dashboard' && (
             <DashboardView
               project={activeProject}
@@ -153,6 +216,7 @@ export default function CockpitPage() {
               healthMatrix={healthMatrix}
               flashHealth={flashHealth}
               activityLogs={activityLogs}
+              actionsDecisions={actionsDecisions}
               onSwitchView={(v) => setCurrentView(v)}
               onOpenSimulator={() => setSimulatorOpen(true)}
             />
@@ -164,8 +228,11 @@ export default function CockpitPage() {
               requirements={requirements}
               questions={questions}
               onSwitchView={(v) => setCurrentView(v)}
-              onOpenSimulator={() => setSimulatorOpen(true)}
               onRefresh={handleRefresh}
+              onProjectUpdated={(updated) => {
+                setActiveProject(updated);
+                setProjects((prev) => prev.map((p) => p.id === updated.id ? updated : p));
+              }}
             />
           )}
 
@@ -208,6 +275,16 @@ export default function CockpitPage() {
             />
           )}
 
+          {currentView === 'capacity' && (
+            <CapacityUtilizationView
+              project={activeProject}
+              sprint={sprint}
+              backlog={backlog}
+              onSwitchView={(v) => setCurrentView(v)}
+              onRefresh={handleRefresh}
+            />
+          )}
+
           {currentView === 'risks' && (
             <RisksView
               project={activeProject}
@@ -223,6 +300,7 @@ export default function CockpitPage() {
               approvals={approvals}
               activityLogs={activityLogs}
               onRefresh={handleRefresh}
+              onActionsDecisionsCountChange={setActionsDecisionsCount}
               onSwitchView={(v) => setCurrentView(v)}
             />
           )}
@@ -241,6 +319,20 @@ export default function CockpitPage() {
             <ReportsView
               project={activeProject}
               sprint={sprint}
+              backlog={backlog}
+              healthMatrix={healthMatrix}
+              flashHealth={flashHealth}
+              onRefresh={handleRefresh}
+              onSwitchView={(v) => setCurrentView(v)}
+            />
+          )}
+
+          {currentView === 'orbitbot' && (
+            <OrbitBotView
+              project={activeProject}
+              requirements={requirements}
+              initialQuery={orbitSearchQuery}
+              onRefresh={handleRefresh}
               onSwitchView={(v) => setCurrentView(v)}
             />
           )}
@@ -260,6 +352,7 @@ export default function CockpitPage() {
         onClose={() => setCommandPaletteOpen(false)}
         onSwitchView={(v) => setCurrentView(v)}
         approvalsCount={approvalsCount}
+        activeProject={activeProject}
       />
 
       {/* Ingestion & Backlog Synthesis Simulator */}

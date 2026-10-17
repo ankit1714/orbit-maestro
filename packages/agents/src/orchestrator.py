@@ -92,7 +92,17 @@ class ADKOrchestratorAgent:
         elif event_type == "EVENT_MEETING_INGESTED":
             meeting_type = payload.get("meeting_type", "STANDUP")
             transcript = payload.get("transcript", "")
-            result = meeting_agent.process_transcript(project_id, meeting_type, transcript)
+            title = payload.get("title", "Daily Scrum")
+            entered_by = payload.get("entered_by", "Team Member")
+            date = payload.get("date")
+            result = meeting_agent.process_transcript(
+                project_id=project_id,
+                meeting_type=meeting_type,
+                transcript_text=transcript,
+                title=title,
+                entered_by=entered_by,
+                date=date
+            )
 
             # If there are decisions requiring approval, route to approval ledger
             for dec in result.decisions:

@@ -13,21 +13,24 @@ def test_health_check():
 def test_root():
     res = client.get("/")
     assert res.status_code == 200
-    assert res.json()["service"] == "AI Scrum Master Core API"
+    assert "Orbit Maestro AI" in res.json()["service"]
 
 def test_projects_crud():
+    import uuid
+    test_key = f"T{uuid.uuid4().hex[:4].upper()}"
     payload = {
         "name": "E2E Test Project",
-        "key": "TST",
+        "key": test_key,
         "description": "Integration test project",
-        "mode": "STANDALONE",
+        "mode": "ENTERPRISE_SYNC",
+        "jira_settings": {"enabled": True, "instance_url": "https://test.atlassian.net", "project_key": test_key},
         "git_settings": {"enabled": True, "repo_url": "https://github.com/org/test-repo"},
         "notebooklm_settings": {"enabled": True, "notebook_id": "nb-test-01"}
     }
     create_res = client.post("/v1/projects", json=payload)
     assert create_res.status_code == 200
     created = create_res.json()
-    assert created["key"] == "TST"
+    assert created["key"] == test_key
     project_id = created["id"]
 
     get_res = client.get(f"/v1/projects/{project_id}")
@@ -70,7 +73,7 @@ def test_backlog_and_questions():
     resolve_res = client.post("/v1/backlog/questions/resolve", json={
         "question_id": questions[0]["id"],
         "resolved_answer": "PDF, JPG, PNG max 25MB",
-        "resolved_by": "Product Owner"
+        "resolved_by": "Scrum Master"
     })
     assert resolve_res.status_code == 200
     assert resolve_res.json()["resolved"] is True
@@ -99,7 +102,7 @@ def test_meeting_intelligence():
     payload = {
         "project_id": p_id,
         "meeting_type": "STANDUP",
-        "transcript_text": "Alex finished OCR. David is blocked on PAY-142."
+        "transcript_text": "Alex finished OCR. David is blocked on PAY-142. Team agreed to deploy hotfix tomorrow."
     }
     res = client.post("/v1/meetings/extract", json=payload)
     assert res.status_code == 200
@@ -152,6 +155,16 @@ def test_governance_and_audit():
 
 def test_knowledge_and_notebooklm():
     p_id = "proj-claims-auto"
+    # Ensure a knowledge item is indexed for the test
+    client.post("/v1/knowledge/items", json={
+        "id": "know-test-1",
+        "project_id": p_id,
+        "title": "Vendor API Integration Notes",
+        "content": "PAY-142 is blocked because the vendor API schema contract was delayed by 3 days.",
+        "source_type": "MEETING_DECISION",
+        "source_uri": "https://notebooklm.google.com/notebook/nb-claims-auto-01"
+    })
+
     nb_res = client.get(f"/v1/knowledge/notebooklm/{p_id}")
     assert nb_res.status_code == 200
     assert "notebooklm.google.com" in nb_res.json()["notebook_url"]

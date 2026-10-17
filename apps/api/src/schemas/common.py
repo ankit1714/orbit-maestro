@@ -37,6 +37,9 @@ class MeetingType(str, Enum):
     PLANNING = "PLANNING"
     REVIEW = "REVIEW"
     RETROSPECTIVE = "RETROSPECTIVE"
+    ARCHITECTURE = "ARCHITECTURE"
+    TRIAGE = "TRIAGE"
+    ADHOC = "ADHOC"
 
 class FlashHealthStatus(str, Enum):
     ON_TRACK = "ON_TRACK"         # 🟢 Commits active, PRs merging, no aging blockers

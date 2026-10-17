@@ -16,13 +16,15 @@ router = APIRouter(prefix="/sprints", tags=["Sprint Execution & Planning"])
 @router.get("/{project_id}", response_model=Sprint)
 def get_active_sprint(project_id: str):
     """
-    Get active sprint details synced directly from Jira Cloud without local database dependency.
+    Get active sprint details (synced from Jira if configured for project, or from database).
     """
-    jira_provider = provider_factory.get_jira_provider(project_id)
-    if jira_provider._is_configured():
-        return jira_provider.get_active_sprint(project_id)
+    project = provider_factory.get_project(project_id)
+    if project and project.mode == "ENTERPRISE_SYNC" and project.jira_settings and project.jira_settings.enabled:
+        jira_provider = provider_factory.get_jira_provider(project_id)
+        if jira_provider._is_configured():
+            return jira_provider.get_active_sprint(project_id)
 
-    # Fallback to local store or generated sprint if Jira credentials unconfigured
+    # Use database store or generated sprint
     docs = list(db.collection("sprints").where("project_id", "==", project_id).where("status", "==", "ACTIVE").stream())
     if docs:
         return Sprint(**docs[0].to_dict())
@@ -31,11 +33,14 @@ def get_active_sprint(project_id: str):
 @router.post("/commit", response_model=Sprint)
 def commit_sprint_scope(req: SprintScopeCommitRequest):
     """Commit sprint scope, setting sprint goal and locking committed stories."""
-    jira_provider = provider_factory.get_jira_provider(req.project_id)
-    if jira_provider._is_configured():
-        sprint = jira_provider.get_active_sprint(req.project_id)
-        sprint.goal = req.goal
-        sprint.committed_story_ids = req.committed_story_ids
+    project = provider_factory.get_project(req.project_id)
+    if project and project.mode == "ENTERPRISE_SYNC" and project.jira_settings and project.jira_settings.enabled:
+        jira_provider = provider_factory.get_jira_provider(req.project_id)
+        if jira_provider._is_configured():
+            sprint = jira_provider.get_active_sprint(req.project_id)
+            sprint.goal = req.goal
+            sprint.committed_story_ids = req.committed_story_ids
+            return sprint
     else:
         doc_ref = db.collection("sprints").document(req.sprint_id)
         snap = doc_ref.get()
@@ -52,7 +57,7 @@ def commit_sprint_scope(req: SprintScopeCommitRequest):
     orchestrator.log_activity(
         project_id=req.project_id,
         action_type=AuditActionType.SPRINT_COMMITTED,
-        actor="Product Owner",
+        actor="Scrum Master",
         description=f"Committed {sprint.name} scope with goal: '{req.goal}'",
         target=sprint.name,
         tier=GovernanceTier.APPROVAL_REQUIRED

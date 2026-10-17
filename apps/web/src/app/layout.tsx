@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { RoleProvider } from "@/lib/roleContext";
 
 export const metadata: Metadata = {
-  title: "AI Scrum Master — Executive Delivery Cockpit",
-  description: "Enterprise multi-agent autonomous Scrum Master supporting Standalone Mode, Jira & Confluence Sync, and Google NotebookLM.",
+  title: "Orbit Maestro AI — Your Intelligent Scrum Partner",
+  description: "Enterprise multi-agent autonomous Scrum Master with Jira & Confluence Sync and Google NotebookLM.",
 };
 
 export default function RootLayout({
@@ -12,9 +13,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark">
-      <body className="bg-surface-950 text-zinc-100 antialiased min-h-screen flex flex-col selection:bg-brand-500/30 selection:text-brand-400">
-        {children}
+    <html lang="en">
+      <body className="bg-[#f8f9fa] text-[#202124] antialiased min-h-screen flex flex-col selection:bg-brand-100 selection:text-brand-800">
+        <RoleProvider>
+          {children}
+        </RoleProvider>
       </body>
     </html>
   );

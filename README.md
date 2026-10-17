@@ -37,7 +37,6 @@ ai-scrum-master/
 │   └── terraform/               # Enterprise Terraform Blueprint (prod, dev, modules)
 ├── scripts/
 │   ├── bootstrap_gcp.sh         # Automated GCP provisioning script
-│   ├── seed_project_data.py     # Multi-project sample data preloader
 │   └── setup_local_env.sh       # Local virtualenv and dependencies setup
 ├── cloudbuild.yaml              # Cloud Build CI/CD pipeline
 ├── docker-compose.yaml          # Multi-container local orchestration
@@ -52,11 +51,8 @@ ai-scrum-master/
 
 ### Option A: Local Terminal (Docker Compose)
 ```bash
-# 1. Build and start both API and Web UI
+# Build and start both API and Web UI
 docker compose up --build
-
-# 2. (Optional) Seed sample data
-python scripts/seed_project_data.py
 ```
 - **Web Cockpit:** [http://localhost:3000](http://localhost:3000)
 - **FastAPI Backend & Swagger Docs:** [http://localhost:8000/docs](http://localhost:8000/docs)
@@ -94,16 +90,6 @@ agy
 
 ---
 
-### Preload Sample Multi-Project Data
-```bash
-python scripts/seed_project_data.py
-```
-This preloads two projects:
-1. `Customer Claims Automation` (Standalone Mode with GitHub & NotebookLM)
-2. `FinTech Payment Modernization` (Enterprise Sync Mode with Jira & Confluence)
-
----
-
 ## ☁️ Google Cloud Deployment (Cloud Run)
 
 ### 1. Bootstrap GCP Project & Infrastructure
@@ -113,6 +99,13 @@ chmod +x scripts/bootstrap_gcp.sh
 ```
 
 ### 2. Deploy via Cloud Build
+You can deploy directly using the automated script (which builds and deploys to Cloud Run without running local/CI test suites):
 ```bash
-gcloud builds submit --config=cloudbuild.yaml --substitutions=_REGION=europe-west3
+chmod +x scripts/run_cloud_build.sh
+./scripts/run_cloud_build.sh <YOUR_GCP_PROJECT_ID> <REGION>
+```
+
+Or trigger `gcloud` manually:
+```bash
+gcloud builds submit --config=cloudbuild.yaml --substitutions=_REGION=us-central1
 ```

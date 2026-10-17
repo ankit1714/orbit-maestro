@@ -58,67 +58,76 @@ export const CopilotDrawer: React.FC<CopilotDrawerProps> = ({ isOpen, onClose, p
   };
 
   return (
-    <aside className="w-96 border-l border-zinc-800 bg-surface-900 flex flex-col justify-between transition-all duration-300 ease-in-out shadow-2xl z-40 fixed right-0 top-14 bottom-0">
+    <aside className="w-96 border-l border-[#dadce0] bg-white flex flex-col justify-between transition-all duration-300 ease-in-out shadow-[0_4px_24px_rgba(60,64,67,0.18)] z-40 fixed right-0 top-14 bottom-0">
       {/* Header */}
-      <div className="h-12 border-b border-zinc-800 px-4 flex items-center justify-between">
-        <div className="flex items-center space-x-2">
-          <div className="w-6 h-6 rounded bg-brand-500/20 text-brand-400 flex items-center justify-center">
-            <Sparkles className="w-3.5 h-3.5" />
+      <div className="h-14 border-b border-[#dadce0] px-4 flex items-center justify-between bg-white">
+        <div className="flex items-center space-x-2.5">
+          <div className="w-7 h-7 rounded-full bg-[#e8f0fe] text-[#1a73e8] flex items-center justify-center">
+            <Sparkles className="w-4 h-4" />
           </div>
-          <span className="text-xs font-bold text-white">AI Scrum Master Assistant</span>
+          <span className="text-sm font-semibold text-[#202124]">AI Scrum Assistant</span>
         </div>
-        <button onClick={onClose} className="text-zinc-500 hover:text-zinc-300 p-1">
+        <button 
+          onClick={onClose} 
+          className="text-[#5f6368] hover:text-[#202124] hover:bg-[#f1f3f4] rounded-full p-1.5 transition"
+        >
           <X className="w-4 h-4" />
         </button>
       </div>
 
-      {/* Messages */}
-      <div className="flex-1 p-4 space-y-3 overflow-y-auto text-xs">
+      {/* Messages Area */}
+      <div className="flex-1 p-4 space-y-3.5 overflow-y-auto text-xs bg-[#f8f9fa]">
         {messages.map((m, idx) => (
           <div key={idx} className={`flex items-start space-x-2 ${m.sender === 'user' ? 'justify-end' : ''}`}>
             {m.sender === 'ai' && (
-              <div className="w-5 h-5 rounded bg-brand-500/20 text-brand-400 flex items-center justify-center shrink-0 mt-0.5 font-bold text-[10px]">
-                AI
+              <div className="w-6 h-6 rounded-full bg-[#1a73e8] text-white flex items-center justify-center shrink-0 mt-0.5 shadow-sm">
+                <Sparkles className="w-3.5 h-3.5" />
               </div>
             )}
             <div
-              className={`p-3 rounded-lg border text-xs leading-relaxed space-y-1 max-w-[85%] ${
+              className={`p-3.5 rounded-2xl text-xs leading-relaxed space-y-1.5 max-w-[85%] ${
                 m.sender === 'user'
-                  ? 'bg-brand-600 text-white border-brand-500'
-                  : 'bg-surface-950 text-zinc-200 border-zinc-800/80'
+                  ? 'bg-[#e8f0fe] text-[#174ea6] border border-[#d2e3fc] rounded-br-sm shadow-none font-normal'
+                  : 'bg-white text-[#202124] border border-[#dadce0] rounded-bl-sm shadow-[0_1px_2px_rgba(60,64,67,0.1)]'
               }`}
             >
-              <p>{m.text}</p>
+              <p className="whitespace-pre-wrap">{m.text}</p>
               {m.evidence && (
-                <span className="text-[9px] text-zinc-500 font-mono block">Evidence: {m.evidence}</span>
+                <span className="text-[10px] text-[#5f6368] font-mono inline-block bg-[#f1f3f4] px-2 py-0.5 rounded-full border border-[#dadce0]/60">
+                  Evidence: {m.evidence}
+                </span>
               )}
             </div>
           </div>
         ))}
+
         {loading && (
-          <div className="text-zinc-500 text-[11px] font-mono animate-pulse">Vertex AI reasoning...</div>
+          <div className="flex items-center gap-2 text-[#5f6368] text-xs font-mono p-2 bg-white rounded-xl border border-[#dadce0] shadow-sm animate-pulse">
+            <Sparkles className="w-3.5 h-3.5 text-[#1a73e8] animate-spin" />
+            <span>Vertex AI reasoning over project telemetry...</span>
+          </div>
         )}
 
         {/* Quick Inquiries */}
-        <div className="space-y-1.5 pt-2 border-t border-zinc-800/60">
-          <div className="text-[10px] text-zinc-500 font-mono uppercase">Suggested Questions</div>
+        <div className="space-y-2 pt-3 border-t border-[#dadce0]">
+          <div className="text-[10px] text-[#5f6368] font-mono font-bold uppercase tracking-wider">Suggested Questions</div>
           <button
             onClick={() => handleSendMessage('Why is the sprint at risk?')}
-            className="w-full text-left p-2 rounded bg-zinc-800/40 hover:bg-zinc-800 border border-zinc-800 text-[11px] text-zinc-300 transition"
+            className="w-full text-left p-2.5 rounded-xl bg-white hover:bg-[#e8f0fe] border border-[#dadce0] hover:border-[#d2e3fc] text-xs text-[#3c4043] hover:text-[#1a73e8] shadow-sm transition"
           >
-            "Why is the sprint currently marked as Watch?"
+            &ldquo;Why is the sprint currently marked as Watch?&rdquo;
           </button>
           <button
             onClick={() => handleSendMessage('Prepare tomorrow Daily Scrum agenda')}
-            className="w-full text-left p-2 rounded bg-zinc-800/40 hover:bg-zinc-800 border border-zinc-800 text-[11px] text-zinc-300 transition"
+            className="w-full text-left p-2.5 rounded-xl bg-white hover:bg-[#e8f0fe] border border-[#dadce0] hover:border-[#d2e3fc] text-xs text-[#3c4043] hover:text-[#1a73e8] shadow-sm transition"
           >
-            "Generate tomorrow's Daily Scrum focus areas"
+            &ldquo;Generate tomorrow&rsquo;s Daily Scrum focus areas&rdquo;
           </button>
         </div>
       </div>
 
-      {/* Input */}
-      <div className="p-3 border-t border-zinc-800 bg-surface-950">
+      {/* Input Footer */}
+      <div className="p-3.5 border-t border-[#dadce0] bg-white">
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -131,10 +140,14 @@ export const CopilotDrawer: React.FC<CopilotDrawerProps> = ({ isOpen, onClose, p
             value={inputVal}
             onChange={(e) => setInputVal(e.target.value)}
             placeholder="Ask AI Scrum Master..."
-            className="flex-1 bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-brand-500 transition"
+            className="flex-1 bg-[#f1f3f4] hover:bg-[#e8eaed] focus:bg-white border border-[#dadce0] focus:border-[#1a73e8] rounded-full px-4 py-2 text-xs text-[#202124] placeholder-[#80868b] focus:outline-none focus:ring-2 focus:ring-[#1a73e8]/20 transition"
           />
-          <button type="submit" className="p-2 rounded-lg bg-brand-600 hover:bg-brand-500 text-white transition">
-            <ArrowUp className="w-3.5 h-3.5" />
+          <button 
+            type="submit" 
+            disabled={!inputVal.trim()} 
+            className="p-2 rounded-full bg-[#1a73e8] hover:bg-[#1557b0] text-white transition disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
+          >
+            <ArrowUp className="w-4 h-4" />
           </button>
         </form>
       </div>

@@ -31,6 +31,8 @@ class TaskItem(BaseModel):
     created_at: Optional[datetime] = Field(default_factory=datetime.utcnow)
     updated_at: Optional[datetime] = Field(default_factory=datetime.utcnow)
     jira_url: Optional[str] = None
+    sprint_id: Optional[str] = None
+    sprint_name: Optional[str] = None
 
 class UserStory(BaseModel):
     id: str
@@ -38,8 +40,8 @@ class UserStory(BaseModel):
     project_id: str
     epic_id: str
     title: str
-    description: str
-    requirement_origin: str
+    description: Optional[str] = ""
+    requirement_origin: Optional[str] = ""
     story_points: int = 5
     priority: Union[Priority, str] = Priority.HIGH
     status: Union[ItemStatus, str] = ItemStatus.TODO
@@ -53,14 +55,16 @@ class UserStory(BaseModel):
     created_at: Optional[datetime] = Field(default_factory=datetime.utcnow)
     updated_at: Optional[datetime] = Field(default_factory=datetime.utcnow)
     jira_url: Optional[str] = None
+    sprint_id: Optional[str] = None
+    sprint_name: Optional[str] = None
 
 class Epic(BaseModel):
     id: str
     key: str # e.g. EPC-01 or SCRUM-5
     project_id: str
     title: str
-    description: str
-    requirement_origin: str
+    description: Optional[str] = ""
+    requirement_origin: Optional[str] = ""
     total_points: int = 0
     status: Union[ItemStatus, str] = ItemStatus.IN_PROGRESS
     stories: List[UserStory] = Field(default_factory=list)

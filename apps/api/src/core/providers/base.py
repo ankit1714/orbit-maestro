@@ -74,6 +74,8 @@ class BaseGitProvider(ABC):
     def get_pull_requests(self, project_id: str, state: str = "open") -> List[PullRequest]:
         pass
 
+from apps.api.src.schemas.knowledge import KnowledgeItem, KnowledgeSearchResponse, NotebookLMReference, ProjectKnowledgeSyncResponse
+
 class BaseKnowledgeProvider(ABC):
     @abstractmethod
     def search(self, project_id: str, query: str, limit: int = 5) -> KnowledgeSearchResponse:
@@ -85,4 +87,8 @@ class BaseKnowledgeProvider(ABC):
 
     @abstractmethod
     def get_notebooklm_reference(self, project_id: str) -> NotebookLMReference:
+        pass
+
+    @abstractmethod
+    def sync_sources(self, project_id: str) -> ProjectKnowledgeSyncResponse:
         pass

@@ -15,7 +15,7 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY apps/web ./
 
-ARG NEXT_PUBLIC_API_URL="https://ai-scrum-api-a355sfc3uq-uc.a.run.app/v1"
+ARG NEXT_PUBLIC_API_URL="https://ai-scrum-api-638799400872.us-central1.run.app/v1"
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build

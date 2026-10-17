@@ -1,8 +1,9 @@
 'use client';
 
 import React from 'react';
-import { TrendingDown, AlertOctagon, Check, Play, CheckCircle2, ChevronRight, ExternalLink, RefreshCw, Calendar, Clock, User } from 'lucide-react';
-import { api } from '@/lib/api';
+import { TrendingDown, AlertOctagon, Check, Play, CheckCircle2, ChevronRight, ExternalLink, RefreshCw, Calendar, Clock, User, Lock } from 'lucide-react';
+import { api, getJiraBoardUrl, getJiraBrowseUrl } from '@/lib/api';
+import { useRole } from '@/lib/roleContext';
 
 interface SprintBoardViewProps {
   project: any;
@@ -21,16 +22,73 @@ export const SprintBoardView: React.FC<SprintBoardViewProps> = ({
   onSwitchView,
   onOpenSpilloverModal,
 }) => {
+  const { can, profile } = useRole();
   const epics = backlog?.epics || [];
   const allTasks: any[] = [];
+  const isJiraSource = sprint?.source === "JIRA" || backlog?.source === "JIRA";
+
+  const committedIds = new Set(
+    (sprint?.committed_story_ids || []).map((id: any) => String(id).trim().toLowerCase())
+  );
+  const activeSprintId = sprint?.jira_sprint_id
+    ? String(sprint.jira_sprint_id).trim()
+    : sprint?.sprint_number
+    ? String(sprint.sprint_number).trim()
+    : null;
+  const activeSprintName = sprint?.name ? String(sprint.name).trim().toLowerCase() : null;
+
+  const isItemInCurrentSprint = (item: any, parentStory?: any) => {
+    // 1. Direct match in committed_story_ids by key or id
+    const itemKey = item?.key ? String(item.key).trim().toLowerCase() : null;
+    const itemId = item?.id ? String(item.id).trim().toLowerCase() : null;
+    if (itemKey && committedIds.has(itemKey)) return true;
+    if (itemId && committedIds.has(itemId)) return true;
+
+    // 2. Parent story match in committed_story_ids by key or id
+    const parentKey = parentStory?.key ? String(parentStory.key).trim().toLowerCase() : null;
+    const parentId = parentStory?.id ? String(parentStory.id).trim().toLowerCase() : null;
+    if (parentKey && committedIds.has(parentKey)) return true;
+    if (parentId && committedIds.has(parentId)) return true;
+
+    // 3. Match by sprint_id
+    const itemSprintId = item?.sprint_id ? String(item.sprint_id).trim() : null;
+    const parentSprintId = parentStory?.sprint_id ? String(parentStory.sprint_id).trim() : null;
+    if (activeSprintId) {
+      if (itemSprintId && itemSprintId === activeSprintId) return true;
+      if (parentSprintId && parentSprintId === activeSprintId) return true;
+    }
+
+    // 4. Match by sprint_name
+    const itemSprintName = item?.sprint_name ? String(item.sprint_name).trim().toLowerCase() : null;
+    const parentSprintName = parentStory?.sprint_name ? String(parentStory.sprint_name).trim().toLowerCase() : null;
+    if (activeSprintName) {
+      if (itemSprintName && (itemSprintName === activeSprintName || activeSprintName.includes(itemSprintName) || itemSprintName.includes(activeSprintName))) return true;
+      if (parentSprintName && (parentSprintName === activeSprintName || activeSprintName.includes(parentSprintName) || parentSprintName.includes(activeSprintName))) return true;
+    }
+
+    // 5. Match by sprint.id containing sprint_id
+    if (sprint?.id) {
+      if (itemSprintId && sprint.id.includes(itemSprintId)) return true;
+      if (parentSprintId && sprint.id.includes(parentSprintId)) return true;
+    }
+
+    return false;
+  };
 
   epics.forEach((e: any) => {
     (e.stories || []).forEach((s: any) => {
+      let addedSubtaskCount = 0;
       if (s.tasks && s.tasks.length > 0) {
         s.tasks.forEach((t: any) => {
-          allTasks.push({ ...t, story_title: s.title });
+          if (!isJiraSource || isItemInCurrentSprint(t, s)) {
+            allTasks.push({ ...t, story_title: s.title });
+            addedSubtaskCount++;
+          }
         });
-      } else {
+      }
+
+      // If no subtasks were attached or none belonged to current sprint, but the story belongs to current sprint
+      if (addedSubtaskCount === 0 && (!isJiraSource || isItemInCurrentSprint(s))) {
         allTasks.push({
           id: s.id,
           key: s.key,
@@ -40,7 +98,7 @@ export const SprintBoardView: React.FC<SprintBoardViewProps> = ({
           assignee_name: s.assignee_name || "Unassigned",
           effort_days: s.story_points ? s.story_points * 0.5 : 1.0,
           story_title: e.title,
-          jira_url: s.jira_url || `https://the-ai-scrum-master.atlassian.net/browse/${s.key}`,
+          jira_url: s.jira_url || getJiraBrowseUrl(s.key, project),
           created_at: s.created_at,
           updated_at: s.updated_at
         });
@@ -76,6 +134,7 @@ export const SprintBoardView: React.FC<SprintBoardViewProps> = ({
   const doneTasks = allTasks.filter(isDone);
 
   const moveTask = async (taskIdOrKey: string, newStatus: string) => {
+    if (!can('canMoveTasks')) return;
     try {
       await api.updateTaskStatus(project.id, taskIdOrKey, newStatus);
       onRefresh();
@@ -95,44 +154,65 @@ export const SprintBoardView: React.FC<SprintBoardViewProps> = ({
     }
   };
 
-  const isJiraSource = sprint?.source === "JIRA" || backlog?.source === "JIRA";
-
   return (
     <div className="p-6 max-w-7xl mx-auto w-full space-y-4 flex-1 flex flex-col">
+      {/* Read Only Persona Banner */}
+      {profile.permissions.isReadOnly && (
+        <div className="p-3.5 rounded-xl border border-[#dadce0] bg-[#f8f9fa] flex items-center justify-between text-xs text-[#3c4043] shadow-sm">
+          <div className="flex items-center gap-2">
+            <Lock className="w-4 h-4 text-[#c5221f] shrink-0" />
+            <span>Viewing as <strong className="text-[#202124]">{profile.title}</strong> — Sprint Board is in read-only observation mode. Workflow transitions and task movements are disabled.</span>
+          </div>
+          <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-white text-[#5f6368] border border-[#dadce0] font-bold shadow-sm">
+            Read Only
+          </span>
+        </div>
+      )}
+
       {/* Spillover Warning Banner */}
       {blockedTasks.length > 0 && (
-        <div className="p-3 rounded-lg border border-amber-500/30 bg-amber-500/10 flex items-center justify-between text-xs">
-          <div className="flex items-center space-x-2 text-amber-200">
-            <TrendingDown className="w-4 h-4 text-amber-400" />
+        <div className="p-3.5 rounded-xl border border-[#feefc3] bg-[#fef7e0] flex items-center justify-between text-xs shadow-sm">
+          <div className="flex items-center space-x-2 text-[#b06000]">
+            <TrendingDown className="w-4 h-4 text-[#b06000] shrink-0" />
             <span>
-              <strong>Spillover Forecast Alert (Stage 11 · FR-13):</strong> {blockedTasks.length} task(s) currently blocked with high risk of spilling over.
+              <strong>Spillover Forecast Alert:</strong> {blockedTasks.length} task(s) currently blocked with high risk of spilling over.
             </span>
           </div>
-          <button
-            onClick={onOpenSpilloverModal}
-            className="px-2.5 py-1 rounded bg-amber-400 text-surface-950 font-bold hover:bg-amber-300 transition text-[11px] shadow-sm"
-          >
-            Launch Spillover Triage Workbench
-          </button>
+          {can('canTriageSpillover') ? (
+            <button
+              onClick={onOpenSpilloverModal}
+              className="px-3 py-1 rounded-lg bg-[#b06000] text-white font-bold hover:bg-[#8d4d00] transition text-[11px] shadow-sm"
+            >
+              Launch Spillover Triage Workbench
+            </button>
+          ) : (
+            <div
+              className="px-2.5 py-1 rounded bg-[#f1f3f4] text-[#5f6368] font-medium text-[11px] flex items-center gap-1 cursor-not-allowed border border-[#dadce0]"
+              title={`Role "${profile.title}" cannot triage spillover (Requires Scrum Master or Admin)`}
+            >
+              <Lock className="w-3 h-3 text-[#5f6368]" />
+              <span>Triage (SM Only)</span>
+            </div>
+          )}
         </div>
       )}
 
       {/* Header */}
-      <div className="flex items-center justify-between pb-2 border-b border-zinc-800">
+      <div className="flex items-center justify-between pb-3 border-b border-[#dadce0]">
         <div>
-          <div className="flex items-center gap-2">
-            <span className="font-mono text-brand-400 font-bold text-sm">[{project?.key || "SCRUM"}]</span>
-            <h1 className="text-lg font-bold text-white">
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <span className="font-mono text-[#1a73e8] font-bold text-sm">[{project?.key || "SCRUM"}]</span>
+            <h1 className="text-xl font-bold text-[#202124]">
               {sprint?.name || "Active Jira Sprint"} Board
             </h1>
             {isJiraSource && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono bg-blue-500/10 text-blue-300 border border-blue-500/20">
-                <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-[#e8f0fe] text-[#1967d2] border border-[#d2e3fc]">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#1a73e8] animate-pulse" />
                 Live Jira Cloud Sync
               </span>
             )}
           </div>
-          <p className="text-xs text-zinc-400 mt-0.5">
+          <p className="text-xs text-[#5f6368] mt-1">
             {isJiraSource
               ? `Real-time sprint board synced from Jira Cloud with live workflow transitions (${allTasks.length} issues tracked).`
               : `Automated status transitions with human-approved overrides (${allTasks.length} tasks tracked).`}
@@ -141,61 +221,77 @@ export const SprintBoardView: React.FC<SprintBoardViewProps> = ({
         <div className="flex items-center gap-3">
           <button
             onClick={onRefresh}
-            className="p-1.5 rounded-lg border border-zinc-800 bg-surface-900 hover:bg-zinc-800 text-zinc-300 transition text-xs flex items-center gap-1.5"
+            className="px-3 py-1.5 rounded-lg border border-[#dadce0] bg-white hover:bg-[#f1f3f4] text-[#3c4043] transition text-xs font-medium flex items-center gap-1.5 shadow-sm"
             title="Refresh directly from Jira"
           >
             <RefreshCw className="w-3.5 h-3.5" />
             <span>Refresh Jira</span>
           </button>
-          <span className="text-xs text-zinc-300 font-mono px-2 py-1 rounded bg-zinc-900 border border-zinc-800">
+          <span className="text-xs text-[#3c4043] font-mono px-2.5 py-1.5 rounded-lg bg-white border border-[#dadce0] shadow-sm font-semibold">
             {sprint?.remaining_days ?? 4} days remaining
           </span>
         </div>
       </div>
 
       {allTasks.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 flex-1">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 flex-1 items-start">
           {/* TO DO COLUMN */}
-          <div className="p-3 rounded-xl border border-zinc-800 bg-surface-900/50 flex flex-col space-y-3">
-            <div className="flex items-center justify-between text-xs font-semibold text-zinc-400 pb-2 border-b border-zinc-800">
-              <span className="flex items-center gap-2">To Do <span className="text-[10px] bg-zinc-800 px-1.5 py-0.2 rounded font-mono">{todoTasks.length}</span></span>
+          <div className="p-3.5 rounded-2xl border border-[#dadce0] bg-[#f8f9fa] flex flex-col space-y-3">
+            <div className="flex items-center justify-between text-xs font-semibold text-[#5f6368] pb-2 border-b border-[#dadce0]">
+              <span className="flex items-center gap-2">
+                To Do
+                <span className="text-[10px] bg-[#e8eaed] text-[#3c4043] px-2 py-0.5 rounded-full font-mono font-bold">
+                  {todoTasks.length}
+                </span>
+              </span>
             </div>
 
             {todoTasks.map((t) => (
-              <div key={t.id || t.key} className="p-3 rounded-lg bg-surface-950 border border-zinc-800 hover:border-zinc-700 transition space-y-2">
+              <div
+                key={t.id || t.key}
+                className="p-3.5 rounded-xl bg-white border border-[#dadce0] hover:border-[#1a73e8]/40 hover:shadow-md transition space-y-2.5 shadow-sm"
+              >
                 <div className="flex items-center justify-between text-[10px]">
                   <a
-                    href={`https://the-ai-scrum-master.atlassian.net/browse/${t.key}`}
+                    href={t.jira_url || getJiraBrowseUrl(t.key, project)}
                     target="_blank"
                     rel="noreferrer"
-                    className="font-mono text-blue-400 hover:underline flex items-center gap-0.5 font-semibold"
+                    className="font-mono text-[#1a73e8] hover:underline flex items-center gap-0.5 font-bold"
                   >
                     <span>{t.key}</span>
                     <ExternalLink className="w-2.5 h-2.5" />
                   </a>
-                  <span className="px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300 font-mono text-[9px]">{t.task_type || "DEV"}</span>
+                  <span className="px-2 py-0.5 rounded bg-[#f1f3f4] text-[#5f6368] font-mono text-[9px] border border-[#dadce0]">
+                    {t.task_type || "DEV"}
+                  </span>
                 </div>
-                <h4 className="text-xs font-medium text-white">{t.title}</h4>
+                <h4 className="text-xs font-semibold text-[#202124] leading-snug">{t.title}</h4>
                 {t.story_title && (
-                  <p className="text-[10px] text-zinc-500 truncate" title={t.story_title}>
+                  <p className="text-[10px] text-[#5f6368] truncate" title={t.story_title}>
                     Parent: {t.story_title}
                   </p>
                 )}
-                <div className="flex items-center justify-between pt-2 border-t border-zinc-800/60 text-[11px] text-zinc-400">
-                  <span className="flex items-center gap-1 text-[10px] text-zinc-400 truncate max-w-[120px]">
-                    <User className="w-3 h-3 text-zinc-500" />
-                    <span>{t.assignee_name || "Unassigned"}</span>
+                <div className="flex items-center justify-between pt-2 border-t border-[#f1f3f4] text-[11px] text-[#5f6368]">
+                  <span className="flex items-center gap-1.5 text-[10px] text-[#5f6368] truncate max-w-[120px]">
+                    <User className="w-3 h-3 text-[#5f6368]" />
+                    <span className="truncate">{t.assignee_name || "Unassigned"}</span>
                   </span>
-                  <button
-                    onClick={() => moveTask(t.key || t.id, "IN_PROGRESS")}
-                    className="text-brand-400 hover:underline flex items-center gap-0.5 text-[10px]"
-                  >
-                    <span>Start</span>
-                    <ChevronRight className="w-3 h-3" />
-                  </button>
+                  {can('canMoveTasks') ? (
+                    <button
+                      onClick={() => moveTask(t.key || t.id, "IN_PROGRESS")}
+                      className="text-[#1a73e8] hover:text-[#1557b0] hover:underline flex items-center gap-0.5 text-[10px] font-semibold"
+                    >
+                      <span>Start</span>
+                      <ChevronRight className="w-3 h-3" />
+                    </button>
+                  ) : (
+                    <span className="text-[10px] text-[#80868b] flex items-center gap-0.5 font-mono">
+                      <Lock className="w-2.5 h-2.5" /> Read-only
+                    </span>
+                  )}
                 </div>
                 {t.updated_at && (
-                  <div className="text-[9px] text-zinc-500 pt-0.5">
+                  <div className="text-[9px] text-[#80868b] pt-0.5">
                     Modified: {formatDate(t.updated_at)}
                   </div>
                 )}
@@ -204,46 +300,62 @@ export const SprintBoardView: React.FC<SprintBoardViewProps> = ({
           </div>
 
           {/* IN PROGRESS COLUMN */}
-          <div className="p-3 rounded-xl border border-zinc-800 bg-surface-900/50 flex flex-col space-y-3">
-            <div className="flex items-center justify-between text-xs font-semibold text-zinc-400 pb-2 border-b border-zinc-800">
-              <span className="flex items-center gap-2">In Progress <span className="text-[10px] bg-zinc-800 px-1.5 py-0.2 rounded font-mono">{inProgressTasks.length}</span></span>
+          <div className="p-3.5 rounded-2xl border border-[#d2e3fc] bg-[#f8f9fa] flex flex-col space-y-3">
+            <div className="flex items-center justify-between text-xs font-semibold text-[#1967d2] pb-2 border-b border-[#d2e3fc]">
+              <span className="flex items-center gap-2">
+                In Progress
+                <span className="text-[10px] bg-[#e8f0fe] text-[#1967d2] px-2 py-0.5 rounded-full font-mono font-bold">
+                  {inProgressTasks.length}
+                </span>
+              </span>
             </div>
 
             {inProgressTasks.map((t) => (
-              <div key={t.id || t.key} className="p-3 rounded-lg bg-surface-950 border border-indigo-500/40 hover:border-indigo-500 transition space-y-2 shadow-sm">
+              <div
+                key={t.id || t.key}
+                className="p-3.5 rounded-xl bg-white border border-[#1a73e8]/30 hover:border-[#1a73e8] hover:shadow-md transition space-y-2.5 shadow-sm"
+              >
                 <div className="flex items-center justify-between text-[10px]">
                   <a
-                    href={`https://the-ai-scrum-master.atlassian.net/browse/${t.key}`}
+                    href={t.jira_url || getJiraBrowseUrl(t.key, project)}
                     target="_blank"
                     rel="noreferrer"
-                    className="font-mono text-indigo-400 hover:underline flex items-center gap-0.5 font-bold"
+                    className="font-mono text-[#1a73e8] hover:underline flex items-center gap-0.5 font-bold"
                   >
                     <span>{t.key}</span>
                     <ExternalLink className="w-2.5 h-2.5" />
                   </a>
-                  <span className="px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-mono text-[9px]">{t.status}</span>
+                  <span className="px-2 py-0.5 rounded bg-[#e8f0fe] text-[#1967d2] border border-[#d2e3fc] font-mono text-[9px] font-medium">
+                    {t.status}
+                  </span>
                 </div>
-                <h4 className="text-xs font-medium text-white">{t.title}</h4>
+                <h4 className="text-xs font-semibold text-[#202124] leading-snug">{t.title}</h4>
                 {t.story_title && (
-                  <p className="text-[10px] text-zinc-500 truncate" title={t.story_title}>
+                  <p className="text-[10px] text-[#5f6368] truncate" title={t.story_title}>
                     Parent: {t.story_title}
                   </p>
                 )}
-                <div className="flex items-center justify-between pt-2 border-t border-zinc-800/60 text-[11px] text-zinc-400">
-                  <span className="flex items-center gap-1 text-[10px] text-zinc-400 truncate max-w-[120px]">
-                    <User className="w-3 h-3 text-indigo-400" />
-                    <span>{t.assignee_name || "Unassigned"}</span>
+                <div className="flex items-center justify-between pt-2 border-t border-[#f1f3f4] text-[11px] text-[#5f6368]">
+                  <span className="flex items-center gap-1.5 text-[10px] text-[#1967d2] truncate max-w-[120px]">
+                    <User className="w-3 h-3 text-[#1a73e8]" />
+                    <span className="truncate">{t.assignee_name || "Unassigned"}</span>
                   </span>
-                  <button
-                    onClick={() => moveTask(t.key || t.id, "DONE")}
-                    className="text-emerald-400 hover:underline flex items-center gap-0.5 text-[10px]"
-                  >
-                    <span>Finish</span>
-                    <Check className="w-3 h-3" />
-                  </button>
+                  {can('canMoveTasks') ? (
+                    <button
+                      onClick={() => moveTask(t.key || t.id, "DONE")}
+                      className="text-[#137333] hover:text-[#0d652d] hover:underline flex items-center gap-0.5 text-[10px] font-semibold"
+                    >
+                      <span>Finish</span>
+                      <Check className="w-3 h-3" />
+                    </button>
+                  ) : (
+                    <span className="text-[10px] text-[#80868b] flex items-center gap-0.5 font-mono">
+                      <Lock className="w-2.5 h-2.5" /> Read-only
+                    </span>
+                  )}
                 </div>
                 {t.updated_at && (
-                  <div className="text-[9px] text-zinc-500 pt-0.5">
+                  <div className="text-[9px] text-[#80868b] pt-0.5">
                     Modified: {formatDate(t.updated_at)}
                   </div>
                 )}
@@ -252,37 +364,47 @@ export const SprintBoardView: React.FC<SprintBoardViewProps> = ({
           </div>
 
           {/* BLOCKED COLUMN */}
-          <div className="p-3 rounded-xl border border-rose-900/40 bg-rose-950/10 flex flex-col space-y-3">
-            <div className="flex items-center justify-between text-xs font-semibold text-rose-400 pb-2 border-b border-rose-900/40">
-              <span className="flex items-center gap-2">Blocked <span className="text-[10px] bg-rose-500/20 px-1.5 py-0.2 rounded font-mono">{blockedTasks.length}</span></span>
+          <div className="p-3.5 rounded-2xl border border-[#fad2cf] bg-[#fffafb] flex flex-col space-y-3">
+            <div className="flex items-center justify-between text-xs font-semibold text-[#c5221f] pb-2 border-b border-[#fad2cf]">
+              <span className="flex items-center gap-2">
+                Blocked
+                <span className="text-[10px] bg-[#fce8e6] text-[#c5221f] px-2 py-0.5 rounded-full font-mono font-bold">
+                  {blockedTasks.length}
+                </span>
+              </span>
             </div>
 
             {blockedTasks.map((t) => (
-              <div key={t.id || t.key} className="p-3 rounded-lg bg-surface-950 border border-rose-500/50 space-y-2 shadow-lg shadow-rose-950/20">
+              <div
+                key={t.id || t.key}
+                className="p-3.5 rounded-xl bg-white border border-[#f28b82] space-y-2.5 shadow-sm hover:shadow-md transition"
+              >
                 <div className="flex items-center justify-between text-[10px]">
                   <a
-                    href={`https://the-ai-scrum-master.atlassian.net/browse/${t.key}`}
+                    href={t.jira_url || getJiraBrowseUrl(t.key, project)}
                     target="_blank"
                     rel="noreferrer"
-                    className="font-mono text-rose-400 hover:underline flex items-center gap-0.5 font-bold"
+                    className="font-mono text-[#c5221f] hover:underline flex items-center gap-0.5 font-bold"
                   >
                     <span>{t.key}</span>
                     <ExternalLink className="w-2.5 h-2.5" />
                   </a>
-                  <span className="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 font-bold font-mono text-[9px]">IMPEDIMENT</span>
+                  <span className="px-2 py-0.5 rounded bg-[#fce8e6] text-[#c5221f] font-bold font-mono text-[9px] border border-[#fad2cf]">
+                    IMPEDIMENT
+                  </span>
                 </div>
-                <h4 className="text-xs font-semibold text-white">{t.title}</h4>
-                <div className="p-1.5 rounded bg-rose-500/10 border border-rose-500/30 text-[10px] text-rose-300">
+                <h4 className="text-xs font-semibold text-[#202124] leading-snug">{t.title}</h4>
+                <div className="p-2 rounded-lg bg-[#fce8e6]/60 border border-[#fad2cf] text-[10px] text-[#c5221f]">
                   <p><strong>Blocker:</strong> {t.blocker_reason || "Dependency impediment flagged in Jira"}</p>
                 </div>
-                <div className="flex items-center justify-between pt-2 border-t border-zinc-800/60 text-[11px] text-zinc-400">
-                  <span>{t.assignee_name || "Unassigned"}</span>
-                  <button onClick={() => onSwitchView('governance')} className="text-rose-400 hover:underline text-[10px] font-bold">
+                <div className="flex items-center justify-between pt-2 border-t border-[#f1f3f4] text-[11px] text-[#5f6368]">
+                  <span className="truncate max-w-[120px]">{t.assignee_name || "Unassigned"}</span>
+                  <button onClick={() => onSwitchView('governance')} className="text-[#c5221f] hover:underline text-[10px] font-bold">
                     Escalate →
                   </button>
                 </div>
                 {t.updated_at && (
-                  <div className="text-[9px] text-zinc-500 pt-0.5">
+                  <div className="text-[9px] text-[#80868b] pt-0.5">
                     Modified: {formatDate(t.updated_at)}
                   </div>
                 )}
@@ -291,32 +413,44 @@ export const SprintBoardView: React.FC<SprintBoardViewProps> = ({
           </div>
 
           {/* DONE COLUMN */}
-          <div className="p-3 rounded-xl border border-zinc-800 bg-surface-900/50 flex flex-col space-y-3">
-            <div className="flex items-center justify-between text-xs font-semibold text-zinc-400 pb-2 border-b border-zinc-800">
-              <span className="flex items-center gap-2">Done <span className="text-[10px] bg-zinc-800 px-1.5 py-0.2 rounded font-mono">{doneTasks.length}</span></span>
+          <div className="p-3.5 rounded-2xl border border-[#dadce0] bg-[#f8f9fa] flex flex-col space-y-3">
+            <div className="flex items-center justify-between text-xs font-semibold text-[#137333] pb-2 border-b border-[#dadce0]">
+              <span className="flex items-center gap-2">
+                Done
+                <span className="text-[10px] bg-[#e6f4ea] text-[#137333] px-2 py-0.5 rounded-full font-mono font-bold">
+                  {doneTasks.length}
+                </span>
+              </span>
             </div>
 
             {doneTasks.map((t) => (
-              <div key={t.id || t.key} className="p-3 rounded-lg bg-surface-950 border border-zinc-800/80 opacity-80 space-y-2">
+              <div
+                key={t.id || t.key}
+                className="p-3.5 rounded-xl bg-white border border-[#dadce0] space-y-2.5 shadow-sm opacity-90"
+              >
                 <div className="flex items-center justify-between text-[10px]">
                   <a
-                    href={`https://the-ai-scrum-master.atlassian.net/browse/${t.key}`}
+                    href={t.jira_url || getJiraBrowseUrl(t.key, project)}
                     target="_blank"
                     rel="noreferrer"
-                    className="font-mono text-zinc-500 line-through hover:underline flex items-center gap-0.5"
+                    className="font-mono text-[#5f6368] line-through hover:underline flex items-center gap-0.5"
                   >
                     <span>{t.key}</span>
                     <ExternalLink className="w-2.5 h-2.5" />
                   </a>
-                  <span className="px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 text-[9px] font-mono">Complete</span>
+                  <span className="px-2 py-0.5 rounded bg-[#e6f4ea] text-[#137333] text-[9px] font-mono border border-[#ceead6] font-semibold">
+                    Complete
+                  </span>
                 </div>
-                <h4 className="text-xs font-medium text-zinc-300 line-through">{t.title}</h4>
-                <div className="flex items-center justify-between pt-2 border-t border-zinc-800/60 text-[11px] text-zinc-500">
-                  <span>{t.assignee_name || "Unassigned"}</span>
-                  <span className="text-emerald-400 flex items-center gap-1 text-[10px]"><Check className="w-3 h-3" /> Jira Verified</span>
+                <h4 className="text-xs font-medium text-[#5f6368] line-through leading-snug">{t.title}</h4>
+                <div className="flex items-center justify-between pt-2 border-t border-[#f1f3f4] text-[11px] text-[#5f6368]">
+                  <span className="truncate max-w-[120px]">{t.assignee_name || "Unassigned"}</span>
+                  <span className="text-[#137333] flex items-center gap-1 text-[10px] font-semibold">
+                    <Check className="w-3 h-3" /> Jira Verified
+                  </span>
                 </div>
                 {t.updated_at && (
-                  <div className="text-[9px] text-zinc-500 pt-0.5">
+                  <div className="text-[9px] text-[#80868b] pt-0.5">
                     Modified: {formatDate(t.updated_at)}
                   </div>
                 )}
@@ -325,25 +459,25 @@ export const SprintBoardView: React.FC<SprintBoardViewProps> = ({
           </div>
         </div>
       ) : (
-        <div className="p-12 text-center rounded-2xl border border-zinc-800 bg-surface-900/40 space-y-3">
-          <h3 className="text-sm font-bold text-white">No Active Tasks in Sprint Board</h3>
-          <p className="text-xs text-zinc-400 max-w-md mx-auto">
+        <div className="p-12 text-center rounded-2xl border border-[#dadce0] bg-white shadow-sm space-y-3">
+          <h3 className="text-base font-bold text-[#202124]">No Active Tasks in Sprint Board</h3>
+          <p className="text-xs text-[#5f6368] max-w-md mx-auto">
             {isJiraSource
               ? `No active sprint items found in Jira project ${project?.key || 'SCRUM'}. Add tasks or stories in Jira or synthesize them in the Backlog view.`
               : `Backlog items have not been decomposed for ${project?.name} yet. Open Document Studio or Backlog tab to synthesize tasks.`}
           </p>
-          <div className="pt-2 flex justify-center gap-2">
+          <div className="pt-2 flex justify-center gap-2.5">
             <button
               onClick={() => onSwitchView('backlog')}
-              className="px-4 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-500 text-white font-semibold text-xs shadow-md shadow-brand-500/20"
+              className="px-4 py-2 rounded-lg bg-[#1a73e8] hover:bg-[#1557b0] text-white font-semibold text-xs shadow-sm transition"
             >
               Open Backlog Tab
             </button>
             <a
-              href="https://the-ai-scrum-master.atlassian.net/jira/software/projects/SCRUM/boards"
+              href={getJiraBoardUrl(project, sprint)}
               target="_blank"
               rel="noreferrer"
-              className="px-4 py-1.5 rounded-lg border border-zinc-700 hover:bg-zinc-800 text-zinc-300 font-semibold text-xs flex items-center gap-1.5"
+              className="px-4 py-2 rounded-lg border border-[#dadce0] bg-white hover:bg-[#f1f3f4] text-[#3c4043] font-semibold text-xs flex items-center gap-1.5 shadow-sm transition"
             >
               <span>Open Jira Agile Board</span>
               <ExternalLink className="w-3.5 h-3.5" />

@@ -1,6 +1,12 @@
 from typing import List
 from fastapi import APIRouter
-from apps.api.src.schemas.knowledge import KnowledgeSearchQuery, KnowledgeSearchResponse, NotebookLMReference, KnowledgeItem
+from apps.api.src.schemas.knowledge import (
+    KnowledgeSearchQuery,
+    KnowledgeSearchResponse,
+    NotebookLMReference,
+    KnowledgeItem,
+    ProjectKnowledgeSyncResponse
+)
 from apps.api.src.core.provider_factory import provider_factory
 from apps.api.src.core.firestore_client import db
 
@@ -8,9 +14,15 @@ router = APIRouter(prefix="/knowledge", tags=["Google NotebookLM & Project Knowl
 
 @router.post("/search", response_model=KnowledgeSearchResponse)
 def search_project_knowledge(query: KnowledgeSearchQuery):
-    """Grounded semantic Q&A with exact source citations (FR-18 & NotebookLM engine)."""
+    """Grounded semantic Q&A with exact source citations across Confluence, Jira, Git, and PRDs."""
     provider = provider_factory.get_knowledge_provider(query.project_id)
     return provider.search(query.project_id, query.query, query.limit)
+
+@router.post("/sync/{project_id}", response_model=ProjectKnowledgeSyncResponse)
+def sync_project_knowledge(project_id: str):
+    """Scans and synchronizes all live Confluence pages, Jira items, Git repos, and PRD specifications."""
+    provider = provider_factory.get_knowledge_provider(project_id)
+    return provider.sync_sources(project_id)
 
 @router.get("/notebooklm/{project_id}", response_model=NotebookLMReference)
 def get_notebooklm_details(project_id: str):

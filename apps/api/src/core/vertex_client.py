@@ -39,11 +39,43 @@ class VertexAIService:
 
         return None
 
-    def generate_content(self, prompt: str) -> str:
-        """Invokes Google Vertex AI Gemini 2.5 Flash with live fallback."""
-        token = self._get_access_token()
+    def generate_content(self, prompt: str, max_output_tokens: int = 16384) -> str:
+        """Invokes Google Vertex AI Gemini 2.5 Flash / Gemini API with live fallback."""
         model = self._model_name or "gemini-2.5-flash"
         
+        # 1. Try Gemini API key if configured
+        gemini_api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+        if gemini_api_key:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={gemini_api_key}"
+            payload = {
+                "contents": [{
+                    "role": "user",
+                    "parts": [{"text": prompt}]
+                }],
+                "generationConfig": {
+                    "temperature": 0.2,
+                    "maxOutputTokens": max_output_tokens
+                }
+            }
+            try:
+                res = requests.post(url, json=payload, timeout=120)
+                if res.status_code == 200:
+                    data = res.json()
+                    candidates = data.get("candidates", [])
+                    if candidates:
+                        parts = candidates[0].get("content", {}).get("parts", [])
+                        if parts:
+                            text = parts[0].get("text", "")
+                            if text:
+                                logger.info(f"Successfully generated response from Gemini API: {model}")
+                                return text
+                else:
+                    logger.warning(f"Gemini API returned status {res.status_code}: {res.text[:200]}")
+            except Exception as e:
+                logger.warning(f"Gemini API REST call exception: {e}")
+
+        # 2. Try Google Vertex AI endpoint with IAM Bearer Token
+        token = self._get_access_token()
         if token:
             url = f"https://{settings.REGION}-aiplatform.googleapis.com/v1/projects/{settings.PROJECT_ID}/locations/{settings.REGION}/publishers/google/models/{model}:generateContent"
             headers = {
@@ -57,12 +89,12 @@ class VertexAIService:
                 }],
                 "generationConfig": {
                     "temperature": 0.2,
-                    "maxOutputTokens": 3072
+                    "maxOutputTokens": max_output_tokens
                 }
             }
 
             try:
-                res = requests.post(url, headers=headers, json=payload, timeout=60)
+                res = requests.post(url, headers=headers, json=payload, timeout=120)
                 if res.status_code == 200:
                     data = res.json()
                     candidates = data.get("candidates", [])

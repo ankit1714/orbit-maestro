@@ -1,9 +1,11 @@
 import logging
 import requests
+import re
 from requests.auth import HTTPBasicAuth
 from typing import List, Dict, Any, Optional
 from datetime import datetime, timezone
 import uuid
+from urllib.parse import urlparse
 
 from apps.api.src.core.config import settings
 from apps.api.src.core.providers.base import BaseBacklogProvider
@@ -13,6 +15,53 @@ from apps.api.src.schemas.backlog import Epic, UserStory, TaskItem, BacklogHiera
 from apps.api.src.schemas.sprint import Sprint, SprintCapacity
 
 logger = logging.getLogger("jira_provider")
+
+def clean_jira_instance_url(raw_url: Optional[str]) -> str:
+    """
+    Sanitizes Jira instance URL to guarantee it points strictly to scheme + netloc base.
+    Prevents appended UI paths like /jira/software/projects/... or /browse/...
+    which cause Jira SPA to return HTML 200 instead of REST JSON responses.
+    """
+    if not raw_url or not str(raw_url).strip():
+        return ""
+    clean = str(raw_url).strip()
+    if not clean.startswith(("http://", "https://")):
+        clean = "https://" + clean
+    try:
+        parsed = urlparse(clean)
+        if parsed.netloc:
+            return f"{parsed.scheme}://{parsed.netloc}".rstrip("/")
+    except Exception:
+        pass
+    return clean.rstrip("/")
+
+def safe_err_text(res: Optional[requests.Response], max_len: int = 250) -> str:
+    """Extracts a concise, single-line error message from a requests Response object without dumping HTML bodies."""
+    if res is None:
+        return "No response"
+    try:
+        data = res.json()
+        if isinstance(data, dict):
+            err_msgs = data.get("errorMessages") or []
+            errors = data.get("errors") or {}
+            combined = []
+            if err_msgs:
+                combined.extend(err_msgs)
+            if errors:
+                combined.extend([f"{k}: {v}" for k, v in errors.items()])
+            if combined:
+                return "; ".join(combined)[:max_len]
+            if "message" in data:
+                return str(data["message"])[:max_len]
+    except Exception:
+        pass
+    text = (res.text or "").strip()
+    if "<html" in text.lower() or "<!doctype" in text.lower():
+        title_match = re.search(r"<title[^>]*>(.*?)</title>", text, re.IGNORECASE)
+        title = title_match.group(1).strip() if title_match else "HTML Response"
+        return f"[{title}] HTTP {res.status_code}"
+    clean = re.sub(r"\s+", " ", text)
+    return clean[:max_len]
 
 def parse_jira_datetime(dt_str: Optional[str]) -> datetime:
     """Safely parse Jira ISO timestamps into datetime."""
@@ -25,25 +74,34 @@ def parse_jira_datetime(dt_str: Optional[str]) -> datetime:
         return datetime.utcnow()
 
 def adf_to_plain_text(doc: Any) -> str:
-    """Extract plain readable text from Atlassian Document Format (ADF) or strings."""
+    """Extract plain readable markdown/text from Atlassian Document Format (ADF) or strings."""
     if not doc:
         return ""
     if isinstance(doc, str):
         return doc
-    texts: List[str] = []
 
-    def extract(node: Any):
-        if isinstance(node, dict):
-            if node.get("type") == "text" and "text" in node:
-                texts.append(node["text"])
-            for child in node.get("content", []):
-                extract(child)
-        elif isinstance(node, list):
-            for item in node:
-                extract(item)
+    def extract_node(node: Any) -> str:
+        if not node or not isinstance(node, dict):
+            return ""
+        ntype = node.get("type", "")
+        if ntype == "text":
+            return node.get("text", "")
 
-    extract(doc)
-    return " ".join(texts).strip()
+        child_texts = [extract_node(child) for child in node.get("content", [])]
+        joined = "".join(child_texts)
+
+        if ntype in ["paragraph", "heading"]:
+            return f"\n{joined}\n"
+        elif ntype == "listItem":
+            return f"\n- {joined.strip()}"
+        elif ntype == "codeBlock":
+            return f"\n```\n{joined.strip()}\n```\n"
+        return joined
+
+    if isinstance(doc, dict):
+        result = extract_node(doc)
+        return re.sub(r"\n{3,}", "\n\n", result).strip()
+    return ""
 
 class JiraBacklogProvider(BaseBacklogProvider):
     def __init__(
@@ -53,7 +111,7 @@ class JiraBacklogProvider(BaseBacklogProvider):
         api_token: Optional[str] = None,
         project_key: Optional[str] = None
     ):
-        self.instance_url = (instance_url or settings.JIRA_INSTANCE_URL or "").rstrip("/")
+        self.instance_url = clean_jira_instance_url(instance_url or settings.JIRA_INSTANCE_URL)
         self.user_email = user_email or settings.JIRA_USER_EMAIL
         self.api_token = api_token or settings.JIRA_API_TOKEN
         self.project_key = (project_key or "SCRUM").upper()
@@ -81,10 +139,94 @@ class JiraBacklogProvider(BaseBacklogProvider):
                 url = f"{self.instance_url}/rest/api/3/myself"
                 res = requests.get(url, headers=self._get_headers(), auth=self._get_auth(), timeout=8)
                 if res.status_code == 200:
-                    self.account_id = res.json().get("accountId")
+                    ctype = res.headers.get("content-type", "")
+                    if "application/json" in ctype:
+                        self.account_id = res.json().get("accountId")
+                    else:
+                        logger.warning(f"Jira /rest/api/3/myself returned non-JSON response ({ctype}): {safe_err_text(res)}")
+                else:
+                    logger.warning(f"Jira /rest/api/3/myself returned {res.status_code}: {safe_err_text(res)}")
             except Exception as e:
                 logger.warning(f"Could not retrieve Jira accountId: {e}")
         return self.account_id
+
+    def fetch_jira_users(self) -> List[Dict[str, Any]]:
+        """
+        Fetches assignable users for the project directly from Jira Cloud.
+        Returns a list of dicts: accountId, displayName, emailAddress, active.
+        """
+        if not self._is_configured():
+            return []
+
+        target_key = (self.project_key or "SCRUM").upper()
+        # 1. Try assignable search by project
+        try:
+            url = f"{self.instance_url}/rest/api/3/user/assignable/search"
+            params = {"project": target_key, "maxResults": 50}
+            res = requests.get(url, headers=self._get_headers(), params=params, auth=self._get_auth(), timeout=8)
+            if res.status_code == 200:
+                users = res.json()
+                assignable = [
+                    {
+                        "accountId": u.get("accountId"),
+                        "displayName": u.get("displayName"),
+                        "emailAddress": u.get("emailAddress"),
+                        "active": u.get("active", True),
+                    }
+                    for u in users
+                    if u.get("accountType") != "app" and u.get("active", True)
+                ]
+                if assignable:
+                    logger.info(f"Fetched {len(assignable)} assignable users from Jira Cloud for project {target_key}")
+                    self._cached_jira_users = assignable
+                    return assignable
+        except Exception as e:
+            logger.debug(f"Jira assignable user search error: {e}")
+
+        # 2. Try general user search
+        try:
+            url_fallback = f"{self.instance_url}/rest/api/3/users/search"
+            res = requests.get(url_fallback, headers=self._get_headers(), params={"maxResults": 50}, auth=self._get_auth(), timeout=8)
+            if res.status_code == 200:
+                users = res.json()
+                assignable = [
+                    {
+                        "accountId": u.get("accountId"),
+                        "displayName": u.get("displayName"),
+                        "emailAddress": u.get("emailAddress"),
+                        "active": u.get("active", True),
+                    }
+                    for u in users
+                    if u.get("accountType") != "app" and u.get("active", True)
+                ]
+                self._cached_jira_users = assignable
+                return assignable
+        except Exception as e:
+            logger.debug(f"Jira users search error: {e}")
+
+        return []
+
+    def _find_jira_account_id(self, assignee_name_or_email: Optional[str]) -> Optional[str]:
+        """Resolves an engineer's name or email to a Jira accountId."""
+        if not assignee_name_or_email or not self._is_configured():
+            return None
+        target = assignee_name_or_email.strip().lower()
+
+        users = getattr(self, "_cached_jira_users", None) or self.fetch_jira_users()
+
+        for u in users:
+            d_name = (u.get("displayName") or "").lower()
+            email = (u.get("emailAddress") or "").lower()
+            if target == d_name or target == email:
+                return u.get("accountId")
+            if target in d_name or d_name in target:
+                return u.get("accountId")
+
+        # If connected Jira user's email matches
+        if self.user_email and (target in self.user_email.lower() or self.user_email.lower() in target):
+            return self._ensure_account_id()
+
+        return None
 
     def check_connection(self) -> Dict[str, Any]:
         """Verify Jira credentials and connectivity via /rest/api/3/myself."""
@@ -116,6 +258,101 @@ class JiraBacklogProvider(BaseBacklogProvider):
         except Exception as e:
             logger.error(f"Failed to connect to Jira instance {self.instance_url}: {e}")
             return {"connected": False, "error": str(e)}
+
+    def fetch_all_issues_detailed(self, project_key: Optional[str] = None) -> List[Dict[str, Any]]:
+        """
+        Fetch all issues with 100% of their rich fields (descriptions, comments, subtasks,
+        acceptance criteria, assignees, priorities) directly from Jira Cloud.
+        """
+        if not self._is_configured():
+            logger.info("Jira credentials not configured; cannot fetch live detailed issues.")
+            return []
+
+        target_key = (project_key or self.project_key).upper()
+        try:
+            url = f"{self.instance_url}/rest/api/3/search/jql"
+            jql = f"project = '{target_key}' ORDER BY created DESC"
+            payload = {
+                "jql": jql,
+                "maxResults": 100,
+                "fields": ["*all"]
+            }
+            res = requests.post(url, headers=self._get_headers(), json=payload, auth=self._get_auth(), timeout=12)
+            if res.status_code != 200:
+                logger.warning(f"Jira JQL search returned {res.status_code}: {res.text}")
+                return []
+
+            issues = res.json().get("issues", [])
+            detailed_items = []
+            for item in issues:
+                key = item.get("key", "")
+                fields = item.get("fields", {})
+                it = fields.get("issuetype", {})
+                it_name = it.get("name", "Task")
+                summary = fields.get("summary", "Untitled")
+                status_name = fields.get("status", {}).get("name", "To Do")
+                desc_text = adf_to_plain_text(fields.get("description"))
+                priority_name = fields.get("priority", {}).get("name", "Medium") if fields.get("priority") else "Medium"
+
+                assignee = fields.get("assignee")
+                assignee_name = assignee.get("displayName") if assignee else "Unassigned"
+                assignee_email = assignee.get("emailAddress") if assignee else None
+
+                reporter = fields.get("reporter")
+                reporter_name = reporter.get("displayName") if reporter else "Unknown"
+
+                # Comments
+                comments_data = fields.get("comment", {}).get("comments", [])
+                extracted_comments = []
+                for c in comments_data:
+                    c_author = c.get("author", {}).get("displayName", "User")
+                    c_body = adf_to_plain_text(c.get("body"))
+                    c_created = c.get("created", "")
+                    if c_body:
+                        extracted_comments.append({
+                            "author": c_author,
+                            "text": c_body,
+                            "created_at": c_created
+                        })
+
+                # Subtasks
+                subtasks_data = fields.get("subtasks", [])
+                subtasks_list = []
+                for st in subtasks_data:
+                    subtasks_list.append({
+                        "key": st.get("key"),
+                        "summary": st.get("fields", {}).get("summary"),
+                        "status": st.get("fields", {}).get("status", {}).get("name")
+                    })
+
+                points = fields.get("customfield_10016") or fields.get("story_points") or 0
+                labels = fields.get("labels", [])
+                components = [c.get("name") for c in fields.get("components", []) if isinstance(c, dict)]
+
+                detailed_items.append({
+                    "key": key,
+                    "id": item.get("id", key),
+                    "title": summary,
+                    "type": it_name.upper(),
+                    "status": status_name,
+                    "priority": priority_name,
+                    "assignee": assignee_name,
+                    "assignee_email": assignee_email,
+                    "reporter": reporter_name,
+                    "description": desc_text,
+                    "points": points,
+                    "labels": labels,
+                    "components": components,
+                    "comments": extracted_comments,
+                    "subtasks": subtasks_list,
+                    "url": f"{self.instance_url}/browse/{key}",
+                    "created_at": fields.get("created"),
+                    "updated_at": fields.get("updated")
+                })
+            return detailed_items
+        except Exception as e:
+            logger.warning(f"Error fetching detailed Jira issues: {e}")
+            return []
 
     def _build_adf_doc(self, text: str, extra_paragraphs: Optional[List[str]] = None) -> Dict[str, Any]:
         """Construct Atlassian Document Format (ADF) representation."""
@@ -161,7 +398,8 @@ class JiraBacklogProvider(BaseBacklogProvider):
                 "maxResults": 100,
                 "fields": [
                     "summary", "status", "issuetype", "assignee", "description",
-                    "customfield_10016", "parent", "created", "updated", "reporter", "subtasks"
+                    "customfield_10016", "parent", "created", "updated", "reporter", "subtasks",
+                    "customfield_10020"
                 ]
             }
             res = requests.post(url, headers=self._get_headers(), json=payload, auth=self._get_auth(), timeout=12)
@@ -202,6 +440,18 @@ class JiraBacklogProvider(BaseBacklogProvider):
                 parent = fields.get("parent")
                 parent_key = parent.get("key") if parent else None
 
+                # Extract Jira sprint metadata if present
+                sprint_id = None
+                sprint_name = None
+                raw_sprints = fields.get("customfield_10020") or fields.get("sprint")
+                if isinstance(raw_sprints, dict):
+                    raw_sprints = [raw_sprints]
+                if raw_sprints and isinstance(raw_sprints, list) and len(raw_sprints) > 0:
+                    active_sp = next((sp for sp in raw_sprints if isinstance(sp, dict) and sp.get("state") == "active"), raw_sprints[-1] if isinstance(raw_sprints[-1], dict) else None)
+                    if active_sp and isinstance(active_sp, dict):
+                        sprint_id = str(active_sp.get("id"))
+                        sprint_name = active_sp.get("name")
+
                 if it_name == "epic":
                     epics_dict[key] = Epic(
                         id=item.get("id", key),
@@ -232,7 +482,9 @@ class JiraBacklogProvider(BaseBacklogProvider):
                         effort_days=1.5,
                         created_at=created_dt,
                         updated_at=updated_dt,
-                        jira_url=jira_link
+                        jira_url=jira_link,
+                        sprint_id=sprint_id,
+                        sprint_name=sprint_name
                     )
                     if parent_key:
                         parent_story_map[key] = parent_key
@@ -254,16 +506,21 @@ class JiraBacklogProvider(BaseBacklogProvider):
                         tasks=[],
                         created_at=created_dt,
                         updated_at=updated_dt,
-                        jira_url=jira_link
+                        jira_url=jira_link,
+                        sprint_id=sprint_id,
+                        sprint_name=sprint_name
                     )
                     if parent_key:
                         parent_epic_map[key] = parent_key
 
-            # 2. Attach subtasks to their parent stories
+            # 2. Attach subtasks to their parent stories (inheriting sprint metadata if missing)
             for t_key, t_item in tasks_dict.items():
                 p_key = parent_story_map.get(t_key)
                 if p_key and p_key in stories_dict:
-                    stories_dict[p_key].tasks.append(t_item)
+                    parent_st = stories_dict[p_key]
+                    t_item.sprint_id = t_item.sprint_id or parent_st.sprint_id
+                    t_item.sprint_name = t_item.sprint_name or parent_st.sprint_name
+                    parent_st.tasks.append(t_item)
                 else:
                     # If subtask points directly to epic or standalone, create placeholder story
                     orphan_story_key = p_key or f"{t_key}-parent"
@@ -282,7 +539,9 @@ class JiraBacklogProvider(BaseBacklogProvider):
                             tasks=[],
                             created_at=t_item.created_at,
                             updated_at=t_item.updated_at,
-                            jira_url=f"{self.instance_url}/browse/{p_key}" if p_key else None
+                            jira_url=f"{self.instance_url}/browse/{p_key}" if p_key else None,
+                            sprint_id=t_item.sprint_id,
+                            sprint_name=t_item.sprint_name
                         )
                     stories_dict[orphan_story_key].tasks.append(t_item)
 
@@ -358,6 +617,10 @@ class JiraBacklogProvider(BaseBacklogProvider):
                 name="Sprint 1",
                 goal="Baseline delivery",
                 status="ACTIVE",
+                planned_points=0,
+                delivered_points=0,
+                remaining_days=0,
+                total_days=14,
                 start_date=now,
                 end_date=now,
                 source="FIRESTORE"
@@ -373,20 +636,33 @@ class JiraBacklogProvider(BaseBacklogProvider):
                 if values:
                     board_id = values[0].get("id")
 
-            if not board_id:
-                # Default board ID 1 fallback
+            if not board_id and self.project_key.upper() == "IRIS":
+                # Fallback to board 1 only for IRIS
                 board_id = 1
 
-            # 2. Discover active or future sprint for board
-            url_sprints = f"{self.instance_url}/rest/agile/1.0/board/{board_id}/sprint"
-            res_s = requests.get(url_sprints, headers=self._get_headers(), auth=self._get_auth(), timeout=8)
+            if board_id and project_id:
+                try:
+                    p_doc = db.collection("projects").document(project_id).get()
+                    if p_doc.exists:
+                        p_data = p_doc.to_dict()
+                        if "jira_settings" in p_data and isinstance(p_data["jira_settings"], dict):
+                            p_data["jira_settings"]["board_id"] = str(board_id)
+                        else:
+                            p_data["jira_settings"] = {"board_id": str(board_id)}
+                        db.collection("projects").document(project_id).set(p_data)
+                except Exception as ex:
+                    logger.debug(f"Could not persist board_id {board_id} for {project_id}: {ex}")
 
+            # 2. Discover active or future sprint for board
             active_sprint_data = None
-            if res_s.status_code == 200:
-                sprints = res_s.json().get("values", [])
-                active_sprint_data = next((s for s in sprints if s.get("state") == "active"), None)
-                if not active_sprint_data and sprints:
-                    active_sprint_data = sprints[-1]
+            if board_id:
+                url_sprints = f"{self.instance_url}/rest/agile/1.0/board/{board_id}/sprint"
+                res_s = requests.get(url_sprints, headers=self._get_headers(), auth=self._get_auth(), timeout=8)
+                if res_s.status_code == 200:
+                    sprints = res_s.json().get("values", [])
+                    active_sprint_data = next((s for s in sprints if s.get("state") == "active"), None)
+                    if not active_sprint_data and sprints:
+                        active_sprint_data = sprints[-1]
 
             if active_sprint_data:
                 s_id = active_sprint_data.get("id")
@@ -404,7 +680,7 @@ class JiraBacklogProvider(BaseBacklogProvider):
                 total_days = max(1, (end_utc - start_utc).days)
 
                 # 3. Fetch issues inside this sprint and project for capacity calculation
-                issues_url = f"{self.instance_url}/rest/agile/1.0/sprint/{s_id}/issue"
+                issues_url = f"{self.instance_url}/rest/agile/1.0/sprint/{s_id}/issue?maxResults=100"
                 res_i = requests.get(issues_url, headers=self._get_headers(), auth=self._get_auth(), timeout=8)
                 committed_keys = []
                 planned_pts = 0
@@ -414,7 +690,16 @@ class JiraBacklogProvider(BaseBacklogProvider):
                     sp_issues = res_i.json().get("issues", [])
                     for i in sp_issues:
                         k = i.get("key")
-                        committed_keys.append(k)
+                        if k:
+                            committed_keys.append(k)
+                        i_id = i.get("id")
+                        if i_id:
+                            committed_keys.append(str(i_id))
+                        for sub in i.get("fields", {}).get("subtasks", []):
+                            if sub.get("key"):
+                                committed_keys.append(sub.get("key"))
+                            if sub.get("id"):
+                                committed_keys.append(str(sub.get("id")))
                         f = i.get("fields", {})
                         pts = int(f.get("customfield_10016") or 5)
                         planned_pts += pts
@@ -568,8 +853,8 @@ class JiraBacklogProvider(BaseBacklogProvider):
                     name=s_name,
                     goal=active_sprint_data.get("goal") or f"Direct live sprint from Jira ({self.project_key})",
                     status=s_state,
-                    planned_points=planned_pts or 24,
-                    delivered_points=delivered_pts or 8,
+                    planned_points=planned_pts,
+                    delivered_points=delivered_pts,
                     remaining_days=remaining_days,
                     total_days=total_days,
                     start_date=start_dt,
@@ -592,9 +877,9 @@ class JiraBacklogProvider(BaseBacklogProvider):
             name=f"{self.project_key} Sprint 1",
             goal=f"Live Jira Project {self.project_key}",
             status="ACTIVE",
-            planned_points=32,
-            delivered_points=12,
-            remaining_days=7,
+            planned_points=0,
+            delivered_points=0,
+            remaining_days=0,
             total_days=14,
             start_date=now,
             end_date=now,
