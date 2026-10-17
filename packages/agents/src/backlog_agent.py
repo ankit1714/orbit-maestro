@@ -1,5 +1,6 @@
 import logging
 import json
+import re
 from typing import List, Dict, Any, Optional, Tuple
 from apps.api.src.core.provider_factory import provider_factory
 from apps.api.src.core.firestore_client import db
@@ -7,6 +8,36 @@ from apps.api.src.core.vertex_client import vertex_service
 from apps.api.src.schemas.backlog import Epic, UserStory, TaskItem, BacklogHierarchyResponse
 
 logger = logging.getLogger("backlog_agent")
+
+def clean_story_title(title: str) -> str:
+    """Cleans up story titles, removing trailing 'I want to ...', incomplete ellipses, or dangling fillers."""
+    if not title:
+        return "Implement System Feature"
+    t = title.strip()
+    patterns = [
+        r'\s*[,;-]?\s*I\s+want\s+to\s*\.{0,3}\s*$',
+        r'\s*[,;-]?\s*I\s+want\s*\.{0,3}\s*$',
+        r'\s*[,;-]?\s*so\s+that\s*\.{0,3}\s*$',
+        r'\s*[,;-]?\s*to\s*\.{0,3}\s*$',
+        r'\s*\.{2,}\s*$',
+    ]
+    for p in patterns:
+        t = re.sub(p, '', t, flags=re.IGNORECASE).strip()
+    return t
+
+def clean_story_description(desc: str) -> str:
+    """Cleans up story descriptions, stripping trailing ellipses and dangling 'I want to ...'."""
+    if not desc:
+        return ""
+    d = desc.strip()
+    patterns = [
+        r'\s*[,;-]?\s*I\s+want\s+to\s*\.{0,3}\s*$',
+        r'\s*[,;-]?\s*I\s+want\s*\.{0,3}\s*$',
+        r'\s*\.{2,}\s*$',
+    ]
+    for p in patterns:
+        d = re.sub(p, '', d, flags=re.IGNORECASE).strip()
+    return d
 
 def match_developer_by_skills(
     task_title: str,
@@ -18,7 +49,6 @@ def match_developer_by_skills(
     Intelligently assigns a task/story to the team member whose technical skills and role
     best fit the task domain. Returns (assignee_name, skill_match_percentage, match_rationale).
     """
-    import re
     if not team_members:
         return default_dev_name, 90, "Standard team allocation"
 
@@ -84,7 +114,6 @@ class BacklogDecompositionAgent:
         proj_doc = db.collection("projects").document(project_id).get()
         proj_data = proj_doc.to_dict() if proj_doc.exists else {}
         project_name = proj_data.get("name", "Project Delivery")
-        team = proj_data.get("team_members", [])
 
         req_doc = db.collection("requirements").document(f"req-{project_id}").get()
         req_data = req_doc.to_dict() if req_doc.exists else {}
@@ -93,14 +122,24 @@ class BacklogDecompositionAgent:
         capabilities = req_data.get("capabilities", [])
         clauses = req_data.get("clauses", [])
 
-        # Format team skills for Gemini prompt
-        if team:
-            team_profiles_str = "\n".join([
-                f"- {m.get('name')} (Role: {m.get('role', 'Developer')}): Skills: {', '.join(m.get('skills', ['Fullstack', 'Cloud Run']))}"
-                for m in team
-            ])
-        else:
-            team_profiles_str = "- Lead Engineer: Python, FastAPI, Cloud Run, Vertex AI\n- QA Engineer: Pytest, Automation, Regression"
+        # Fetch verified project team with cross-referenced Jira users & roles
+        from packages.agents.src.team_matcher import resolve_project_team_with_roles, match_assignee_for_work
+        team_roles = resolve_project_team_with_roles(project_id)
+        qa_team = team_roles.get("qa_engineers", [])
+        dev_team = team_roles.get("dev_engineers", [])
+
+        # Format team profiles by verified role for prompt
+        team_profiles_parts = []
+        if dev_team:
+            team_profiles_parts.append("DEV Engineers (Assigned to feature stories, APIs, frontend, backend tasks):")
+            for m in dev_team:
+                team_profiles_parts.append(f"  - {m.get('name')} (Role: {m.get('role', 'Developer')}) - Skills: {', '.join(m.get('skills', ['Fullstack']))}")
+        if qa_team:
+            team_profiles_parts.append("QA Engineers (Assigned to QA verification stories, automated test suites, regression):")
+            for m in qa_team:
+                team_profiles_parts.append(f"  - {m.get('name')} (Role: {m.get('role', 'QA Engineer')}) - Skills: {', '.join(m.get('skills', ['QA Automation']))}")
+
+        team_profiles_str = "\n".join(team_profiles_parts) if team_profiles_parts else "- Lead Engineer (Developer)\n- QA Engineer (QA)"
 
         # Fetch resolved clarifications
         q_docs = list(db.collection("open_questions").where("project_id", "==", project_id).stream())
@@ -119,14 +158,15 @@ CRITICAL INSTRUCTIONS:
 - You MUST generate 2-3 focused User Stories that are 100% SPECIFIC to the domain and requirements of "{project_name}".
 - For each User Story, explicitly set "origin" to reference the exact capability or clause (e.g. "PRD §2.1: {capabilities[0].get('title') if capabilities else 'Core Spec'}").
 - For each subtask, explicitly set "trace_ref" to reference the Acceptance Criteria (e.g. "AC-1", "AC-2").
-- SKILL-MATCHED ASSIGNMENTS: Assign each story and subtask to the developer whose technical skills best match the deliverables.
+- Story titles MUST be clean, crisp, and action-oriented describing the deliverable (e.g. "Implement [Action/Capability for {project_name}]"). DO NOT write trailing "I want to ...", incomplete ellipses, or dangling placeholders in the story title or description.
+- ROLE-BASED ASSIGNMENT: Assign QA stories and QA verification tasks strictly to a QA Engineer. Assign DEV stories and technical implementation tasks to a DEV Engineer.
 - Keep descriptions and acceptance criteria focused so the complete JSON response finishes cleanly.
 
 Project Name: {project_name}
 Document Title: {doc_title}
 Business Goal: {goal}
 
-Available Development Team & Technical Skills:
+Available Development Team & Roles (Cross-referenced with Jira & DB):
 {team_profiles_str}
 
 System Capabilities:
@@ -147,11 +187,11 @@ Output strictly valid JSON with this exact structure:
   }},
   "stories": [
     {{
-      "title": "As a [role], I want to [action in {project_name}] so that [benefit]",
+      "title": "Implement [action/capability for {project_name}]",
       "description": "Technical narrative and implementation scope",
       "origin": "PRD §1: Core Capability",
       "points": 5,
-      "assignee": "{team[0].get('name') if team else 'Developer'}",
+      "assignee": "{dev_team[0].get('name') if dev_team else 'Developer'}",
       "acceptance_criteria": [
         {{
           "scenario": "Primary successful workflow",
@@ -166,14 +206,14 @@ Output strictly valid JSON with this exact structure:
           "task_type": "DEV",
           "effort_days": 2.0,
           "trace_ref": "AC-1",
-          "assignee": "{team[0].get('name') if team else 'Developer'}"
+          "assignee": "{dev_team[0].get('name') if dev_team else 'Developer'}"
         }},
         {{
           "title": "Automated verification test suite for this story",
           "task_type": "QA",
           "effort_days": 1.5,
           "trace_ref": "AC-1",
-          "assignee": "{team[-1].get('name') if team else 'QA Engineer'}"
+          "assignee": "{qa_team[0].get('name') if qa_team else 'QA Engineer'}"
         }}
       ]
     }}
@@ -207,8 +247,10 @@ Only return raw JSON.
             )
 
             for s_data in parsed_backlog.get("stories", []):
-                s_title = s_data.get("title", f"As a user, I want core capabilities for {project_name}")
+                s_title = clean_story_title(s_data.get("title") or f"Implement Core Capabilities for {project_name}")
+                s_desc = clean_story_description(s_data.get("description", ""))
                 raw_acs = s_data.get("acceptance_criteria") or s_data.get("ac", [])
+                raw_tasks = s_data.get("tasks", [])
                 normalized_acs = []
                 for ac in raw_acs:
                     if isinstance(ac, str):
@@ -223,19 +265,20 @@ Only return raw JSON.
 
                 story_origin = s_data.get("origin") or s_data.get("requirement_origin") or f"{doc_title} §1.0"
 
-                # Skill matching for User Story
-                s_assignee, s_pct, s_rat = match_developer_by_skills(
-                    task_title=s_title,
-                    task_type="STORY",
-                    team_members=team,
-                    default_dev_name=s_data.get("assignee") or (team[0].get("name") if team else "Developer")
+                # Role-aware skill matching for User Story (QA vs DEV)
+                s_assignee, s_acc, s_pct, s_rat = match_assignee_for_work(
+                    title=s_title,
+                    work_type="STORY",
+                    team_roles=team_roles,
+                    description=s_desc,
+                    subtasks=raw_tasks
                 )
 
                 story = provider.create_story(
                     project_id=project_id,
                     epic_id=epic.id,
                     title=s_title,
-                    description=s_data.get("description", ""),
+                    description=s_desc,
                     points=int(s_data.get("points") or s_data.get("story_points") or 5),
                     ac_list=normalized_acs,
                     assignee=s_assignee,
@@ -244,8 +287,7 @@ Only return raw JSON.
                     skill_match_rationale=s_rat
                 )
 
-                # Normalize and Skill-Match Tasks
-                raw_tasks = s_data.get("tasks", [])
+                # Normalize and Role-Match Tasks (QA task -> QA engineer, DEV task -> DEV engineer)
                 for idx, t_data in enumerate(raw_tasks):
                     if isinstance(t_data, str):
                         t_title = t_data
@@ -260,12 +302,11 @@ Only return raw JSON.
                     else:
                         continue
 
-                    # Intelligent skill-matched developer assignment
-                    t_assignee, t_pct, t_rat = match_developer_by_skills(
-                        task_title=t_title,
-                        task_type=t_type,
-                        team_members=team,
-                        default_dev_name=team[0].get("name") if team else "Developer"
+                    # Role-based assignment: QA task -> QA engineer, DEV task -> DEV engineer
+                    t_assignee, t_acc, t_pct, t_rat = match_assignee_for_work(
+                        title=t_title,
+                        work_type=t_type,
+                        team_roles=team_roles
                     )
 
                     provider.create_task(
@@ -280,7 +321,7 @@ Only return raw JSON.
                         skill_match_rationale=t_rat
                     )
         else:
-            # Grounded fallback based on actual capabilities and developer skills
+            # Grounded fallback based on verified DB & Jira roles
             epic_title = f"{project_name} Core Capabilities & Execution"
             epic = provider.create_epic(
                 project_id=project_id,
@@ -289,15 +330,16 @@ Only return raw JSON.
                 origin=doc_title
             )
 
-            story_1_title = f"As a user, I want {capabilities[0].get('title', 'core ingestion') if capabilities else project_name} operational"
+            # DEV Story 1
+            story_1_title = clean_story_title(f"Implement {capabilities[0].get('title', 'Core Capabilities') if capabilities else project_name} Pipeline")
             story_1_origin = capabilities[0].get("section_ref", f"{doc_title} §1.0") if capabilities else f"{doc_title} §1.0"
-            s1_assignee, s1_pct, s1_rat = match_developer_by_skills(story_1_title, "STORY", team)
+            s1_assignee, s1_acc, s1_pct, s1_rat = match_assignee_for_work(story_1_title, "DEV", team_roles)
 
             story_1 = provider.create_story(
                 project_id=project_id,
                 epic_id=epic.id,
                 title=story_1_title,
-                description=f"Implement primary capabilities for {project_name}.",
+                description=clean_story_description(f"Implement primary capabilities for {project_name}."),
                 points=8,
                 ac_list=[
                     {
@@ -313,29 +355,30 @@ Only return raw JSON.
                 skill_match_rationale=s1_rat
             )
 
-            # Tasks with skill matching
+            # DEV tasks assigned to DEV engineer
             t1_title = f"Build core services and backend APIs for {project_name}"
-            t1_dev, t1_pct, t1_rat = match_developer_by_skills(t1_title, "DEV", team)
+            t1_dev, _, t1_pct, t1_rat = match_assignee_for_work(t1_title, "DEV", team_roles)
             provider.create_task(project_id, story_1.id, t1_title, "DEV", 3.0, t1_dev, trace_ref="AC-1", skill_match_percentage=t1_pct, skill_match_rationale=t1_rat)
 
             t2_title = "Configure validation rules and error handling"
-            t2_dev, t2_pct, t2_rat = match_developer_by_skills(t2_title, "DEV", team)
+            t2_dev, _, t2_pct, t2_rat = match_assignee_for_work(t2_title, "DEV", team_roles)
             provider.create_task(project_id, story_1.id, t2_title, "DEV", 1.5, t2_dev, trace_ref="AC-1", skill_match_percentage=t2_pct, skill_match_rationale=t2_rat)
 
+            # QA task assigned to QA engineer
             t3_title = "Automated unit and integration test coverage"
-            t3_dev, t3_pct, t3_rat = match_developer_by_skills(t3_title, "QA", team)
-            provider.create_task(project_id, story_1.id, t3_title, "QA", 1.5, t3_dev, trace_ref="AC-1", skill_match_percentage=t3_pct, skill_match_rationale=t3_rat)
+            t3_qa, _, t3_pct, t3_rat = match_assignee_for_work(t3_title, "QA", team_roles)
+            provider.create_task(project_id, story_1.id, t3_title, "QA", 1.5, t3_qa, trace_ref="AC-1", skill_match_percentage=t3_pct, skill_match_rationale=t3_rat)
 
-            # Story 2
-            story_2_title = f"As an administrator, I can monitor telemetry and audit events for {project_name}"
+            # DEV Story 2
+            story_2_title = clean_story_title(f"Configure Telemetry, Audit Logs & Performance Monitoring for {project_name}")
             story_2_origin = capabilities[1].get("section_ref", f"{doc_title} §2.0") if len(capabilities) > 1 else f"{doc_title} §2.0"
-            s2_assignee, s2_pct, s2_rat = match_developer_by_skills(story_2_title, "STORY", team)
+            s2_assignee, s2_acc, s2_pct, s2_rat = match_assignee_for_work(story_2_title, "DEV", team_roles)
 
             story_2 = provider.create_story(
                 project_id=project_id,
                 epic_id=epic.id,
                 title=story_2_title,
-                description="Provide real-time telemetry, audit logs, and performance tracking.",
+                description=clean_story_description("Provide real-time telemetry, audit logs, and performance tracking."),
                 points=5,
                 ac_list=[
                     {
@@ -351,13 +394,15 @@ Only return raw JSON.
                 skill_match_rationale=s2_rat
             )
 
+            # DEV task assigned to DEV engineer
             t4_title = "Telemetry integration and event streaming harness"
-            t4_dev, t4_pct, t4_rat = match_developer_by_skills(t4_title, "DEV", team)
+            t4_dev, _, t4_pct, t4_rat = match_assignee_for_work(t4_title, "DEV", team_roles)
             provider.create_task(project_id, story_2.id, t4_title, "DEV", 2.0, t4_dev, trace_ref="AC-1", skill_match_percentage=t4_pct, skill_match_rationale=t4_rat)
 
+            # QA task assigned to QA engineer
             t5_title = "End-to-end regression validation"
-            t5_dev, t5_pct, t5_rat = match_developer_by_skills(t5_title, "QA", team)
-            provider.create_task(project_id, story_2.id, t5_title, "QA", 1.0, t5_dev, trace_ref="AC-1", skill_match_percentage=t5_pct, skill_match_rationale=t5_rat)
+            t5_qa, _, t5_pct, t5_rat = match_assignee_for_work(t5_title, "QA", team_roles)
+            provider.create_task(project_id, story_2.id, t5_title, "QA", 1.0, t5_qa, trace_ref="AC-1", skill_match_percentage=t5_pct, skill_match_rationale=t5_rat)
 
         return provider.get_backlog(project_id)
 

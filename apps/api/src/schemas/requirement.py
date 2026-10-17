@@ -27,6 +27,8 @@ class PRDUploadRequest(BaseModel):
     file_content_base64: Optional[str] = None
     file_text: Optional[str] = None
     file_url: Optional[str] = None
+    confluence_link_id: Optional[str] = None
+    confluence_url: Optional[str] = None
     use_sample_doc: bool = False
 
 class PRDExtractResult(BaseModel):
@@ -43,6 +45,8 @@ class PRDExtractResult(BaseModel):
     notebooklm_source_id: Optional[str] = None
     orchestrator_strategy: Optional[dict] = None
     decomposition_summary: Optional[dict] = None
+    confluence_url: Optional[str] = None
+    confluence_link_id: Optional[str] = None
     extracted_at: datetime = Field(default_factory=datetime.utcnow)
 
 # =========================================================================

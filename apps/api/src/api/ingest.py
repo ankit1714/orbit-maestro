@@ -33,13 +33,13 @@ def get_project_strategy(project_id: str):
         return {}
     return doc.to_dict()
 
-@router.post("/{project_id}/decompose", response_model=RequirementDecompositionResponse)
-def trigger_requirement_decomposition(project_id: str, payload: Optional[dict] = None):
+def build_consolidated_requirements(project_id: str, custom_text: Optional[str] = None):
     """
-    On-demand execution of the 3-Agent Requirement Decomposition Pipeline:
-    - Agent 1: Lead Agile Scrum Orchestrator (Strategy & Sprint Guidelines)
-    - Agent 2: Agile Scrum Master & Product Owner (Epics & Gherkin User Stories)
-    - Agent 3: Technical Scrum Master (INVEST Validation, Fibonacci Story Points, and Jira export)
+    Consolidates requirements from:
+    1. Ingested Document Baseline (business_goal, capabilities, personas, clauses)
+    2. Attached Confluence Documentation & Architecture Pages (page titles, URLs, full body content)
+    3. Custom / additional user requirements
+    Returns (consolidated_requirements_text, sprint_goal)
     """
     req_doc = db.collection("requirements").document(f"req-{project_id}").get()
     req_data = req_doc.to_dict() if req_doc.exists else {}
@@ -47,28 +47,164 @@ def trigger_requirement_decomposition(project_id: str, payload: Optional[dict] =
     proj_doc = db.collection("projects").document(project_id).get()
     proj_data = proj_doc.to_dict() if proj_doc.exists else {}
 
-    raw_text = (
-        (payload and payload.get("raw_requirements"))
-        or req_data.get("business_goal")
+    sections = []
+
+    # 1. Ingested Document Baseline
+    if req_data:
+        doc_title = req_data.get("document_title", "Project Requirements Specification")
+        sections.append(f"# INGESTED DOCUMENT BASELINE: {doc_title}")
+        if req_data.get("business_goal"):
+            sections.append(f"## Business Goal & Scope:\n{req_data['business_goal']}")
+
+        personas = req_data.get("personas", [])
+        if personas:
+            p_lines = [f"- **{p.get('name', 'User')}**: {p.get('role_description', '')}" for p in personas]
+            sections.append("## Target User Personas:\n" + "\n".join(p_lines))
+
+        capabilities = req_data.get("capabilities", [])
+        if capabilities:
+            cap_lines = [f"- [{c.get('id', 'CAP')}] **{c.get('title', 'Capability')}**: {c.get('description', '')} (Ref: {c.get('section_ref', 'N/A')})" for c in capabilities]
+            sections.append("## Extracted System Capabilities:\n" + "\n".join(cap_lines))
+
+        clauses = req_data.get("clauses", [])
+        if clauses:
+            cl_lines = [f"- [{cl.get('clause_id', 'CLS')}] ({cl.get('clause_type', 'FUNCTIONAL')}) {cl.get('section_title', '')}: {cl.get('text', '')}" for cl in clauses]
+            sections.append("## Functional Clauses & Constraints:\n" + "\n".join(cl_lines))
+
+    # 2. Attached Confluence Documentation Pages
+    c_pages = list(proj_data.get("confluence_settings", {}).get("pages", []))
+    if c_pages:
+        sections.append("# ATTACHED CONFLUENCE DOCUMENTATION & ARCHITECTURE PAGES")
+        for page in c_pages:
+            p_title = page.get("title", "Confluence Page")
+            p_url = page.get("url", "")
+            p_body = page.get("content") or ""
+            # If body is empty, try live fetch
+            if len(p_body.strip()) < 50 and p_url:
+                try:
+                    doc_provider = provider_factory.get_doc_provider(project_id)
+                    from apps.api.src.core.providers.doc.confluence_provider import ConfluenceDocProvider
+                    if isinstance(doc_provider, ConfluenceDocProvider) and doc_provider._is_configured():
+                        fetched = doc_provider.fetch_page_content(p_url)
+                        if fetched and fetched.get("content"):
+                            p_body = fetched["content"]
+                            page["content"] = p_body
+                            page["content_length"] = len(p_body)
+                            page["fetch_status"] = "SYNCED"
+                            db.collection("projects").document(project_id).update({
+                                "confluence_settings.pages": c_pages
+                            })
+                except Exception as ex:
+                    logger.warning(f"Could not live fetch Confluence content: {ex}")
+
+            body_text = p_body or page.get("description") or "Architecture link attached."
+            sections.append(f"## Confluence Specification: {p_title}\nSource URL: {p_url}\nSpace: {page.get('space_key', 'GENERAL')}\n\n{body_text}")
+
+    # 3. Optional Custom Additions
+    if custom_text and custom_text.strip() and custom_text != req_data.get("business_goal"):
+        sections.append(f"# ADDITIONAL REQUIREMENT NOTES:\n{custom_text.strip()}")
+
+    if sections:
+        consolidated = "\n\n".join(sections)
+    else:
+        consolidated = (
+            proj_data.get("business_objective")
+            or proj_data.get("description")
+            or "Core functional requirements."
+        )
+
+    sprint_goal = (
+        req_data.get("business_goal")
         or proj_data.get("business_objective")
-        or proj_data.get("description")
-        or "Core functional requirements."
+        or f"Deliver core requirements for {proj_data.get('name', 'Project')}"
     )
-    sprint_goal = (payload and payload.get("sprint_goal")) or req_data.get("business_goal") or proj_data.get("business_objective")
+
+    return consolidated, sprint_goal
+
+@router.post("/{project_id}/decompose", response_model=RequirementDecompositionResponse)
+def trigger_requirement_decomposition(project_id: str, payload: Optional[dict] = None):
+    """
+    On-demand execution of the 3-Agent Requirement Decomposition Pipeline:
+    - Reads attached Confluence architecture documentation and Ingested Baseline
+    - Agent 1: Lead Agile Scrum Orchestrator (Strategy & Sprint Guidelines)
+    - Agent 2: Agile Scrum Master & Product Owner (Epics & Gherkin User Stories)
+    - Agent 3: Technical Scrum Master (INVEST Validation, Fibonacci Story Points, and Jira export)
+    """
+    custom_raw = payload.get("raw_requirements") if payload else None
+    raw_text, sprint_goal = build_consolidated_requirements(project_id, custom_raw)
+    custom_goal = payload.get("sprint_goal") if payload else None
+    goal = custom_goal or sprint_goal
 
     return requirements_pipeline.run_pipeline(
         project_id=project_id,
         raw_requirements=raw_text,
-        sprint_goal=sprint_goal,
+        sprint_goal=goal,
         auto_create_backlog=True
     )
 
 @router.post("", response_model=PRDExtractResult)
 def ingest_document(req: PRDUploadRequest):
-    """Ingest a PRD document, upload to Google Cloud Storage, extract layout, and sync to NotebookLM."""
+    """Ingest a PRD or attached Confluence document, upload to Google Cloud Storage, extract layout, and sync to NotebookLM."""
     file_bytes = b""
     raw_text = req.file_text or ""
     file_name = req.file_name or "Project_Requirements.txt"
+    confluence_url = req.confluence_url
+    confluence_link_id = req.confluence_link_id
+
+    # If Confluence link is indicated, or text is empty, resolve from project's attached Confluence pages
+    if req.confluence_link_id or req.confluence_url or (not raw_text and not req.file_content_base64):
+        try:
+            p_doc = db.collection("projects").document(req.project_id).get()
+            if p_doc.exists:
+                p_data = p_doc.to_dict() or {}
+                c_pages = list(p_data.get("confluence_settings", {}).get("pages", []))
+                target_page = None
+
+                if req.confluence_link_id and req.confluence_link_id != "all":
+                    target_page = next((p for p in c_pages if p.get("id") == req.confluence_link_id), None)
+                elif req.confluence_url:
+                    target_page = next((p for p in c_pages if p.get("url") == req.confluence_url), None)
+
+                if target_page:
+                    confluence_url = target_page.get("url") or confluence_url
+                    confluence_link_id = target_page.get("id") or confluence_link_id
+                    if not raw_text:
+                        raw_text = target_page.get("content") or target_page.get("description") or target_page.get("title") or ""
+                    if file_name in ("Project_Requirements.txt", "requirements.pdf"):
+                        file_name = f"{target_page.get('title', 'Confluence_Spec')}.md"
+
+                    # If page content is empty or short, attempt to fetch live from Confluence
+                    if len(raw_text.strip()) < 50:
+                        try:
+                            doc_provider = provider_factory.get_doc_provider(req.project_id)
+                            from apps.api.src.core.providers.doc.confluence_provider import ConfluenceDocProvider
+                            if isinstance(doc_provider, ConfluenceDocProvider) and doc_provider._is_configured():
+                                fetched = doc_provider.fetch_page_content(target_page.get("url", ""))
+                                if fetched and fetched.get("content"):
+                                    raw_text = fetched["content"]
+                                    target_page["content"] = fetched["content"]
+                                    target_page["content_length"] = fetched.get("content_length", len(raw_text))
+                                    target_page["fetch_status"] = "SYNCED"
+                                    db.collection("projects").document(req.project_id).update({
+                                        "confluence_settings.pages": c_pages
+                                    })
+                        except Exception as ex:
+                            logger.warning(f"Could not fetch Confluence content during ingestion: {ex}")
+
+                elif req.confluence_link_id == "all" or (not raw_text and c_pages):
+                    confluence_link_id = "all"
+                    if c_pages and not confluence_url:
+                        confluence_url = c_pages[0].get("url")
+                    if not raw_text:
+                        parts = []
+                        for p in c_pages:
+                            p_body = p.get("content") or p.get("description") or p.get("title") or ""
+                            parts.append(f"# {p.get('title', 'Page')}\nSource: {p.get('url', '')}\n\n{p_body}")
+                        raw_text = "\n\n---\n\n".join(parts)
+                    if file_name in ("Project_Requirements.txt", "requirements.pdf"):
+                        file_name = f"{p_data.get('key', 'Project')}_Confluence_Documentation.md"
+        except Exception as e:
+            logger.warning(f"Error resolving attached Confluence pages: {e}")
 
     if req.file_content_base64:
         try:
@@ -98,16 +234,20 @@ def ingest_document(req: PRDUploadRequest):
         raw_text=raw_text
     )
     result.gcs_uri = gcs_uri
+    result.confluence_url = confluence_url
+    result.confluence_link_id = confluence_link_id
 
     # 3. Sync to Google NotebookLM living knowledge hub
     try:
         knowledge_provider = provider_factory.get_knowledge_provider(req.project_id)
+        k_title = f"Confluence: {result.document_title}" if confluence_url or confluence_link_id else f"PRD: {result.document_title}"
+        k_source_type = "CONFLUENCE" if confluence_url or confluence_link_id else "PRD_SPECIFICATION"
         k_item = knowledge_provider.add_knowledge_item(
             project_id=req.project_id,
-            title=f"PRD: {result.document_title}",
+            title=k_title,
             content=raw_text[:3000] if raw_text else result.business_goal,
-            source_type="PRD_SPECIFICATION",
-            source_uri=gcs_uri
+            source_type=k_source_type,
+            source_uri=confluence_url or gcs_uri
         )
         result.notebooklm_source_id = k_item.notebooklm_source_id
         logger.info(f"Registered document into NotebookLM knowledge registry: {k_item.id}")

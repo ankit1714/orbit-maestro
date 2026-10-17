@@ -68,7 +68,15 @@ export const api = {
 
   // Document Ingestion & Open Questions
   getRequirements: (projectId: string) => fetchApi<any>(`/ingest/${projectId}`),
-  ingestPRD: (data: { project_id: string; file_name: string; file_text?: string; file_content_base64?: string; use_sample_doc?: boolean }) =>
+  ingestPRD: (data: {
+    project_id: string;
+    file_name: string;
+    file_text?: string;
+    file_content_base64?: string;
+    use_sample_doc?: boolean;
+    confluence_link_id?: string;
+    confluence_url?: string;
+  }) =>
     fetchApi<any>('/ingest', { method: 'POST', body: JSON.stringify(data) }),
   decomposeRequirements: (projectId: string, payload?: { raw_requirements?: string; sprint_goal?: string }) =>
     fetchApi<any>(`/ingest/${projectId}/decompose`, { method: 'POST', body: JSON.stringify(payload || {}) }),

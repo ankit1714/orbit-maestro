@@ -30,7 +30,6 @@ import {
   CalendarDays,
   Check,
   X,
-  Link2,
   Radio,
   Eye,
   Video,
@@ -66,9 +65,8 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({ project, onSwitchVie
   // Google Calendar Integration State
   const [calendarConnected, setCalendarConnected] = useState(false);
   const [calendarEmail, setCalendarEmail] = useState('');
-  const [calendarInputEmail, setCalendarInputEmail] = useState('');
   const [calendarAccessToken, setCalendarAccessToken] = useState('');
-  const [calendarSource, setCalendarSource] = useState<string>('WORKSPACE_SIMULATED');
+  const [calendarSource, setCalendarSource] = useState<string>('DISCONNECTED');
   const [calendarStatusMsg, setCalendarStatusMsg] = useState('');
   const [calendarEvents, setCalendarEvents] = useState<any[]>([]);
   const [loadingCalendar, setLoadingCalendar] = useState(false);
@@ -76,14 +74,6 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({ project, onSwitchVie
   const [pullingEventId, setPullingEventId] = useState<string | null>(null);
   const [ingestedEventIds, setIngestedEventIds] = useState<Set<string>>(new Set());
   const [successFeedback, setSuccessFeedback] = useState<string | null>(null);
-
-  // Direct Token & OAuth Modal State
-  const [tokenModalOpen, setTokenModalOpen] = useState(false);
-  const [showTokenInputInline, setShowTokenInputInline] = useState(false);
-  const [copiedServiceAccount, setCopiedServiceAccount] = useState(false);
-  const [tokenInput, setTokenInput] = useState('');
-  const [clientIdInput, setClientIdInput] = useState('');
-  const [gisAvailable, setGisAvailable] = useState(false);
 
   // Notes Preview Modal State
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
@@ -95,8 +85,6 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({ project, onSwitchVie
     if (typeof window !== 'undefined') {
       const savedToken = localStorage.getItem('gcal_access_token');
       if (savedToken) setCalendarAccessToken(savedToken);
-      const savedClientId = localStorage.getItem('gcal_client_id');
-      if (savedClientId) setClientIdInput(savedClientId);
 
       if (!document.getElementById('google-gsi-client')) {
         const script = document.createElement('script');
@@ -104,10 +92,7 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({ project, onSwitchVie
         script.src = 'https://accounts.google.com/gsi/client';
         script.async = true;
         script.defer = true;
-        script.onload = () => setGisAvailable(true);
         document.body.appendChild(script);
-      } else if ((window as any).google?.accounts?.oauth2) {
-        setGisAvailable(true);
       }
     }
   }, []);
@@ -167,9 +152,8 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({ project, onSwitchVie
         setCalendarConnected(statusRes.connected);
         setCalendarSource(statusRes.source);
         setCalendarStatusMsg(statusRes.message || '');
-        const resolvedEmail = email || statusRes.user_email || 'user@company.com';
-        setCalendarEmail(resolvedEmail);
-        setCalendarInputEmail(resolvedEmail);
+        const resolvedEmail = email || statusRes.user_email || '';
+        if (resolvedEmail) setCalendarEmail(resolvedEmail);
       }
 
       const eventsRes = await api.getCalendarEvents(project.id, email || undefined, token || undefined);
@@ -193,32 +177,9 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({ project, onSwitchVie
     loadCalendar();
   }, [project?.id]);
 
-  // Connect Google Calendar with user's Gmail ID
-  const handleConnectCalendar = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    const emailToConnect = calendarInputEmail.trim() || 'user@gmail.com';
-    setConnectingCalendar(true);
-    try {
-      const token = calendarAccessToken || (typeof window !== 'undefined' ? localStorage.getItem('gcal_access_token') || '' : '');
-      const res = await api.connectCalendar({ user_email: emailToConnect, access_token: token || undefined });
-      setCalendarConnected(res.connected);
-      setCalendarSource(res.source);
-      setCalendarEmail(emailToConnect);
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('gcal_user_email', emailToConnect);
-      }
-      setSuccessFeedback(`Connected to Google Calendar as ${emailToConnect}`);
-      setTimeout(() => setSuccessFeedback(null), 4000);
-      await loadCalendar(emailToConnect, token);
-    } catch (err) {
-      console.error('Failed to connect Google Calendar:', err);
-    } finally {
-      setConnectingCalendar(false);
-    }
-  };
-
-  // 1-Click Connect with Google: redirects to Google OAuth consent page
+  // Google Login initiation using backend OAuth 2.0 flow with fallback to GIS popup
   const handleInitiateGoogleOAuth = async () => {
+    setConnectingCalendar(true);
     try {
       const redirectUri = window.location.origin + '/oauth/callback';
       const res = await api.getGoogleOAuthUrl(redirectUri, project?.id);
@@ -227,20 +188,34 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({ project, onSwitchVie
         return;
       }
     } catch (err) {
-      console.debug('Direct OAuth URL not available, falling back to GIS / modal:', err);
+      console.debug('Direct OAuth URL not available, falling back to GIS / client ID:', err);
+    } finally {
+      setConnectingCalendar(false);
     }
 
-    // Fallback to GIS popup or token modal
+    // Fallback to GIS popup or configured client ID
     const clientId =
-      clientIdInput.trim() ||
       process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ||
       (typeof window !== 'undefined' ? localStorage.getItem('gcal_client_id') || '' : '');
 
     if (!clientId) {
-      setTokenModalOpen(true);
+      const enteredId = window.prompt(
+        'Please enter your Google OAuth 2.0 Web Client ID to sign in:'
+      );
+      if (enteredId && enteredId.trim()) {
+        const trimmed = enteredId.trim();
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('gcal_client_id', trimmed);
+        }
+        initiateGisLogin(trimmed);
+      }
       return;
     }
 
+    initiateGisLogin(clientId);
+  };
+
+  const initiateGisLogin = (clientId: string) => {
     try {
       const client = (window as any).google?.accounts?.oauth2?.initTokenClient({
         client_id: clientId,
@@ -251,13 +226,13 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({ project, onSwitchVie
             if (typeof window !== 'undefined') {
               localStorage.setItem('gcal_access_token', resp.access_token);
             }
-            const email = calendarEmail || calendarInputEmail || 'user@gmail.com';
+            const email = calendarEmail || (typeof window !== 'undefined' ? localStorage.getItem('gcal_user_email') || '' : '') || 'user@gmail.com';
             await api.connectCalendar({
               user_email: email,
               access_token: resp.access_token
             });
             await loadCalendar(email, resp.access_token);
-            setSuccessFeedback('Successfully authorized Google Calendar with OAuth 2.0!');
+            setSuccessFeedback('Successfully authorized Google Calendar with Google Login!');
             setTimeout(() => setSuccessFeedback(null), 5000);
           } else if (resp.error) {
             console.error('Google OAuth error:', resp);
@@ -267,34 +242,6 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({ project, onSwitchVie
       client?.requestAccessToken({ prompt: 'consent' });
     } catch (e) {
       console.error('Failed to trigger Google OAuth popup:', e);
-      setTokenModalOpen(true);
-    }
-  };
-
-  // Direct Token Save Handler
-  const handleSaveDirectToken = async () => {
-    if (!tokenInput.trim()) return;
-    const token = tokenInput.trim();
-    setCalendarAccessToken(token);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('gcal_access_token', token);
-      if (clientIdInput.trim()) {
-        localStorage.setItem('gcal_client_id', clientIdInput.trim());
-      }
-    }
-    setTokenModalOpen(false);
-    setTokenInput('');
-    setConnectingCalendar(true);
-    try {
-      const email = calendarInputEmail.trim() || calendarEmail || 'user@gmail.com';
-      await api.connectCalendar({ user_email: email, access_token: token });
-      await loadCalendar(email, token);
-      setSuccessFeedback('Connected to Google Calendar with Access Token!');
-      setTimeout(() => setSuccessFeedback(null), 5000);
-    } catch (e) {
-      console.error('Failed to connect with token:', e);
-    } finally {
-      setConnectingCalendar(false);
     }
   };
 
@@ -706,9 +653,9 @@ Product Owner: Approved priority for HM-3 and will unblock API access today.`);
               </p>
             </div>
 
-            {/* Gmail Connection Controls */}
+            {/* Google Calendar Controls: Only Simple Google Login or Connected State */}
             <div className="flex items-center gap-2 flex-wrap">
-              {calendarSource === 'GOOGLE_CALENDAR_LIVE' ? (
+              {calendarConnected || calendarSource === 'GOOGLE_CALENDAR_LIVE' ? (
                 <>
                   <div className="flex items-center gap-1.5 px-3 py-1.5 bg-[#e6f4ea] rounded-xl border border-[#ceead6] text-xs">
                     <Mail className="w-3.5 h-3.5 text-[#137333]" />
@@ -736,202 +683,23 @@ Product Owner: Approved priority for HM-3 and will unblock API access today.`);
                   </button>
                 </>
               ) : (
-                <div className="flex items-center gap-2 flex-wrap">
-                  <input
-                    type="email"
-                    value={calendarInputEmail}
-                    onChange={(e) => setCalendarInputEmail(e.target.value)}
-                    placeholder="Enter your Gmail (e.g. ankit1714@gmail.com)"
-                    className="bg-[#f8f9fa] border border-[#dadce0] rounded-xl px-3 py-1.5 text-xs text-[#202124] placeholder-[#80868b] focus:bg-white focus:outline-none focus:border-[#1a73e8] focus:ring-1 focus:ring-[#1a73e8] min-w-[230px]"
-                  />
-
-                  <button
-                    type="button"
-                    onClick={() => handleConnectCalendar()}
-                    disabled={connectingCalendar}
-                    className="px-3.5 py-1.5 rounded-xl bg-[#1a73e8] hover:bg-[#1557b0] text-white text-xs font-semibold flex items-center gap-1.5 transition shadow-sm"
-                  >
-                    <CalendarDays className="w-3.5 h-3.5" />
-                    <span>{connectingCalendar ? 'Connecting...' : 'Fetch Meetings'}</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setShowTokenInputInline(!showTokenInputInline)}
-                    className="px-3 py-1.5 rounded-xl bg-white hover:bg-[#f8f9fa] text-[#3c4043] border border-[#dadce0] text-xs font-semibold flex items-center gap-1.5 transition shadow-sm"
-                  >
-                    <Link2 className="w-3.5 h-3.5 text-[#1a73e8]" />
-                    <span>{showTokenInputInline ? 'Hide Token Field' : 'Paste OAuth Token'}</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={handleInitiateGoogleOAuth}
-                    className="px-3 py-1.5 rounded-xl bg-white hover:bg-[#f8f9fa] text-[#202124] border border-[#dadce0] text-xs font-semibold flex items-center gap-1.5 transition shadow-sm"
-                  >
-                    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24">
-                      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
-                      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
-                    </svg>
-                    <span>Google Login</span>
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={handleInitiateGoogleOAuth}
+                  disabled={connectingCalendar}
+                  className="px-4 py-2 rounded-xl bg-white hover:bg-[#f8f9fa] text-[#202124] border border-[#dadce0] text-xs font-semibold flex items-center gap-2 transition shadow-sm hover:shadow"
+                >
+                  <svg className="w-4 h-4" viewBox="0 0 24 24">
+                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+                  </svg>
+                  <span>{connectingCalendar ? 'Connecting...' : 'Google Login'}</span>
+                </button>
               )}
             </div>
           </div>
-
-          {/* Inline Direct Token Input Box if toggled */}
-          {showTokenInputInline && (
-            <div className="p-4 rounded-xl border border-[#dadce0] bg-[#f8f9fa] space-y-3 text-xs animate-in fade-in duration-150">
-              <div className="flex items-center justify-between">
-                <span className="font-bold text-[#202124] flex items-center gap-1.5">
-                  <Link2 className="w-4 h-4 text-[#1a73e8]" />
-                  Paste Google OAuth Access Token (Instant Connect)
-                </span>
-                <span className="text-[10px] text-[#5f6368] font-mono">Starts with ya29...</span>
-              </div>
-              <textarea
-                value={tokenInput}
-                onChange={(e) => setTokenInput(e.target.value)}
-                placeholder="Paste your OAuth access token (ya29...) here..."
-                rows={2}
-                className="w-full bg-white border border-[#dadce0] rounded-lg p-2.5 text-xs text-[#202124] font-mono resize-none focus:outline-none focus:border-[#1a73e8]"
-              />
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <p className="text-[10px] text-[#5f6368]">
-                  Get a token in 10 seconds from{' '}
-                  <a
-                    href="https://developers.google.com/oauthplayground"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-[#1a73e8] underline font-medium"
-                  >
-                    OAuth 2.0 Playground
-                  </a>{' '}
-                  (select <code>Calendar API v3 &gt; calendar.readonly</code>).
-                </p>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowTokenInputInline(false)}
-                    className="px-3 py-1.5 rounded-lg bg-white border border-[#dadce0] text-[#5f6368] text-xs font-semibold hover:bg-[#f1f3f4] transition"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleSaveDirectToken}
-                    disabled={!tokenInput.trim()}
-                    className="px-4 py-1.5 rounded-lg bg-[#1a73e8] hover:bg-[#1557b0] text-white text-xs font-bold transition shadow-sm disabled:opacity-50"
-                  >
-                    Connect with Token
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Quick Setup Card: Two Easiest Ways to Connect */}
-          {!calendarConnected && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-              {/* Method A: 1-Click Calendar Share (No Tokens Needed!) */}
-              <div className="p-3.5 rounded-xl border border-[#ceead6] bg-[#e6f4ea]/40 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-[#137333] flex items-center gap-1.5">
-                    <CheckCircle2 className="w-4 h-4 text-[#137333]" />
-                    Option 1: 1-Time Calendar Share (Recommended)
-                  </span>
-                  <span className="text-[10px] bg-[#e6f4ea] text-[#137333] px-2 py-0.5 rounded-full font-bold">
-                    No tokens needed
-                  </span>
-                </div>
-                <p className="text-[11px] text-[#5f6368] leading-relaxed">
-                  In Google Calendar, share your calendar with this app's Service Account:
-                </p>
-                <div className="flex items-center justify-between bg-white border border-[#ceead6] rounded-lg px-2.5 py-1.5 font-mono text-[11px] text-[#202124]">
-                  <span className="truncate">638799400872-compute@developer.gserviceaccount.com</span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      navigator.clipboard.writeText('638799400872-compute@developer.gserviceaccount.com');
-                      setCopiedServiceAccount(true);
-                      setTimeout(() => setCopiedServiceAccount(false), 3000);
-                    }}
-                    className="text-[#137333] hover:underline font-bold text-[10px] shrink-0 ml-2"
-                  >
-                    {copiedServiceAccount ? '✓ Copied' : 'Copy'}
-                  </button>
-                </div>
-                <p className="text-[10px] text-[#5f6368]">
-                  Open{' '}
-                  <a
-                    href="https://calendar.google.com/calendar/r/settings"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-[#1a73e8] underline font-medium"
-                  >
-                    Google Calendar Settings
-                  </a>{' '}
-                  &gt; Share with specific people &gt; Add the email &gt; Click Fetch Meetings!
-                </p>
-              </div>
-
-              {/* Method B: Instant Access Token / Google Login */}
-              <div className="p-3.5 rounded-xl border border-[#d2e3fc] bg-[#e8f0fe]/40 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-[#1967d2] flex items-center gap-1.5">
-                    <Sparkles className="w-4 h-4 text-[#1a73e8]" />
-                    Option 2: Direct OAuth Token or Google Sign-In
-                  </span>
-                  <span className="text-[10px] bg-[#e8f0fe] text-[#1967d2] px-2 py-0.5 rounded-full font-bold">
-                    Instant Connect
-                  </span>
-                </div>
-                <p className="text-[11px] text-[#5f6368] leading-relaxed">
-                  If you already have a Google OAuth access token or wish to log in directly:
-                </p>
-                <div className="flex items-center gap-2 pt-1">
-                  <button
-                    type="button"
-                    onClick={() => setShowTokenInputInline(true)}
-                    className="px-3 py-1.5 rounded-lg bg-white border border-[#dadce0] hover:bg-[#f1f3f4] text-[#1a73e8] font-bold text-[11px] transition shadow-sm"
-                  >
-                    Paste OAuth Token
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleInitiateGoogleOAuth}
-                    className="px-3 py-1.5 rounded-lg bg-[#1a73e8] hover:bg-[#1557b0] text-white font-bold text-[11px] transition shadow-sm"
-                  >
-                    Sign In with Google
-                  </button>
-                </div>
-
-                <div className="mt-2 p-2 rounded-lg bg-white border border-[#dadce0] text-[10px] space-y-1">
-                  <div className="flex items-center justify-between font-semibold text-[#202124]">
-                    <span>Google Console Redirect URI:</span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const uri = typeof window !== 'undefined' ? `${window.location.origin}/oauth/callback` : 'https://ai-scrum-cockpit-638799400872.us-central1.run.app/oauth/callback';
-                        navigator.clipboard.writeText(uri);
-                        setSuccessFeedback('Copied redirect URI to clipboard!');
-                        setTimeout(() => setSuccessFeedback(null), 3000);
-                      }}
-                      className="text-[#1a73e8] hover:underline font-bold"
-                    >
-                      Copy URI
-                    </button>
-                  </div>
-                  <div className="font-mono bg-[#f8f9fa] px-2 py-1 rounded text-[#1967d2] truncate text-[10px]">
-                    {typeof window !== 'undefined' ? `${window.location.origin}/oauth/callback` : 'https://ai-scrum-cockpit-638799400872.us-central1.run.app/oauth/callback'}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
 
           {/* Authorization Notice if needed */}
           {calendarSource === 'AUTH_REQUIRED' && (
@@ -941,7 +709,7 @@ Product Owner: Approved priority for HM-3 and will unblock API access today.`);
                 <div className="space-y-0.5">
                   <p className="font-bold text-[#c5221f]">Google Calendar Authorization Required</p>
                   <p className="text-[11px] text-[#5f6368]">
-                    Google Calendar API requires an OAuth token with scope <code className="bg-white px-1.5 py-0.5 rounded border border-[#fad2cf] text-[#c5221f]">calendar.readonly</code> to fetch personal meetings for <strong>{calendarEmail}</strong>.
+                    Google Calendar API requires authorization to fetch personal meetings and Gemini notes for <strong>{calendarEmail || 'your Google account'}</strong>.
                   </p>
                 </div>
               </div>
@@ -949,37 +717,17 @@ Product Owner: Approved priority for HM-3 and will unblock API access today.`);
                 <button
                   type="button"
                   onClick={handleInitiateGoogleOAuth}
-                  className="px-3 py-1.5 rounded-xl bg-[#1a73e8] hover:bg-[#1557b0] text-white font-semibold text-xs transition shadow-sm"
+                  className="px-3.5 py-1.5 rounded-xl bg-white hover:bg-[#f8f9fa] text-[#202124] border border-[#dadce0] font-semibold text-xs transition shadow-sm flex items-center gap-1.5"
                 >
-                  Sign in with Google
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setTokenModalOpen(true)}
-                  className="px-3 py-1.5 rounded-xl bg-white border border-[#dadce0] text-[#3c4043] font-semibold text-xs hover:bg-[#f1f3f4] transition shadow-sm"
-                >
-                  Provide Token
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24">
+                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+                  </svg>
+                  <span>Google Login</span>
                 </button>
               </div>
-            </div>
-          )}
-
-          {/* Not Connected Guidance Notice */}
-          {!calendarConnected && calendarSource !== 'AUTH_REQUIRED' && (
-            <div className="p-3.5 rounded-xl border border-[#d2e3fc] bg-[#e8f0fe]/50 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
-              <div className="flex items-center gap-2">
-                <CalendarDays className="w-4 h-4 text-[#1a73e8] shrink-0" />
-                <span className="text-[#1967d2]">
-                  Connect your Google account via <strong>Sign in with Google</strong> or provide an OAuth token to load your actual Google Calendar meetings and Gemini notes.
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={handleInitiateGoogleOAuth}
-                className="px-3 py-1 rounded-lg bg-[#1a73e8] text-white font-semibold text-[11px] hover:bg-[#1557b0] transition shrink-0"
-              >
-                Sign In with Google
-              </button>
             </div>
           )}
 
@@ -1000,8 +748,26 @@ Product Owner: Approved priority for HM-3 and will unblock API access today.`);
               <p className="text-[11px] text-[#5f6368] max-w-md mx-auto">
                 {calendarConnected
                   ? 'There are no calendar events scheduled in your Google account for the last 14 days or next 14 days.'
-                  : 'Sign in with your Google account above to securely fetch your actual Google Calendar meetings and Gemini-generated notes.'}
+                  : 'Click Google Login above to securely fetch your actual Google Calendar meetings and Gemini-generated notes.'}
               </p>
+              {!calendarConnected && (
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={handleInitiateGoogleOAuth}
+                    disabled={connectingCalendar}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white hover:bg-[#f8f9fa] text-[#202124] border border-[#dadce0] text-xs font-semibold shadow-sm transition"
+                  >
+                    <svg className="w-4 h-4" viewBox="0 0 24 24">
+                      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+                      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+                    </svg>
+                    <span>{connectingCalendar ? 'Connecting...' : 'Google Login'}</span>
+                  </button>
+                </div>
+              )}
             </div>
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -1905,116 +1671,6 @@ Product Owner: Approved priority for HM-3 and will unblock API access today.`);
                   </button>
                 )}
               </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Google OAuth & Access Token Configuration Modal */}
-      {tokenModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-150">
-          <div className="bg-white rounded-2xl border border-[#dadce0] max-w-lg w-full p-6 space-y-4 shadow-2xl">
-            {/* Modal Header */}
-            <div className="flex items-start justify-between gap-3 pb-3 border-b border-[#f1f3f4]">
-              <div className="flex items-center gap-2">
-                <CalendarDays className="w-5 h-5 text-[#1a73e8]" />
-                <div>
-                  <h3 className="font-bold text-sm sm:text-base text-[#202124]">
-                    Connect Google Calendar (OAuth 2.0)
-                  </h3>
-                  <p className="text-xs text-[#5f6368]">
-                    Authorize Google Calendar API to read your live meetings & Gemini notes
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setTokenModalOpen(false)}
-                className="p-1 text-[#80868b] hover:text-[#202124] hover:bg-[#f1f3f4] rounded-lg transition"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Email Field */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-[#202124]">
-                Your Gmail Address:
-              </label>
-              <input
-                type="email"
-                value={calendarInputEmail}
-                onChange={(e) => setCalendarInputEmail(e.target.value)}
-                placeholder="e.g. your-name@gmail.com"
-                className="w-full bg-[#f8f9fa] border border-[#dadce0] rounded-xl px-3 py-2 text-xs text-[#202124] focus:bg-white focus:outline-none focus:border-[#1a73e8] focus:ring-1 focus:ring-[#1a73e8]"
-              />
-            </div>
-
-            {/* Option 1: Access Token */}
-            <div className="space-y-1.5 p-3.5 rounded-xl bg-[#f8f9fa] border border-[#dadce0]">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-semibold text-[#202124] flex items-center gap-1.5">
-                  <Link2 className="w-3.5 h-3.5 text-[#1a73e8]" />
-                  Google OAuth Access Token (Quick Connect):
-                </label>
-                <span className="text-[10px] text-[#5f6368] font-mono">ya29...</span>
-              </div>
-              <textarea
-                value={tokenInput}
-                onChange={(e) => setTokenInput(e.target.value)}
-                placeholder="Paste Google OAuth access token here..."
-                rows={3}
-                className="w-full bg-white border border-[#dadce0] rounded-lg p-2.5 text-xs text-[#202124] font-mono resize-none focus:outline-none focus:border-[#1a73e8]"
-              />
-              <p className="text-[10px] text-[#5f6368] leading-relaxed">
-                Tip: Get a token in 10 seconds via{' '}
-                <a
-                  href="https://developers.google.com/oauthplayground"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-[#1a73e8] underline font-medium"
-                >
-                  OAuth 2.0 Playground
-                </a>{' '}
-                (select <code>Calendar API v3 &gt; calendar.readonly</code>).
-              </p>
-            </div>
-
-            {/* Option 2: OAuth Web Client ID */}
-            <div className="space-y-1.5 p-3.5 rounded-xl bg-[#f8f9fa] border border-[#dadce0]">
-              <label className="text-xs font-semibold text-[#202124] flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-[#7b1fa2]" />
-                Google OAuth 2.0 Web Client ID (Optional):
-              </label>
-              <input
-                type="text"
-                value={clientIdInput}
-                onChange={(e) => setClientIdInput(e.target.value)}
-                placeholder="xxxx.apps.googleusercontent.com"
-                className="w-full bg-white border border-[#dadce0] rounded-lg px-2.5 py-1.5 text-xs text-[#202124] font-mono focus:outline-none focus:border-[#1a73e8]"
-              />
-              <p className="text-[10px] text-[#5f6368]">
-                Once set, clicking <strong>Sign in with Google</strong> will open the standard Google login popup automatically.
-              </p>
-            </div>
-
-            {/* Modal Actions */}
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#f1f3f4]">
-              <button
-                type="button"
-                onClick={() => setTokenModalOpen(false)}
-                className="px-4 py-2 rounded-xl bg-white hover:bg-[#f1f3f4] text-[#3c4043] border border-[#dadce0] text-xs font-semibold transition"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleSaveDirectToken}
-                disabled={connectingCalendar || (!tokenInput.trim() && !clientIdInput.trim())}
-                className="px-4 py-2 rounded-xl bg-[#1a73e8] hover:bg-[#1557b0] text-white text-xs font-bold transition shadow-sm disabled:opacity-50"
-              >
-                {connectingCalendar ? 'Connecting...' : 'Save & Connect Calendar'}
-              </button>
             </div>
           </div>
         </div>

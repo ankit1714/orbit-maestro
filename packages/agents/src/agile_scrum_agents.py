@@ -43,6 +43,38 @@ def clean_json_response(raw_text: str) -> str:
         cleaned = cleaned[:-3]
     return cleaned.strip()
 
+def clean_story_title(title: str) -> str:
+    """Cleans up story titles, removing trailing 'I want to ...', incomplete ellipses, or dangling fillers."""
+    import re
+    if not title:
+        return "Implement System Feature"
+    t = title.strip()
+    patterns = [
+        r'\s*[,;-]?\s*I\s+want\s+to\s*\.{0,3}\s*$',
+        r'\s*[,;-]?\s*I\s+want\s*\.{0,3}\s*$',
+        r'\s*[,;-]?\s*so\s+that\s*\.{0,3}\s*$',
+        r'\s*[,;-]?\s*to\s*\.{0,3}\s*$',
+        r'\s*\.{2,}\s*$',
+    ]
+    for p in patterns:
+        t = re.sub(p, '', t, flags=re.IGNORECASE).strip()
+    return t
+
+def clean_story_description(desc: str) -> str:
+    """Cleans up story descriptions, stripping trailing ellipses and dangling 'I want to ...'."""
+    import re
+    if not desc:
+        return ""
+    d = desc.strip()
+    patterns = [
+        r'\s*[,;-]?\s*I\s+want\s+to\s*\.{0,3}\s*$',
+        r'\s*[,;-]?\s*I\s+want\s*\.{0,3}\s*$',
+        r'\s*\.{2,}\s*$',
+    ]
+    for p in patterns:
+        d = re.sub(p, '', d, flags=re.IGNORECASE).strip()
+    return d
+
 
 class LeadAgileOrchestratorAgent:
     """
@@ -59,18 +91,14 @@ class LeadAgileOrchestratorAgent:
     ) -> LeadOrchestratorStrategy:
         logger.info(f"Agent 1 (Lead Agile Orchestrator) analyzing requirements for '{project_name}'...")
 
-        prompt = f"""You are the Lead Agile Scrum Orchestrator. Your role is to analyze the initial project requirements and objectives provided by the user and formulate a clear execution strategy and sprint guidelines to guide subsequent backlog decomposition and planning.
+        prompt = f"""You are the Lead Agile Scrum Orchestrator. Your role is to analyze the complete project requirements, attached Confluence architecture pages, and Ingested Baseline provided for project "{project_name}" and sprint goal "{sprint_goal}".
 
-Review the input parameters:
-Project Name: {project_name}
-Raw Requirements:
-{raw_requirements[:5000]}
-
-Sprint Goal: {sprint_goal}
+Complete Specifications (Confluence Pages & Ingested Baseline):
+{raw_requirements[:35000]}
 
 Tasks:
 1. Analyze the core problem statement, target audience, and key functional themes within the raw requirements.
-2. Formulate an overarching execution strategy that outlines architectural scope, delivery milestones, and core risks or dependencies.
+2. Formulate an overarching execution strategy that outlines architectural scope, delivery milestones, and core risks or dependencies directly based on the specifications.
 3. Define clear sprint guidelines, including definition of ready (DoR), quality standards, and scope boundaries for backlog decomposition.
 4. Populate the output parameters with your detailed execution strategy and sprint guidelines.
 
@@ -119,7 +147,7 @@ Output strictly valid JSON with this exact structure:
 }}
 Only return raw JSON.
 """
-        response_text = vertex_service.generate_content(prompt)
+        response_text = vertex_service.generate_content(prompt, max_output_tokens=8192)
         try:
             data = json.loads(clean_json_response(response_text))
             return LeadOrchestratorStrategy(**data)
@@ -155,6 +183,119 @@ Only return raw JSON.
             )
 
 
+def extract_smart_fallback_epics(project_name: str, raw_requirements: str) -> List[DecomposedEpic]:
+    """Dynamically parses raw requirements (Baseline + Confluence) to extract crisp domain-specific epics and stories."""
+    import re
+
+    # 1. Look for capabilities [CAP-xx] **Title**: Description
+    caps = re.findall(r'\[(CAP-[^\]]+)\]\s*\*\*([^*]+)\*\*:\s*([^\n\r]+)', raw_requirements)
+    # 2. Look for Confluence docs: ## Confluence Specification: Title
+    conf_docs = re.findall(r'##\s*Confluence Specification:\s*([^\n\r]+)', raw_requirements)
+
+    epics = []
+
+    if caps:
+        for cap_id, cap_title, cap_desc in caps[:5]:
+            clean_cap = cap_title.strip()
+            epics.append(DecomposedEpic(
+                title=f"{clean_cap}",
+                description=f"Scope for capability {cap_id}: {cap_desc.strip()}",
+                stories=[
+                    DecomposedUserStory(
+                        title=clean_story_title(f"Implement {clean_cap} Service"),
+                        description=clean_story_description(f"Implement and expose the core functionality for {clean_cap}.\n\nFunctional Scope:\n{cap_desc.strip()}"),
+                        origin=f"Baseline: {cap_id}",
+                        acceptance_criteria=[
+                            {
+                                "scenario": f"Execute {clean_cap}",
+                                "given": f"User is authenticated and system is in ready state for {clean_cap}",
+                                "when": "Valid payload matching specification constraints is submitted",
+                                "then": "Operation completes successfully and verified records are persisted"
+                            },
+                            {
+                                "scenario": f"Validation and error handling for {clean_cap}",
+                                "given": "Input payload with invalid format or out-of-bounds parameters",
+                                "when": "Request is submitted",
+                                "then": "System rejects request with 400 Bad Request and descriptive validation details"
+                            }
+                        ],
+                        non_functional_constraints=["P95 latency < 350ms", "Audit trail logged to database"]
+                    ),
+                    DecomposedUserStory(
+                        title=clean_story_title(f"Configure Telemetry & Monitoring for {clean_cap}"),
+                        description=clean_story_description(f"Provide health telemetry, error metrics, and structured logs for {clean_cap}."),
+                        origin=f"Baseline: {cap_id}",
+                        acceptance_criteria=[
+                            {
+                                "scenario": "Telemetry metric emission",
+                                "given": f"Processing runs for {clean_cap}",
+                                "when": "Workflows transition between states",
+                                "then": "Structured telemetry is emitted with execution duration and status"
+                            }
+                        ],
+                        non_functional_constraints=["Zero packet loss telemetry"]
+                    )
+                ]
+            ))
+
+    if conf_docs:
+        for c_title in conf_docs[:3]:
+            # Avoid duplicate if title similar
+            if not any(c_title.strip().lower() in e.title.lower() for e in epics):
+                epics.append(DecomposedEpic(
+                    title=f"Confluence: {c_title.strip()}",
+                    description=f"Architecture and workflows specified in Confluence document '{c_title.strip()}'.",
+                    stories=[
+                        DecomposedUserStory(
+                            title=clean_story_title(f"Implement Architecture & Interfaces for {c_title.strip()}"),
+                            description=clean_story_description(f"Construct component architecture and data models as documented in Confluence page: {c_title.strip()}."),
+                            origin=f"Confluence: {c_title.strip()}",
+                            acceptance_criteria=[
+                                {
+                                    "scenario": "Architecture contract validation",
+                                    "given": f"System deployed adhering to {c_title.strip()} specification",
+                                    "when": "Client makes API or UI requests",
+                                    "then": "Responses match the documented schemas and contracts in Confluence"
+                                }
+                            ],
+                            non_functional_constraints=["Compliant with enterprise architecture standards"]
+                        )
+                    ]
+                ))
+
+    if not epics:
+        epics = [
+            DecomposedEpic(
+                title=f"{project_name} Core Workflows & Processing",
+                description=f"End-to-end implementation of core functional workflows for {project_name}.",
+                stories=[
+                    DecomposedUserStory(
+                        title=clean_story_title(f"Automate Core Processing Engine for {project_name}"),
+                        description=clean_story_description(f"Implement primary capability workflow as defined in project specifications for {project_name}."),
+                        origin="Specification Baseline",
+                        acceptance_criteria=[
+                            {
+                                "scenario": "Standard capability execution",
+                                "given": "Valid parameters provided according to requirements",
+                                "when": "Workflow is triggered",
+                                "then": "Data is processed, validated, and state is persisted"
+                            },
+                            {
+                                "scenario": "Boundary validation",
+                                "given": "Missing or out-of-range input fields",
+                                "when": "Workflow is triggered",
+                                "then": "System flags validation errors without side effects"
+                            }
+                        ],
+                        non_functional_constraints=["Response time < 350ms"]
+                    )
+                ]
+            )
+        ]
+
+    return epics
+
+
 class ProductOwnerAgent:
     """
     Agent 2- Agile Scrum Master & Product Owner.
@@ -177,49 +318,57 @@ class ProductOwnerAgent:
             "scope": orchestrator_strategy.execution_strategy.get("architectural_scope", "")
         }, indent=2)
 
-        prompt = f"""You are an expert Agile Scrum Master and Product Owner. Your role is to analyze the raw feature requirements provided, considering the project name "{project_name}" and sprint goal "{sprint_goal}".
+        prompt = f"""You are an expert Agile Scrum Master and Product Owner. Your role is to analyze the complete project requirements and architecture specifications provided below, considering the project name "{project_name}" and sprint goal "{sprint_goal}".
+
+CRITICAL INSTRUCTIONS:
+- You must read and base the work breakdown strictly on the provided INGESTED DOCUMENT BASELINE and ATTACHED CONFLUENCE DOCUMENTATION & ARCHITECTURE PAGES.
+- Do NOT output generic, vague, or placeholder stories.
+- Decompose the actual features, UI flows, API contracts, database models, business rules, and constraints described in the specifications into crisp, clear, well-bounded Epics and User Stories.
+- Each Epic must represent a major functional theme or architecture domain directly from the specifications.
+- Every User Story MUST be written in the standard agile format: 'As a <persona>, I want <specific feature/action> so that <business value/outcome>'.
+- Every User Story MUST include 2 to 4 concrete, actionable Acceptance Criteria using the 'Given... When... Then...' framework covering the positive path, edge/boundary cases, and validation error scenarios described in the requirements.
+- Set the 'origin' field to reference the exact Confluence page or baseline section (e.g. 'Confluence: Login Spec §2.1' or 'Baseline: CAP-01').
 
 Lead Agile Scrum Orchestrator Strategy Guidelines:
 {strategy_summary}
 
-Raw Feature Requirements:
-{raw_requirements[:6000]}
+Complete Specifications (Confluence Pages & Ingested Baseline):
+{raw_requirements[:35000]}
 
 Follow these steps:
-1. Break down the high-level scope into one or more logical Epics.
-2. Decompose each Epic into comprehensive, granular Jira User Stories written in the standard format: 'As a <user persona>, I want <goal/feature> so that <benefit/value>'.
+1. Break down the high-level scope into 2 to 5 logical, crisp Epics based on the requirements.
+2. Under each Epic, deconstruct 2 to 5 granular, comprehensive User Stories.
 3. For every user story, specify at least 2 to 4 concrete Acceptance Criteria using the 'Given... When... Then...' framework.
 4. Ensure each story is self-contained and captures functional as well as key non-functional constraints.
-5. Generate the output parameters with the structured breakdown of epics and decomposed user stories.
 
 Output strictly valid JSON with this exact structure:
 {{
   "epics": [
     {{
-      "title": "Specific Epic Title",
-      "description": "Epic objective, user value, and operational boundaries",
+      "title": "Clear Epic Title",
+      "description": "Crisp overview of the epic scope, user value, and operational boundaries",
       "stories": [
         {{
-          "title": "As a [user persona], I want [goal/feature] so that [benefit/value]",
-          "description": "Detailed implementation scope, functional requirements, and developer context",
-          "origin": "PRD §1.1 Feature Specification",
+          "title": "As a [persona], I want [specific feature/action] so that [clear outcome]",
+          "description": "Crisp technical story description specifying functionality, inputs, outputs, and edge cases",
+          "origin": "Confluence Document Title or Baseline Section",
           "acceptance_criteria": [
             {{
-              "scenario": "Successful primary workflow",
-              "given": "Specific system state and preconditions",
-              "when": "User or external trigger executes the action",
+              "scenario": "Happy path execution scenario",
+              "given": "Specific system precondition and state",
+              "when": "User or API executes the action",
               "then": "Expected outcome and verified system behavior"
             }},
             {{
-              "scenario": "Validation or error handling scenario",
-              "given": "Preconditions with boundary or invalid inputs",
-              "when": "Submission is triggered",
-              "then": "System enforces validation with descriptive error message"
+              "scenario": "Boundary or validation error scenario",
+              "given": "System in standard state with invalid or boundary inputs",
+              "when": "Action is submitted",
+              "then": "System enforces validation rules and provides actionable feedback"
             }}
           ],
           "non_functional_constraints": [
-            "Response latency under 300ms",
-            "Audit trail logging"
+            "Performance latency constraint",
+            "Security / validation constraint"
           ]
         }}
       ]
@@ -228,7 +377,7 @@ Output strictly valid JSON with this exact structure:
 }}
 Only return raw JSON.
 """
-        response_text = vertex_service.generate_content(prompt)
+        response_text = vertex_service.generate_content(prompt, max_output_tokens=16384)
         try:
             data = json.loads(clean_json_response(response_text))
             epics_list = []
@@ -241,37 +390,14 @@ Only return raw JSON.
                     description=ep_data.get("description", ""),
                     stories=stories_list
                 ))
-            return ProductOwnerDecomposition(epics=epics_list)
+            if epics_list:
+                return ProductOwnerDecomposition(epics=epics_list)
         except Exception as e:
-            logger.warning(f"Agent 2 JSON parse error: {e}. Generating fallback decomposition.")
-            return ProductOwnerDecomposition(epics=[
-                DecomposedEpic(
-                    title=f"{project_name} Core Capabilities",
-                    description=f"Core operational features for {project_name}",
-                    stories=[
-                        DecomposedUserStory(
-                            title=f"As an operator, I want automated processing for {project_name} so that efficiency is improved",
-                            description=f"Implement core processing workflow for {project_name}",
-                            origin="PRD Specification",
-                            acceptance_criteria=[
-                                {
-                                    "scenario": "Execute core capability",
-                                    "given": "Valid input parameters are provided",
-                                    "when": "Operation is submitted",
-                                    "then": "Processing succeeds and results are saved"
-                                },
-                                {
-                                    "scenario": "Input validation failure",
-                                    "given": "Invalid or missing parameters",
-                                    "when": "Operation is submitted",
-                                    "then": "System returns validation error"
-                                }
-                            ],
-                            non_functional_constraints=["Response time < 500ms"]
-                        )
-                    ]
-                )
-            ])
+            logger.warning(f"Agent 2 JSON parse error: {e}. Generating smart grounded fallback decomposition.")
+
+        # Smart grounded fallback
+        fallback_epics = extract_smart_fallback_epics(project_name, raw_requirements)
+        return ProductOwnerDecomposition(epics=fallback_epics)
 
 
 class TechnicalScrumMasterAgent:
@@ -371,7 +497,7 @@ Output strictly valid JSON with this exact structure:
 }}
 Only return raw JSON.
 """
-        response_text = vertex_service.generate_content(prompt)
+        response_text = vertex_service.generate_content(prompt, max_output_tokens=16384)
         try:
             data = json.loads(clean_json_response(response_text))
             validated_epics = data.get("validated_epics", [])
@@ -456,12 +582,15 @@ class RequirementsDecompositionPipeline:
     ) -> RequirementDecompositionResponse:
         logger.info(f"Initiating 3-Agent Requirement Decomposition Pipeline for project: {project_id}")
 
-        # 1. Fetch project details
+        # 1. Fetch project details and resolve verified team roles (QA vs DEV with Jira mapping)
         proj_doc = db.collection("projects").document(project_id).get()
         proj_data = proj_doc.to_dict() if proj_doc.exists else {}
         project_name = proj_data.get("name", "Active Scrum Project")
-        team = proj_data.get("team_members", [])
         goal = sprint_goal or proj_data.get("business_objective") or f"Deliver core requirements for {project_name}"
+
+        from packages.agents.src.team_matcher import resolve_project_team_with_roles, match_assignee_for_work
+        team_roles = resolve_project_team_with_roles(project_id)
+        team = team_roles.get("all_members", [])
 
         # 2. Agent 1: Lead Agile Scrum Orchestrator
         orchestrator_strategy = self.orchestrator_agent.analyze_and_formulate_strategy(
@@ -499,28 +628,48 @@ class RequirementsDecompositionPipeline:
                     )
 
                     for st_data in ep_data.get("stories", []):
-                        assignee = team[0].get("name") if team else "Developer"
+                        s_title = clean_story_title(st_data.get("title", "User Story"))
+                        s_desc = clean_story_description(st_data.get("description", ""))
+                        st_tasks = st_data.get("tasks", [])
+
+                        # Role-based assignment: QA story -> QA engineer, DEV story -> DEV engineer
+                        story_assignee, s_acc, s_pct, s_rat = match_assignee_for_work(
+                            title=s_title,
+                            work_type="STORY",
+                            team_roles=team_roles,
+                            description=s_desc,
+                            subtasks=st_tasks
+                        )
+
                         story = backlog_provider.create_story(
                             project_id=project_id,
                             epic_id=epic.id,
-                            title=st_data.get("title", "User Story"),
-                            description=st_data.get("description", ""),
+                            title=s_title,
+                            description=s_desc,
                             points=snap_to_fibonacci(st_data.get("story_points", 5)),
                             ac_list=st_data.get("acceptance_criteria", []),
-                            assignee=assignee,
+                            assignee=story_assignee,
                             origin=st_data.get("origin", "PRD Specification")
                         )
 
-                        for t_data in st_data.get("tasks", []):
+                        for t_data in st_tasks:
+                            t_title = t_data.get("title", "Task")
                             task_type = t_data.get("task_type", "DEV")
-                            t_assignee = team[-1].get("name") if (task_type == "QA" and len(team) > 1) else assignee
+
+                            # Role-based assignment: QA task -> QA engineer, DEV task -> DEV engineer
+                            task_assignee, t_acc, t_pct, t_rat = match_assignee_for_work(
+                                title=t_title,
+                                work_type=task_type,
+                                team_roles=team_roles
+                            )
+
                             backlog_provider.create_task(
                                 project_id=project_id,
                                 story_id=story.id,
-                                title=t_data.get("title", "Task"),
+                                title=t_title,
                                 task_type=task_type,
                                 effort_days=float(t_data.get("effort_days", 1.0)),
-                                assignee=t_assignee,
+                                assignee=task_assignee,
                                 trace_ref="AC-1"
                             )
                 logger.info(f"Successfully persisted 3-Agent decomposed backlog for {project_id}.")
