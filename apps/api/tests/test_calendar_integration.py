@@ -100,8 +100,9 @@ Attendees: Sarah, Alex, David
     assert data["has_gemini_notes"] is True
     assert "Notes by Gemini" in data["notes_content"]
 
+@patch("apps.api.src.core.vertex_client.vertex_service.generate_content")
 @patch("requests.get")
-def test_calendar_pull_and_process_endpoint(mock_get):
+def test_calendar_pull_and_process_endpoint(mock_get, mock_vertex):
     # Mock Google Drive export of Gemini Notes
     mock_resp = MagicMock()
     mock_resp.status_code = 200
@@ -110,6 +111,17 @@ Attendees: Sarah, Alex, David
 - Decision: Approved priority for task CLM-142 checkout integration.
 - Blocker: Payment webhook endpoint blocked waiting on vendor contract."""
     mock_get.return_value = mock_resp
+
+    mock_vertex.return_value = """{
+      "summary": "Daily Scrum notes discussing CLM-142 checkout integration.",
+      "decisions": [
+        {"decision_text": "Approved priority for task CLM-142 checkout integration.", "speaker": "Sarah"}
+      ],
+      "blockers": [
+        {"blocker_description": "Payment webhook endpoint blocked waiting on vendor contract.", "impact": "High"}
+      ],
+      "actions": []
+    }"""
 
     res = client.post("/v1/meetings/calendar/pull-and-process", json={
         "event_id": "gcal-real-standup-001",

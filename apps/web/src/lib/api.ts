@@ -17,9 +17,10 @@ export const getApiBase = () => {
 
 /**
  * Returns the exact Authorized Redirect URI for Google OAuth 2.0.
- * In Google Cloud Console, the authorized URIs are:
- * 1) http://localhost:3000/oauth/callback (local development)
- * 2) https://ai-scrum-cockpit-638799400872.us-central1.run.app/oauth/callback (production Cloud Run)
+ * In Google Cloud Console, authorized URIs & JS origins must include:
+ * 1) http://localhost:3000 (callback: /oauth/callback)
+ * 2) https://ai-scrum-cockpit-a355sfc3uq-uc.a.run.app (callback: /oauth/callback)
+ * 3) https://ai-scrum-cockpit-638799400872.us-central1.run.app (callback: /oauth/callback)
  *
  * Normalizes 127.0.0.1, 0.0.0.0, or local dev variants to http://localhost:3000/oauth/callback
  * so Google never rejects the login with Error 400: redirect_uri_mismatch.
