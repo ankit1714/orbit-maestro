@@ -25,14 +25,70 @@ export const SprintBoardView: React.FC<SprintBoardViewProps> = ({
   const { can, profile } = useRole();
   const epics = backlog?.epics || [];
   const allTasks: any[] = [];
+  const isJiraSource = sprint?.source === "JIRA" || backlog?.source === "JIRA";
+
+  const committedIds = new Set(
+    (sprint?.committed_story_ids || []).map((id: any) => String(id).trim().toLowerCase())
+  );
+  const activeSprintId = sprint?.jira_sprint_id
+    ? String(sprint.jira_sprint_id).trim()
+    : sprint?.sprint_number
+    ? String(sprint.sprint_number).trim()
+    : null;
+  const activeSprintName = sprint?.name ? String(sprint.name).trim().toLowerCase() : null;
+
+  const isItemInCurrentSprint = (item: any, parentStory?: any) => {
+    // 1. Direct match in committed_story_ids by key or id
+    const itemKey = item?.key ? String(item.key).trim().toLowerCase() : null;
+    const itemId = item?.id ? String(item.id).trim().toLowerCase() : null;
+    if (itemKey && committedIds.has(itemKey)) return true;
+    if (itemId && committedIds.has(itemId)) return true;
+
+    // 2. Parent story match in committed_story_ids by key or id
+    const parentKey = parentStory?.key ? String(parentStory.key).trim().toLowerCase() : null;
+    const parentId = parentStory?.id ? String(parentStory.id).trim().toLowerCase() : null;
+    if (parentKey && committedIds.has(parentKey)) return true;
+    if (parentId && committedIds.has(parentId)) return true;
+
+    // 3. Match by sprint_id
+    const itemSprintId = item?.sprint_id ? String(item.sprint_id).trim() : null;
+    const parentSprintId = parentStory?.sprint_id ? String(parentStory.sprint_id).trim() : null;
+    if (activeSprintId) {
+      if (itemSprintId && itemSprintId === activeSprintId) return true;
+      if (parentSprintId && parentSprintId === activeSprintId) return true;
+    }
+
+    // 4. Match by sprint_name
+    const itemSprintName = item?.sprint_name ? String(item.sprint_name).trim().toLowerCase() : null;
+    const parentSprintName = parentStory?.sprint_name ? String(parentStory.sprint_name).trim().toLowerCase() : null;
+    if (activeSprintName) {
+      if (itemSprintName && (itemSprintName === activeSprintName || activeSprintName.includes(itemSprintName) || itemSprintName.includes(activeSprintName))) return true;
+      if (parentSprintName && (parentSprintName === activeSprintName || activeSprintName.includes(parentSprintName) || parentSprintName.includes(activeSprintName))) return true;
+    }
+
+    // 5. Match by sprint.id containing sprint_id
+    if (sprint?.id) {
+      if (itemSprintId && sprint.id.includes(itemSprintId)) return true;
+      if (parentSprintId && sprint.id.includes(parentSprintId)) return true;
+    }
+
+    return false;
+  };
 
   epics.forEach((e: any) => {
     (e.stories || []).forEach((s: any) => {
+      let addedSubtaskCount = 0;
       if (s.tasks && s.tasks.length > 0) {
         s.tasks.forEach((t: any) => {
-          allTasks.push({ ...t, story_title: s.title });
+          if (!isJiraSource || isItemInCurrentSprint(t, s)) {
+            allTasks.push({ ...t, story_title: s.title });
+            addedSubtaskCount++;
+          }
         });
-      } else {
+      }
+
+      // If no subtasks were attached or none belonged to current sprint, but the story belongs to current sprint
+      if (addedSubtaskCount === 0 && (!isJiraSource || isItemInCurrentSprint(s))) {
         allTasks.push({
           id: s.id,
           key: s.key,
@@ -97,8 +153,6 @@ export const SprintBoardView: React.FC<SprintBoardViewProps> = ({
       return null;
     }
   };
-
-  const isJiraSource = sprint?.source === "JIRA" || backlog?.source === "JIRA";
 
   return (
     <div className="p-6 max-w-7xl mx-auto w-full space-y-4 flex-1 flex flex-col">

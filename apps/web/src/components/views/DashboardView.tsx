@@ -14,7 +14,7 @@ import {
   ListTodo,
   ArrowUpRight,
 } from 'lucide-react';
-import { api, getJiraBoardUrl } from '@/lib/api';
+import { api, getJiraBoardUrl, getJiraBrowseUrl } from '@/lib/api';
 
 interface DashboardViewProps {
   project: any;
@@ -76,11 +76,6 @@ const extractJiraTicket = (item: any, backlog?: any, project?: any): string => {
 
   const pKey = project?.jira_settings?.project_key || project?.key || 'HM';
   return `${pKey}-1`;
-};
-
-const getJiraBrowseUrl = (ticket: string, project?: any) => {
-  const instanceUrl = project?.jira_settings?.instance_url || 'https://the-ai-scrum-master.atlassian.net';
-  return `${instanceUrl.replace(/\/$/, '')}/browse/${ticket}`;
 };
 
 const formatActionDate = (rawDate?: string) => {

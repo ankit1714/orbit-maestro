@@ -33,7 +33,8 @@ import {
   Radio,
   Eye,
   Video,
-  Mail
+  Mail,
+  HelpCircle
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useRole } from '@/lib/roleContext';
@@ -177,72 +178,83 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({ project, onSwitchVie
     loadCalendar();
   }, [project?.id]);
 
-  // Google Login initiation using backend OAuth 2.0 flow with fallback to GIS popup
-  const handleInitiateGoogleOAuth = async () => {
-    setConnectingCalendar(true);
-    try {
-      const redirectUri = window.location.origin + '/oauth/callback';
-      const res = await api.getGoogleOAuthUrl(redirectUri, project?.id);
-      if (res?.client_id_configured && res?.auth_url) {
-        window.location.href = res.auth_url;
-        return;
-      }
-    } catch (err) {
-      console.debug('Direct OAuth URL not available, falling back to GIS / client ID:', err);
-    } finally {
-      setConnectingCalendar(false);
-    }
-
-    // Fallback to GIS popup or configured client ID
+  // 1-Click Google Sign-In & Calendar Sync using Google Identity Services (GIS)
+  const handleConnectGoogle = () => {
     const clientId =
       process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ||
-      (typeof window !== 'undefined' ? localStorage.getItem('gcal_client_id') || '' : '');
-
-    if (!clientId) {
-      const enteredId = window.prompt(
-        'Please enter your Google OAuth 2.0 Web Client ID to sign in:'
-      );
-      if (enteredId && enteredId.trim()) {
-        const trimmed = enteredId.trim();
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('gcal_client_id', trimmed);
-        }
-        initiateGisLogin(trimmed);
-      }
-      return;
-    }
+      (typeof window !== 'undefined' ? localStorage.getItem('gcal_client_id') || '' : '') ||
+      '638799400872-4viurp9q4bvr6oq0q9pb1dsp5s299fdk.apps.googleusercontent.com';
 
     initiateGisLogin(clientId);
   };
 
   const initiateGisLogin = (clientId: string) => {
-    try {
-      const client = (window as any).google?.accounts?.oauth2?.initTokenClient({
-        client_id: clientId,
-        scope: 'https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/drive.readonly',
-        callback: async (resp: any) => {
-          if (resp.access_token) {
-            setCalendarAccessToken(resp.access_token);
-            if (typeof window !== 'undefined') {
-              localStorage.setItem('gcal_access_token', resp.access_token);
-            }
-            const email = calendarEmail || (typeof window !== 'undefined' ? localStorage.getItem('gcal_user_email') || '' : '') || 'user@gmail.com';
-            await api.connectCalendar({
-              user_email: email,
-              access_token: resp.access_token
-            });
-            await loadCalendar(email, resp.access_token);
-            setSuccessFeedback('Successfully authorized Google Calendar with Google Login!');
-            setTimeout(() => setSuccessFeedback(null), 5000);
-          } else if (resp.error) {
-            console.error('Google OAuth error:', resp);
-          }
+    setConnectingCalendar(true);
+
+    const triggerPopup = () => {
+      try {
+        const googleObj = (window as any).google;
+        if (!googleObj?.accounts?.oauth2) {
+          console.warn('Google Identity Services SDK not ready yet, retrying...');
+          setTimeout(triggerPopup, 250);
+          return;
         }
-      });
-      client?.requestAccessToken({ prompt: 'consent' });
-    } catch (e) {
-      console.error('Failed to trigger Google OAuth popup:', e);
-    }
+
+        const client = googleObj.accounts.oauth2.initTokenClient({
+          client_id: clientId,
+          scope: 'https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/drive.readonly email profile',
+          callback: async (resp: any) => {
+            setConnectingCalendar(false);
+            if (resp.access_token) {
+              setCalendarAccessToken(resp.access_token);
+              if (typeof window !== 'undefined') {
+                localStorage.setItem('gcal_access_token', resp.access_token);
+              }
+
+              // Fetch the authenticated user's actual email from Google UserInfo API
+              let userEmail = calendarEmail;
+              try {
+                const uinfo = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+                  headers: { Authorization: `Bearer ${resp.access_token}` }
+                });
+                if (uinfo.ok) {
+                  const udata = await uinfo.json();
+                  if (udata.email) userEmail = udata.email;
+                }
+              } catch (ex) {
+                console.warn('Could not fetch userinfo from Google:', ex);
+              }
+
+              const email = userEmail || 'ankit1714@gmail.com';
+              setCalendarEmail(email);
+              if (typeof window !== 'undefined') {
+                localStorage.setItem('gcal_user_email', email);
+              }
+
+              await api.connectCalendar({
+                user_email: email,
+                access_token: resp.access_token
+              });
+              await loadCalendar(email, resp.access_token);
+              setSuccessFeedback(`Successfully authorized and synced Google Calendar for ${email}!`);
+              setTimeout(() => setSuccessFeedback(null), 5000);
+            } else if (resp.error) {
+              console.error('Google OAuth error:', resp);
+              if (resp.error !== 'popup_closed_by_user') {
+                alert(`Google Login error: ${resp.error_description || resp.error}`);
+              }
+            }
+          }
+        });
+        client.requestAccessToken({ prompt: '' });
+      } catch (e: any) {
+        setConnectingCalendar(false);
+        console.error('Failed to trigger Google OAuth popup:', e);
+        alert(`Failed to launch Google Sign-In: ${e?.message || e}`);
+      }
+    };
+
+    triggerPopup();
   };
 
   // Disconnect Google Calendar
@@ -685,7 +697,7 @@ Product Owner: Approved priority for HM-3 and will unblock API access today.`);
               ) : (
                 <button
                   type="button"
-                  onClick={handleInitiateGoogleOAuth}
+                  onClick={handleConnectGoogle}
                   disabled={connectingCalendar}
                   className="px-4 py-2 rounded-xl bg-white hover:bg-[#f8f9fa] text-[#202124] border border-[#dadce0] text-xs font-semibold flex items-center gap-2 transition shadow-sm hover:shadow"
                 >
@@ -695,7 +707,7 @@ Product Owner: Approved priority for HM-3 and will unblock API access today.`);
                     <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
                     <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
                   </svg>
-                  <span>{connectingCalendar ? 'Connecting...' : 'Google Login'}</span>
+                  <span>{connectingCalendar ? 'Connecting...' : 'Sign in with Google'}</span>
                 </button>
               )}
             </div>
@@ -716,7 +728,8 @@ Product Owner: Approved priority for HM-3 and will unblock API access today.`);
               <div className="flex items-center gap-2 shrink-0">
                 <button
                   type="button"
-                  onClick={handleInitiateGoogleOAuth}
+                  onClick={handleConnectGoogle}
+                  disabled={connectingCalendar}
                   className="px-3.5 py-1.5 rounded-xl bg-white hover:bg-[#f8f9fa] text-[#202124] border border-[#dadce0] font-semibold text-xs transition shadow-sm flex items-center gap-1.5"
                 >
                   <svg className="w-3.5 h-3.5" viewBox="0 0 24 24">
@@ -725,7 +738,7 @@ Product Owner: Approved priority for HM-3 and will unblock API access today.`);
                     <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
                     <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
                   </svg>
-                  <span>Google Login</span>
+                  <span>{connectingCalendar ? 'Connecting...' : 'Sign in with Google'}</span>
                 </button>
               </div>
             </div>
@@ -748,13 +761,13 @@ Product Owner: Approved priority for HM-3 and will unblock API access today.`);
               <p className="text-[11px] text-[#5f6368] max-w-md mx-auto">
                 {calendarConnected
                   ? 'There are no calendar events scheduled in your Google account for the last 14 days or next 14 days.'
-                  : 'Click Google Login above to securely fetch your actual Google Calendar meetings and Gemini-generated notes.'}
+                  : 'Click Sign in with Google above to securely fetch your actual Google Calendar meetings and Gemini-generated notes.'}
               </p>
               {!calendarConnected && (
-                <div className="pt-2">
+                <div className="pt-2 flex items-center justify-center">
                   <button
                     type="button"
-                    onClick={handleInitiateGoogleOAuth}
+                    onClick={handleConnectGoogle}
                     disabled={connectingCalendar}
                     className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white hover:bg-[#f8f9fa] text-[#202124] border border-[#dadce0] text-xs font-semibold shadow-sm transition"
                   >
@@ -764,7 +777,7 @@ Product Owner: Approved priority for HM-3 and will unblock API access today.`);
                       <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
                       <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
                     </svg>
-                    <span>{connectingCalendar ? 'Connecting...' : 'Google Login'}</span>
+                    <span>{connectingCalendar ? 'Connecting...' : 'Sign in with Google'}</span>
                   </button>
                 </div>
               )}
@@ -1678,3 +1691,4 @@ Product Owner: Approved priority for HM-3 and will unblock API access today.`);
     </div>
   );
 };
+

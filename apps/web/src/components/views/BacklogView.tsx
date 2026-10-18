@@ -32,6 +32,54 @@ export const BacklogView: React.FC<BacklogViewProps> = ({
   const [jiraSyncResult, setJiraSyncResult] = useState<any>(null);
   const [jiraError, setJiraError] = useState<string | null>(null);
 
+  // Track collapsed status for Epics and Stories (default is expanded)
+  const [collapsedEpics, setCollapsedEpics] = useState<Set<string>>(new Set());
+  const [collapsedStories, setCollapsedStories] = useState<Set<string>>(new Set());
+
+  const toggleEpic = (epicKey: string) => {
+    setCollapsedEpics((prev) => {
+      const next = new Set(prev);
+      if (next.has(epicKey)) {
+        next.delete(epicKey);
+      } else {
+        next.add(epicKey);
+      }
+      return next;
+    });
+  };
+
+  const toggleStory = (storyKey: string) => {
+    setCollapsedStories((prev) => {
+      const next = new Set(prev);
+      if (next.has(storyKey)) {
+        next.delete(storyKey);
+      } else {
+        next.add(storyKey);
+      }
+      return next;
+    });
+  };
+
+  const expandAll = () => {
+    setCollapsedEpics(new Set());
+    setCollapsedStories(new Set());
+  };
+
+  const collapseAll = () => {
+    const allEpicKeys = new Set<string>();
+    const allStoryKeys = new Set<string>();
+    epics.forEach((e: any) => {
+      const eKey = e.key || e.id;
+      if (eKey) allEpicKeys.add(eKey);
+      (e.stories || []).forEach((s: any) => {
+        const sKey = s.key || s.id;
+        if (sKey) allStoryKeys.add(sKey);
+      });
+    });
+    setCollapsedEpics(allEpicKeys);
+    setCollapsedStories(allStoryKeys);
+  };
+
   useEffect(() => {
     const inst = project?.jira_project_link || project?.jira_settings?.instance_url || 'https://the-ai-scrum-master.atlassian.net';
     const key = project?.jira_settings?.project_key || project?.key || "SCRUM";
@@ -268,6 +316,32 @@ export const BacklogView: React.FC<BacklogViewProps> = ({
 
       {hasBacklog ? (
         <div className="rounded-2xl border border-[#dadce0] bg-white overflow-hidden shadow-sm">
+          {/* Table Controls Bar */}
+          <div className="flex items-center justify-between px-4 py-2.5 bg-[#f8f9fa] border-b border-[#dadce0]">
+            <div className="flex items-center gap-2 text-xs font-semibold text-[#5f6368]">
+              <span>Backlog Breakdown:</span>
+              <span className="font-mono text-[11px] text-[#3c4043]">
+                {epics.length} Epics • {backlog?.total_stories || 0} Stories • {backlog?.total_tasks || 0} Subtasks
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={expandAll}
+                className="px-2.5 py-1 rounded-lg border border-[#dadce0] bg-white hover:bg-[#f1f3f4] text-[#3c4043] font-medium text-[11px] transition shadow-sm"
+                title="Expand all Epics and Stories"
+              >
+                Expand All
+              </button>
+              <button
+                onClick={collapseAll}
+                className="px-2.5 py-1 rounded-lg border border-[#dadce0] bg-white hover:bg-[#f1f3f4] text-[#3c4043] font-medium text-[11px] transition shadow-sm"
+                title="Collapse all Epics and Stories"
+              >
+                Collapse All
+              </button>
+            </div>
+          </div>
+
           <div className="grid grid-cols-12 bg-[#f8f9fa] px-4 py-3 text-[11px] font-semibold text-[#5f6368] uppercase tracking-wider font-mono border-b border-[#dadce0]">
             <div className="col-span-1">Key</div>
             <div className="col-span-3">Item Title & Hierarchy</div>
@@ -279,168 +353,211 @@ export const BacklogView: React.FC<BacklogViewProps> = ({
           </div>
 
           <div className="divide-y divide-[#f1f3f4] text-xs">
-            {epics.map((epic: any) => (
-              <React.Fragment key={epic.id || epic.key}>
-                {/* EPIC ROW */}
-                <div className="grid grid-cols-12 px-4 py-3 bg-[#f8f9fa]/80 items-center font-medium border-t border-[#dadce0]">
-                  <div className="col-span-1 font-mono text-[#1a73e8] font-bold flex items-center gap-1">
-                    {isJiraKey(epic.key) ? (
-                      <a
-                        href={getJiraBrowseUrl(epic.key, project)}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="hover:underline flex items-center gap-0.5 text-[#1a73e8] font-bold"
-                        title="View Epic in Jira"
-                      >
-                        <span>{epic.key}</span>
-                        <ExternalLink className="w-2.5 h-2.5" />
-                      </a>
-                    ) : (
-                      epic.key
-                    )}
-                  </div>
-                  <div className="col-span-3 flex items-center space-x-2 text-[#202124] font-bold">
-                    <ChevronDown className="w-3.5 h-3.5 text-[#5f6368] shrink-0" />
-                    <Layers className="w-4 h-4 text-[#7b1fa2] shrink-0" />
-                    <span className="truncate">{epic.title}</span>
-                  </div>
-                  <div className="col-span-2 text-[#5f6368] text-[11px]">Sprint Core Team</div>
-                  <div className="col-span-1 font-mono text-[#202124] font-semibold">{epic.total_points || 0} pts</div>
-                  <div className="col-span-2 text-[#5f6368] font-mono text-[11px] flex items-center gap-1">
-                    <Calendar className="w-3 h-3 text-[#80868b]" />
-                    <span>{formatDate(epic.created_at)}</span>
-                  </div>
-                  <div className="col-span-2 text-[#5f6368] font-mono text-[11px] flex items-center gap-1">
-                    <Clock className="w-3 h-3 text-[#80868b]" />
-                    <span>{formatDate(epic.updated_at)}</span>
-                  </div>
-                  <div className="col-span-1 text-right">
-                    <span className="px-2 py-0.5 rounded-full bg-[#f3e8fd] text-[#7b1fa2] border border-[#e1bee7] text-[10px] font-mono font-medium">
-                      {epic.status || "Active"}
-                    </span>
-                  </div>
-                </div>
+            {epics.map((epic: any) => {
+              const epicKey = epic.key || epic.id;
+              const isEpicExpanded = !collapsedEpics.has(epicKey);
 
-                {/* USER STORIES */}
-                {epic.stories?.map((story: any) => (
-                  <React.Fragment key={story.id || story.key}>
-                    <div className="grid grid-cols-12 px-4 py-2.5 bg-white items-center hover:bg-[#f8f9fa] transition">
-                      <div className="col-span-1 font-mono text-[#5f6368] pl-4 flex items-center gap-1">
-                        {isJiraKey(story.key) ? (
-                          <a
-                            href={getJiraBrowseUrl(story.key, project)}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="hover:underline flex items-center gap-0.5 text-[#1a73e8] font-semibold"
-                            title="View Story in Jira"
-                          >
-                            <span>{story.key}</span>
-                            <ExternalLink className="w-2.5 h-2.5" />
-                          </a>
-                        ) : (
-                          story.key
-                        )}
-                      </div>
-                      <div className="col-span-3 flex items-center space-x-2 text-[#202124] pl-4">
-                        <Bookmark className="w-3.5 h-3.5 text-[#1a73e8] shrink-0" />
-                        <span className="truncate font-medium">{story.title}</span>
-                      </div>
-                      <div className="col-span-2 flex items-center gap-1.5">
-                        <span className="w-5 h-5 rounded-full bg-[#1a73e8] text-[9px] font-bold flex items-center justify-center text-white shrink-0">
-                          {(story.assignee_name || "DEV").substring(0, 2).toUpperCase()}
-                        </span>
-                        <span className="text-[#202124] text-[11px] truncate">{story.assignee_name || "Unassigned"}</span>
-                        <span className="text-[9px] bg-[#e6f4ea] text-[#137333] border border-[#ceead6] px-1.5 py-0.2 rounded font-mono shrink-0 font-medium" title={story.skill_match_rationale || "AI Skill-Matched assignment"}>
-                          {story.skill_match_percentage || 94}% match
-                        </span>
-                      </div>
-                      <div className="col-span-1 font-mono text-[#5f6368]">{story.story_points || 5} pts</div>
-                      <div className="col-span-2 text-[#5f6368] font-mono text-[11px]">
-                        {formatDate(story.created_at)}
-                      </div>
-                      <div className="col-span-2 text-[#5f6368] font-mono text-[11px]">
-                        {formatDate(story.updated_at)}
-                      </div>
-                      <div className="col-span-1 text-right">
-                        <span className="px-2 py-0.5 rounded-full bg-[#fef7e0] text-[#b06000] border border-[#feefc3] text-[10px] font-mono font-medium">
-                          {story.status || "To Do"}
-                        </span>
-                      </div>
+              return (
+                <React.Fragment key={epic.id || epic.key}>
+                  {/* EPIC ROW */}
+                  <div
+                    onClick={() => toggleEpic(epicKey)}
+                    className="grid grid-cols-12 px-4 py-3 bg-[#f8f9fa] items-center font-medium border-t border-[#dadce0] hover:bg-[#f1f3f4] cursor-pointer transition select-none group"
+                  >
+                    <div className="col-span-1 font-mono text-[#1a73e8] font-bold flex items-center gap-1">
+                      {isJiraKey(epic.key) ? (
+                        <a
+                          href={getJiraBrowseUrl(epic.key, project)}
+                          target="_blank"
+                          rel="noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="hover:underline flex items-center gap-0.5 text-[#1a73e8] font-bold"
+                          title="View Epic in Jira"
+                        >
+                          <span>{epic.key}</span>
+                          <ExternalLink className="w-2.5 h-2.5" />
+                        </a>
+                      ) : (
+                        epic.key
+                      )}
                     </div>
+                    <div className="col-span-3 flex items-center space-x-2 text-[#202124] font-bold">
+                      <ChevronDown
+                        className={`w-3.5 h-3.5 text-[#5f6368] shrink-0 transition-transform duration-200 ${
+                          isEpicExpanded ? 'transform rotate-0' : 'transform -rotate-90'
+                        }`}
+                      />
+                      <Layers className="w-4 h-4 text-[#7b1fa2] shrink-0" />
+                      <span className="truncate">{epic.title}</span>
+                      <span className="text-[10px] font-normal text-[#5f6368] font-mono shrink-0">
+                        ({epic.stories?.length || 0})
+                      </span>
+                    </div>
+                    <div className="col-span-2 text-[#5f6368] text-[11px]">Sprint Core Team</div>
+                    <div className="col-span-1 font-mono text-[#202124] font-semibold">{epic.total_points || 0} pts</div>
+                    <div className="col-span-2 text-[#5f6368] font-mono text-[11px] flex items-center gap-1">
+                      <Calendar className="w-3 h-3 text-[#80868b]" />
+                      <span>{formatDate(epic.created_at)}</span>
+                    </div>
+                    <div className="col-span-2 text-[#5f6368] font-mono text-[11px] flex items-center gap-1">
+                      <Clock className="w-3 h-3 text-[#80868b]" />
+                      <span>{formatDate(epic.updated_at)}</span>
+                    </div>
+                    <div className="col-span-1 text-right">
+                      <span className="px-2 py-0.5 rounded-full bg-[#f3e8fd] text-[#7b1fa2] border border-[#e1bee7] text-[10px] font-mono font-medium">
+                        {epic.status || "Active"}
+                      </span>
+                    </div>
+                  </div>
 
-                    {/* SUBTASKS */}
-                    {story.tasks?.map((task: any) => {
-                      const isBlocked = task.status === "BLOCKED" || task.is_blocked;
-                      return (
+                  {/* USER STORIES */}
+                  {isEpicExpanded && epic.stories?.map((story: any) => {
+                    const storyKey = story.key || story.id;
+                    const hasTasks = story.tasks && story.tasks.length > 0;
+                    const isStoryExpanded = !collapsedStories.has(storyKey);
+
+                    return (
+                      <React.Fragment key={story.id || story.key}>
                         <div
-                          key={task.id || task.key}
-                          className={`grid grid-cols-12 px-4 py-2 items-center text-[11px] transition ${
-                            isBlocked ? 'bg-[#fce8e6]/30 hover:bg-[#fce8e6]/50 border-l-2 border-[#c5221f]' : 'bg-[#fafafa] hover:bg-[#f1f3f4]'
+                          onClick={() => hasTasks ? toggleStory(storyKey) : undefined}
+                          className={`grid grid-cols-12 px-4 py-2.5 bg-white items-center hover:bg-[#f8f9fa] transition ${
+                            hasTasks ? 'cursor-pointer select-none' : ''
                           }`}
                         >
-                          <div className={`col-span-1 font-mono pl-8 flex items-center gap-1 ${isBlocked ? 'text-[#c5221f]' : 'text-[#80868b]'}`}>
-                            {isJiraKey(task.key) ? (
+                          <div className="col-span-1 font-mono text-[#5f6368] pl-4 flex items-center gap-1">
+                            {isJiraKey(story.key) ? (
                               <a
-                                href={getJiraBrowseUrl(task.key, project)}
+                                href={getJiraBrowseUrl(story.key, project)}
                                 target="_blank"
                                 rel="noreferrer"
+                                onClick={(e) => e.stopPropagation()}
                                 className="hover:underline flex items-center gap-0.5 text-[#1a73e8] font-semibold"
-                                title="View Subtask in Jira"
+                                title="View Story in Jira"
                               >
-                                <span>{task.key}</span>
+                                <span>{story.key}</span>
                                 <ExternalLink className="w-2.5 h-2.5" />
                               </a>
                             ) : (
-                              task.key
+                              story.key
                             )}
                           </div>
-                          <div className="col-span-3 flex items-center space-x-2 text-[#3c4043] pl-8">
-                            {isBlocked ? (
-                              <AlertCircle className="w-3.5 h-3.5 text-[#c5221f] shrink-0" />
-                            ) : task.task_type === "QA" ? (
-                              <TestTube className="w-3.5 h-3.5 text-[#007b83] shrink-0" />
+                          <div className="col-span-3 flex items-center space-x-2 text-[#202124] pl-4">
+                            {hasTasks ? (
+                              <ChevronDown
+                                className={`w-3.5 h-3.5 text-[#5f6368] shrink-0 transition-transform duration-200 ${
+                                  isStoryExpanded ? 'transform rotate-0' : 'transform -rotate-90'
+                                }`}
+                              />
                             ) : (
-                              <CheckSquare className="w-3.5 h-3.5 text-[#137333] shrink-0" />
+                              <span className="w-3.5 h-3.5 inline-block shrink-0" />
                             )}
-                            <span className={`truncate ${isBlocked ? 'text-[#c5221f] font-semibold' : ''}`}>{task.title}</span>
-                          </div>
-                          <div className="col-span-2 text-[#5f6368] truncate flex items-center gap-1.5">
-                            <span className="truncate">{task.assignee_name || "Unassigned"}</span>
-                            {task.assignee_name && task.assignee_name !== "Unassigned" && (
-                              <span className="text-[9px] bg-[#e6f4ea] text-[#137333] border border-[#ceead6] px-1 rounded font-mono shrink-0 font-medium" title={task.skill_match_rationale || "AI Skill-Matched"}>
-                                {task.skill_match_percentage || 92}%
+                            <Bookmark className="w-3.5 h-3.5 text-[#1a73e8] shrink-0" />
+                            <span className="truncate font-medium">{story.title}</span>
+                            {hasTasks && (
+                              <span className="text-[10px] text-[#80868b] font-mono shrink-0">
+                                ({story.tasks.length})
                               </span>
                             )}
                           </div>
-                          <div className="col-span-1 font-mono text-[#5f6368]">{task.effort_days || 1.5} d</div>
+                          <div className="col-span-2 flex items-center gap-1.5">
+                            <span className="w-5 h-5 rounded-full bg-[#1a73e8] text-[9px] font-bold flex items-center justify-center text-white shrink-0">
+                              {(story.assignee_name || "DEV").substring(0, 2).toUpperCase()}
+                            </span>
+                            <span className="text-[#202124] text-[11px] truncate">{story.assignee_name || "Unassigned"}</span>
+                            <span className="text-[9px] bg-[#e6f4ea] text-[#137333] border border-[#ceead6] px-1.5 py-0.2 rounded font-mono shrink-0 font-medium" title={story.skill_match_rationale || "AI Skill-Matched assignment"}>
+                              {story.skill_match_percentage || 94}% match
+                            </span>
+                          </div>
+                          <div className="col-span-1 font-mono text-[#5f6368]">{story.story_points || 5} pts</div>
                           <div className="col-span-2 text-[#5f6368] font-mono text-[11px]">
-                            {formatDate(task.created_at)}
+                            {formatDate(story.created_at)}
                           </div>
                           <div className="col-span-2 text-[#5f6368] font-mono text-[11px]">
-                            {formatDate(task.updated_at)}
+                            {formatDate(story.updated_at)}
                           </div>
                           <div className="col-span-1 text-right">
-                            <span
-                              className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-medium ${
-                                isBlocked
-                                  ? 'bg-[#fce8e6] text-[#c5221f] border border-[#fad2cf] font-bold'
-                                  : task.status === "DONE" || task.status === "Done"
-                                  ? 'bg-[#e6f4ea] text-[#137333] border border-[#ceead6]'
-                                  : task.status === "In Progress"
-                                  ? 'bg-[#e8f0fe] text-[#1967d2] border border-[#d2e3fc]'
-                                  : 'bg-[#f1f3f4] text-[#5f6368] border border-[#dadce0]'
-                              }`}
-                            >
-                              {task.status || "To Do"}
+                            <span className="px-2 py-0.5 rounded-full bg-[#fef7e0] text-[#b06000] border border-[#feefc3] text-[10px] font-mono font-medium">
+                              {story.status || "To Do"}
                             </span>
                           </div>
                         </div>
-                      );
-                    })}
-                  </React.Fragment>
-                ))}
-              </React.Fragment>
-            ))}
+
+                        {/* SUBTASKS */}
+                        {isStoryExpanded && story.tasks?.map((task: any) => {
+                          const isBlocked = task.status === "BLOCKED" || task.is_blocked;
+                          return (
+                            <div
+                              key={task.id || task.key}
+                              className={`grid grid-cols-12 px-4 py-2 items-center text-[11px] transition ${
+                                isBlocked ? 'bg-[#fce8e6]/30 hover:bg-[#fce8e6]/50 border-l-2 border-[#c5221f]' : 'bg-[#fafafa] hover:bg-[#f1f3f4]'
+                              }`}
+                            >
+                              <div className={`col-span-1 font-mono pl-8 flex items-center gap-1 ${isBlocked ? 'text-[#c5221f]' : 'text-[#80868b]'}`}>
+                                {isJiraKey(task.key) ? (
+                                  <a
+                                    href={getJiraBrowseUrl(task.key, project)}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="hover:underline flex items-center gap-0.5 text-[#1a73e8] font-semibold"
+                                    title="View Subtask in Jira"
+                                  >
+                                    <span>{task.key}</span>
+                                    <ExternalLink className="w-2.5 h-2.5" />
+                                  </a>
+                                ) : (
+                                  task.key
+                                )}
+                              </div>
+                              <div className="col-span-3 flex items-center space-x-2 text-[#3c4043] pl-8">
+                                {isBlocked ? (
+                                  <AlertCircle className="w-3.5 h-3.5 text-[#c5221f] shrink-0" />
+                                ) : task.task_type === "QA" ? (
+                                  <TestTube className="w-3.5 h-3.5 text-[#007b83] shrink-0" />
+                                ) : (
+                                  <CheckSquare className="w-3.5 h-3.5 text-[#137333] shrink-0" />
+                                )}
+                                <span className={`truncate ${isBlocked ? 'text-[#c5221f] font-semibold' : ''}`}>{task.title}</span>
+                              </div>
+                              <div className="col-span-2 text-[#5f6368] truncate flex items-center gap-1.5">
+                                <span className="truncate">{task.assignee_name || "Unassigned"}</span>
+                                {task.assignee_name && task.assignee_name !== "Unassigned" && (
+                                  <span className="text-[9px] bg-[#e6f4ea] text-[#137333] border border-[#ceead6] px-1 rounded font-mono shrink-0 font-medium" title={task.skill_match_rationale || "AI Skill-Matched"}>
+                                    {task.skill_match_percentage || 92}%
+                                  </span>
+                                )}
+                              </div>
+                              <div className="col-span-1 font-mono text-[#5f6368]">{task.effort_days || 1.5} d</div>
+                              <div className="col-span-2 text-[#5f6368] font-mono text-[11px]">
+                                {formatDate(task.created_at)}
+                              </div>
+                              <div className="col-span-2 text-[#5f6368] font-mono text-[11px]">
+                                {formatDate(task.updated_at)}
+                              </div>
+                              <div className="col-span-1 text-right">
+                                <span
+                                  className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-medium ${
+                                    isBlocked
+                                      ? 'bg-[#fce8e6] text-[#c5221f] border border-[#fad2cf] font-bold'
+                                      : task.status === "DONE" || task.status === "Done"
+                                      ? 'bg-[#e6f4ea] text-[#137333] border border-[#ceead6]'
+                                      : task.status === "In Progress"
+                                      ? 'bg-[#e8f0fe] text-[#1967d2] border border-[#d2e3fc]'
+                                      : 'bg-[#f1f3f4] text-[#5f6368] border border-[#dadce0]'
+                                  }`}
+                                >
+                                  {task.status || "To Do"}
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </React.Fragment>
+                    );
+                  })}
+                </React.Fragment>
+              );
+            })}
           </div>
         </div>
       ) : (

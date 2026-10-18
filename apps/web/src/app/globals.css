@@ -94,3 +94,62 @@ body {
   border: 1px solid rgba(218, 220, 224, 0.8);
   box-shadow: 0 1px 3px rgba(60, 64, 67, 0.15);
 }
+
+/* Gemini Animated Color Flow & Background Activity */
+@keyframes gemini-gradient-shift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes gemini-glow-pulse {
+  0% {
+    box-shadow: 0 0 12px rgba(26, 115, 232, 0.45), 0 0 24px rgba(147, 51, 234, 0.3);
+  }
+  100% {
+    box-shadow: 0 0 22px rgba(236, 72, 153, 0.6), 0 0 35px rgba(26, 115, 232, 0.45);
+  }
+}
+
+@keyframes gemini-bar-slide {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.gemini-gradient-flow {
+  background: linear-gradient(135deg, #1a73e8 0%, #8b5cf6 25%, #ec4899 50%, #f59e0b 75%, #06b6d4 100%);
+  background-size: 300% 300%;
+  animation: gemini-gradient-shift 3.5s ease infinite;
+}
+
+.gemini-ambient-glow {
+  animation: gemini-glow-pulse 2.2s ease-in-out infinite alternate;
+}
+
+.gemini-shimmer-bar {
+  position: relative;
+  overflow: hidden;
+}
+
+.gemini-shimmer-bar::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+  animation: gemini-bar-slide 2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  pointer-events: none;
+}
+

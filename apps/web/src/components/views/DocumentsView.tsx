@@ -32,7 +32,9 @@ import {
   Search,
   Bot,
   CornerDownLeft,
-  Eye
+  Eye,
+  Edit2,
+  RotateCcw
 } from 'lucide-react';
 import { api, getJiraBoardUrl } from '@/lib/api';
 import { useRole } from '@/lib/roleContext';
@@ -66,6 +68,11 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
   const [ingesting, setIngesting] = useState(false);
   const [ingestStatus, setIngestStatus] = useState<string | null>(null);
   const [selectedConfluencePageId, setSelectedConfluencePageId] = useState<string>('all');
+
+  // Open Questions Human Override State
+  const [editingQuestionId, setEditingQuestionId] = useState<string | null>(null);
+  const [overrideAnswers, setOverrideAnswers] = useState<Record<string, string>>({});
+  const [resolvingQuestionId, setResolvingQuestionId] = useState<string | null>(null);
 
   // Confluence Modal / Form State
   const [showAddConfluenceModal, setShowAddConfluenceModal] = useState(false);
@@ -328,13 +335,18 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
   // Requirement Ingestion & Ambiguity Handlers
   const handleResolve = async (questionId: string, answer: string) => {
     if (!can('canResolveQuestions')) return;
+    setResolvingQuestionId(questionId);
     try {
       await api.resolveQuestion(questionId, answer, profile.name);
       setResolved((prev) => ({ ...prev, [questionId]: answer }));
+      setEditingQuestionId(null);
       onRefresh();
     } catch (e) {
       setResolved((prev) => ({ ...prev, [questionId]: answer }));
+      setEditingQuestionId(null);
       onRefresh();
+    } finally {
+      setResolvingQuestionId(null);
     }
   };
 
@@ -407,10 +419,9 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
     }
 
     setIngesting(true);
-    setIngestStatus("Step 1: Reading Confluence architecture pages & extracting clauses with Gemini...");
+    setIngestStatus("Step 1: Reading Confluence architecture pages & decomposing requirements with Gemini...");
 
     try {
-      setIngestStatus("Step 2: 3-Agent Pipeline generating Epics, Gherkin Stories & Fibonacci Points...");
       await api.ingestPRD({
         project_id: currentProject.id,
         file_name: `${title}.md`,
@@ -694,7 +705,15 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         
         {/* CONFLUENCE DOCUMENTATION DIRECTORY */}
-        <div className="p-5 rounded-2xl border border-[#dadce0] bg-white shadow-sm space-y-3 flex flex-col">
+        <div className={`p-5 rounded-2xl border bg-white shadow-sm space-y-3 flex flex-col relative overflow-hidden transition-all duration-300 ${
+          ingesting
+            ? 'border-[#8b5cf6]/60 shadow-[0_4px_24px_rgba(139,92,246,0.18)] ring-1 ring-[#8b5cf6]/30'
+            : 'border-[#dadce0]'
+        }`}>
+          {ingesting && (
+            <div className="absolute top-0 left-0 right-0 h-1 gemini-gradient-flow shadow-sm z-10" />
+          )}
+
           <div className="flex items-center justify-between pb-2 border-b border-[#dadce0]">
             <div className="flex items-center gap-2">
               <BookOpen className="w-4 h-4 text-[#9334e6]" />
@@ -765,11 +784,15 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
                     <button
                       onClick={() => handleIngestConfluence(page.id)}
                       disabled={!can('canIngestPRD') || ingesting}
-                      className="px-2 py-1 rounded-lg bg-[#e8f0fe] hover:bg-[#d2e3fc] text-[#1a73e8] border border-[#d2e3fc] text-[11px] font-semibold flex items-center gap-1 transition shadow-2xs"
+                      className={`px-2 py-1 rounded-lg border text-[11px] font-semibold flex items-center gap-1 transition shadow-2xs ${
+                        ingesting
+                          ? 'bg-[#f3e8fd] text-[#7b1fa2] border-[#e9d5ff] cursor-wait'
+                          : 'bg-[#e8f0fe] hover:bg-[#d2e3fc] text-[#1a73e8] border-[#d2e3fc]'
+                      }`}
                       title="Ingest & Run AI Understanding on this Confluence page"
                     >
-                      <Sparkles className="w-3 h-3 text-[#1a73e8]" />
-                      <span className="hidden sm:inline">Ingest</span>
+                      <Sparkles className={`w-3 h-3 ${ingesting ? 'animate-spin text-[#9334e6]' : 'text-[#1a73e8]'}`} />
+                      <span className="hidden sm:inline">{ingesting ? "Analyzing..." : "Ingest"}</span>
                     </button>
 
                     {page.content && (
@@ -840,6 +863,7 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
                 <select
                   value={selectedConfluencePageId}
                   onChange={(e) => setSelectedConfluencePageId(e.target.value)}
+                  disabled={ingesting}
                   className="bg-[#f8f9fa] border border-[#dadce0] rounded-lg px-2.5 py-1 text-xs text-[#202124] focus:outline-none focus:border-[#1a73e8]"
                 >
                   <option value="all">All Linked Pages ({confluencePages.length})</option>
@@ -848,23 +872,55 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
                   ))}
                 </select>
               )}
-              <span className="text-[11px] text-[#5f6368] font-mono truncate">
-                {ingestStatus || (confluencePages.length > 0 ? `${confluencePages.length} Confluence link(s) attached` : 'Attach a Confluence link above to run AI Understanding')}
-              </span>
+              {ingesting ? (
+                <div className="flex items-center gap-2 px-2.5 py-1 rounded-lg bg-gradient-to-r from-[#e8f0fe] via-[#f3e8fd] to-[#fce8e6] border border-[#d2e3fc] animate-pulse max-w-full min-w-0">
+                  <div className="w-2 h-2 rounded-full gemini-gradient-flow animate-ping shrink-0" />
+                  <span className="text-[11px] font-medium text-[#1a73e8] font-mono truncate">
+                    {ingestStatus || "Gemini 3 Flash analyzing architecture specs in background..."}
+                  </span>
+                </div>
+              ) : (
+                <span className="text-[11px] text-[#5f6368] font-mono truncate">
+                  {ingestStatus || (confluencePages.length > 0 ? `${confluencePages.length} Confluence link(s) attached` : 'Attach a Confluence link above to run AI Understanding')}
+                </span>
+              )}
             </div>
 
             <button
               onClick={() => handleIngestConfluence()}
               disabled={!can('canIngestPRD') || ingesting || confluencePages.length === 0}
               title={!can('canIngestPRD') ? "Restricted: Scrum Master or Admin permission required" : confluencePages.length === 0 ? "Attach a Confluence page link first" : ""}
-              className={`px-3.5 py-2 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm transition shrink-0 ${
-                !can('canIngestPRD') || ingesting || confluencePages.length === 0
+              className={`px-4 py-2 rounded-xl font-bold text-xs flex items-center justify-center gap-2 shadow-sm transition-all duration-300 shrink-0 ${
+                ingesting
+                  ? 'gemini-gradient-flow gemini-ambient-glow gemini-shimmer-bar text-white border-0 shadow-lg cursor-wait scale-[1.02]'
+                  : !can('canIngestPRD') || confluencePages.length === 0
                   ? 'bg-[#f1f3f4] text-[#80868b] border border-[#dadce0] cursor-not-allowed'
                   : 'bg-[#1a73e8] hover:bg-[#1557b0] text-white shadow-sm'
               }`}
             >
-              {!can('canIngestPRD') ? <Lock className="w-3.5 h-3.5" /> : <Sparkles className="w-3.5 h-3.5" />}
-              <span>{ingesting ? "Analyzing with Gemini..." : !can('canIngestPRD') ? "Ingest (SM Only)" : "Ingest & Run AI Understanding"}</span>
+              {ingesting ? (
+                <>
+                  <Sparkles className="w-3.5 h-3.5 animate-spin text-white drop-shadow" />
+                  <span className="flex items-center gap-1.5 font-semibold text-white drop-shadow-sm tracking-wide">
+                    Analyzing with Gemini...
+                    <span className="inline-flex gap-0.5 ml-0.5 items-center">
+                      <span className="w-1 h-1 rounded-full bg-white animate-bounce" style={{ animationDelay: '0ms' }} />
+                      <span className="w-1 h-1 rounded-full bg-white animate-bounce" style={{ animationDelay: '150ms' }} />
+                      <span className="w-1 h-1 rounded-full bg-white animate-bounce" style={{ animationDelay: '300ms' }} />
+                    </span>
+                  </span>
+                </>
+              ) : !can('canIngestPRD') ? (
+                <>
+                  <Lock className="w-3.5 h-3.5" />
+                  <span>Ingest (SM Only)</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>Ingest & Run AI Understanding</span>
+                </>
+              )}
             </button>
           </div>
         </div>
@@ -1131,48 +1187,254 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
                 Open Questions Requiring Human Input ({questions?.length || 0})
               </h3>
             </div>
+            {hasQuestions && (
+              <span className="text-[10px] text-[#5f6368] font-mono">
+                {questions.filter((q: any) => q.resolved || resolved[q.id]).length}/{questions.length} Resolved
+              </span>
+            )}
           </div>
 
           <div className="space-y-3 overflow-y-auto flex-1 pr-1">
             {hasQuestions ? (
               questions.map((q: any) => {
-                const isResolved = q.resolved || resolved[q.id];
+                const isResolved = Boolean(q.resolved || resolved[q.id]);
+                const currentAnswer = resolved[q.id] || q.resolved_answer;
+                const isEditing = editingQuestionId === q.id;
+                const draftAnswer = overrideAnswers[q.id] !== undefined
+                  ? overrideAnswers[q.id]
+                  : (currentAnswer || q.ai_suggested_answer || '');
+
                 return (
-                  <div key={q.id} className="p-3.5 rounded-xl bg-[#f8f9fa] border border-[#dadce0] space-y-2 shadow-2xs">
-                    <div className="flex items-start justify-between">
-                      <span className="text-xs font-semibold text-[#202124]">{q.question}</span>
-                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[#fce8e6] text-[#c5221f] border border-[#fad2cf] font-medium">
-                        {q.priority || "HIGH"}
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-[#5f6368]">
-                      <strong className="text-[#202124]">Why needed:</strong> {q.why_needed}
-                    </p>
-                    <div className="p-2.5 rounded-lg bg-[#e8f0fe] border border-[#d2e3fc] text-[11px] text-[#1967d2]">
-                      <strong>AI Suggestion:</strong> {q.ai_suggested_answer}
-                    </div>
-                    <div className="flex items-center justify-end space-x-2 pt-1">
-                      {isResolved ? (
-                        <span className="text-xs text-[#137333] font-mono font-bold flex items-center gap-1">
-                          <Check className="w-3.5 h-3.5" /> Resolved: {resolved[q.id] || q.resolved_answer}
-                        </span>
-                      ) : can('canResolveQuestions') ? (
-                        <button
-                          onClick={() => handleResolve(q.id, q.ai_suggested_answer)}
-                          className="px-2.5 py-1 text-xs rounded-lg bg-[#1a73e8] hover:bg-[#1557b0] text-white font-medium transition shadow-sm"
-                        >
-                          Accept Suggestion
-                        </button>
-                      ) : (
-                        <div
-                          className="flex items-center gap-1 px-2.5 py-1 text-xs rounded-lg bg-[#f1f3f4] border border-[#dadce0] text-[#80868b] cursor-not-allowed"
-                          title="Ambiguity resolution requires Scrum Master or Admin"
-                        >
-                          <Lock className="w-3 h-3 text-[#80868b]" />
-                          <span>Resolve (SM Only)</span>
+                  <div key={q.id} className="p-3.5 rounded-xl bg-[#f8f9fa] border border-[#dadce0] space-y-2.5 shadow-2xs">
+                    {/* Header: Section ref, Question title, Priority badge */}
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {q.section_ref && (
+                            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white text-[#5f6368] border border-[#dadce0] font-medium">
+                              {q.section_ref}
+                            </span>
+                          )}
+                          <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded border font-medium ${
+                            (q.priority || "HIGH") === "HIGH"
+                              ? "bg-[#fce8e6] text-[#c5221f] border-[#fad2cf]"
+                              : (q.priority === "MEDIUM" ? "bg-[#fef7e0] text-[#b06000] border-[#feefc3]" : "bg-[#e8f0fe] text-[#1967d2] border-[#d2e3fc]")
+                          }`}>
+                            {q.priority || "HIGH"}
+                          </span>
+                          {isResolved && (
+                            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[#e6f4ea] text-[#137333] border border-[#ceead6] font-semibold flex items-center gap-1">
+                              <Check className="w-3 h-3" /> Resolved
+                            </span>
+                          )}
                         </div>
-                      )}
+                        <h4 className="text-xs font-semibold text-[#202124] leading-snug">{q.question}</h4>
+                      </div>
                     </div>
+
+                    {/* Context info: Why needed and Impact */}
+                    {q.why_needed && (
+                      <p className="text-[11px] text-[#5f6368] leading-relaxed">
+                        <strong className="text-[#202124]">Why needed:</strong> {q.why_needed}
+                      </p>
+                    )}
+                    {q.delivery_impact && (
+                      <p className="text-[11px] text-[#5f6368] leading-relaxed">
+                        <strong className="text-[#202124]">Impact:</strong> {q.delivery_impact}
+                      </p>
+                    )}
+
+                    {/* EDITING / OVERRIDE MODE */}
+                    {isEditing ? (
+                      <div className="p-3 rounded-xl bg-white border-2 border-[#1a73e8] space-y-2.5 shadow-sm">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1.5 text-xs font-bold text-[#1a73e8]">
+                            <Edit2 className="w-3.5 h-3.5" />
+                            <span>Edit &amp; Override AI Suggestion</span>
+                          </div>
+                          {q.ai_suggested_answer && (
+                            <button
+                              type="button"
+                              onClick={() => setOverrideAnswers((prev) => ({ ...prev, [q.id]: q.ai_suggested_answer }))}
+                              className="text-[10px] text-[#1a73e8] hover:underline font-medium flex items-center gap-1"
+                              title="Reset to original AI suggestion"
+                            >
+                              <RotateCcw className="w-3 h-3" />
+                              <span>Reset to AI Suggestion</span>
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Reference Original AI Suggestion */}
+                        <div className="text-[11px] text-[#5f6368] bg-[#f8f9fa] p-2 rounded-lg border border-[#dadce0] space-y-0.5">
+                          <div className="flex items-center gap-1 text-[10px] font-bold text-[#3c4043] uppercase tracking-wider">
+                            <Sparkles className="w-3 h-3 text-[#1a73e8]" />
+                            <span>Original AI Suggestion:</span>
+                          </div>
+                          <p className="text-[#3c4043]">{q.ai_suggested_answer}</p>
+                        </div>
+
+                        {/* Preset options if available */}
+                        {Array.isArray(q.options) && q.options.length > 0 && (
+                          <div className="space-y-1">
+                            <span className="text-[10px] font-semibold text-[#5f6368] uppercase tracking-wider block">
+                              Suggested Presets:
+                            </span>
+                            <div className="flex flex-wrap gap-1.5">
+                              {q.options.map((opt: string, idx: number) => {
+                                const isSelected = draftAnswer.trim() === opt.trim();
+                                return (
+                                  <button
+                                    key={idx}
+                                    type="button"
+                                    onClick={() => setOverrideAnswers((prev) => ({ ...prev, [q.id]: opt }))}
+                                    className={`px-2 py-0.5 rounded text-[11px] border transition text-left ${
+                                      isSelected
+                                        ? 'bg-[#e8f0fe] border-[#1a73e8] text-[#1967d2] font-semibold'
+                                        : 'bg-white border-[#dadce0] text-[#3c4043] hover:border-[#1a73e8] hover:text-[#1a73e8]'
+                                    }`}
+                                  >
+                                    {opt}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Custom Decision Input */}
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-semibold text-[#3c4043] uppercase tracking-wider block">
+                            Your Custom Decision / Rule:
+                          </label>
+                          <textarea
+                            value={draftAnswer}
+                            onChange={(e) => setOverrideAnswers((prev) => ({ ...prev, [q.id]: e.target.value }))}
+                            rows={2}
+                            placeholder="Type custom rule or adjust AI suggestion..."
+                            className="w-full px-3 py-2 text-xs rounded-lg border border-[#dadce0] focus:border-[#1a73e8] focus:ring-1 focus:ring-[#1a73e8] bg-white text-[#202124] resize-y placeholder:text-[#80868b]"
+                            autoFocus
+                          />
+                        </div>
+
+                        {/* Action buttons */}
+                        <div className="flex items-center justify-end space-x-2 pt-1">
+                          <button
+                            type="button"
+                            onClick={() => setEditingQuestionId(null)}
+                            className="px-2.5 py-1 text-xs rounded-lg bg-white border border-[#dadce0] hover:bg-[#f1f3f4] text-[#5f6368] font-medium transition"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            disabled={resolvingQuestionId === q.id || !draftAnswer.trim()}
+                            onClick={() => {
+                              if (draftAnswer.trim()) {
+                                handleResolve(q.id, draftAnswer.trim());
+                              }
+                            }}
+                            className="px-3 py-1 text-xs rounded-lg bg-[#1a73e8] hover:bg-[#1557b0] text-white font-medium transition shadow-sm flex items-center gap-1.5 disabled:opacity-50"
+                          >
+                            <Check className="w-3.5 h-3.5" />
+                            <span>{resolvingQuestionId === q.id ? "Saving..." : "Submit Override"}</span>
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      /* VIEW MODE: AI SUGGESTION OR RESOLUTION */
+                      <div className="space-y-2">
+                        {isResolved ? (
+                          <div className="p-2.5 rounded-lg bg-[#e6f4ea] border border-[#ceead6] text-[11px] space-y-1">
+                            <div className="flex items-start justify-between gap-2">
+                              <div>
+                                <div className="flex items-center gap-1 text-[#137333] font-bold">
+                                  <Check className="w-3.5 h-3.5" />
+                                  <span>Resolved Decision:</span>
+                                </div>
+                                <p className="text-[#202124] font-medium mt-0.5 whitespace-pre-wrap">{currentAnswer}</p>
+                                {q.resolved_by && (
+                                  <p className="text-[10px] text-[#5f6368] font-mono mt-0.5">Decided by: {q.resolved_by}</p>
+                                )}
+                              </div>
+                              {can('canResolveQuestions') && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEditingQuestionId(q.id);
+                                    setOverrideAnswers((prev) => ({
+                                      ...prev,
+                                      [q.id]: currentAnswer || q.ai_suggested_answer || ""
+                                    }));
+                                  }}
+                                  className="px-2 py-1 text-[11px] rounded-lg bg-white border border-[#dadce0] hover:bg-[#f1f3f4] text-[#3c4043] font-medium flex items-center gap-1 transition shadow-2xs shrink-0"
+                                  title="Edit or change this resolution"
+                                >
+                                  <Edit2 className="w-3 h-3 text-[#5f6368]" />
+                                  <span>Edit / Override</span>
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            <div className="p-2.5 rounded-lg bg-[#e8f0fe] border border-[#d2e3fc] text-[11px] text-[#1967d2] space-y-1">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-1.5 font-bold">
+                                  <Sparkles className="w-3.5 h-3.5" />
+                                  <span>AI Suggestion:</span>
+                                </div>
+                                {q.confidence_score && (
+                                  <span className="text-[10px] font-mono text-[#137333] bg-[#e6f4ea] px-1.5 py-0.5 rounded border border-[#ceead6] font-semibold">
+                                    {Math.round(q.confidence_score * 100)}% confidence
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-[#1557b0] whitespace-pre-wrap">{q.ai_suggested_answer}</p>
+                            </div>
+
+                            <div className="flex items-center justify-end space-x-2 pt-1">
+                              {can('canResolveQuestions') ? (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setEditingQuestionId(q.id);
+                                      setOverrideAnswers((prev) => ({
+                                        ...prev,
+                                        [q.id]: q.ai_suggested_answer || ""
+                                      }));
+                                    }}
+                                    className="px-2.5 py-1 text-xs rounded-lg bg-white border border-[#dadce0] hover:bg-[#f1f3f4] text-[#3c4043] font-medium transition flex items-center gap-1.5 shadow-2xs"
+                                    title="Edit or override the AI suggestion"
+                                  >
+                                    <Edit2 className="w-3 h-3 text-[#5f6368]" />
+                                    <span>Edit &amp; Override</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={resolvingQuestionId === q.id}
+                                    onClick={() => handleResolve(q.id, q.ai_suggested_answer)}
+                                    className="px-2.5 py-1 text-xs rounded-lg bg-[#1a73e8] hover:bg-[#1557b0] text-white font-medium transition shadow-sm flex items-center gap-1 disabled:opacity-50"
+                                  >
+                                    <Check className="w-3.5 h-3.5" />
+                                    <span>Accept Suggestion</span>
+                                  </button>
+                                </>
+                              ) : (
+                                <div
+                                  className="flex items-center gap-1 px-2.5 py-1 text-xs rounded-lg bg-[#f1f3f4] border border-[#dadce0] text-[#80868b] cursor-not-allowed"
+                                  title="Ambiguity resolution requires Scrum Master or Admin"
+                                >
+                                  <Lock className="w-3 h-3 text-[#80868b]" />
+                                  <span>Resolve (SM Only)</span>
+                                </div>
+                              )}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )}
                   </div>
                 );
               })

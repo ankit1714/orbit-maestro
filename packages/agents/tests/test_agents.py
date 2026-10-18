@@ -27,6 +27,17 @@ def test_ambiguity_agent():
     resolved = ambiguity_agent.resolve_question(q1.id, "Accepted 25MB limit")
     assert resolved.resolved is True
     assert resolved.resolved_answer == "Accepted 25MB limit"
+    assert resolved.resolved_at is not None
+
+    # Test overriding an AI suggestion or previous decision with a human edit
+    overridden = ambiguity_agent.resolve_question(
+        q1.id,
+        "Custom Human Override: PDF and TIFF max 50MB with antivirus inspection",
+        resolved_by="Technical Scrum Master"
+    )
+    assert overridden.resolved is True
+    assert overridden.resolved_answer == "Custom Human Override: PDF and TIFF max 50MB with antivirus inspection"
+    assert overridden.resolved_by == "Technical Scrum Master"
 
 def test_backlog_agent():
     backlog = backlog_agent.synthesize_backlog("proj-test-1", {"q1": "PDF, JPG, PNG max 25MB"})

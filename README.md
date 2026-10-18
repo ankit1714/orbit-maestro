@@ -1,4 +1,4 @@
-# AI Scrum Master: Autonomous Multi-Agent Delivery Cockpit
+# Orbit Maestro: Autonomous Multi-Agent Delivery Cockpit
 
 An enterprise-grade, serverless multi-agent platform orchestrated on **Google Cloud Platform (GCP)**, **Atlassian Jira**, **Atlassian Confluence**, **GitHub**, and **Google NotebookLM**.
 

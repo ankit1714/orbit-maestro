@@ -3,7 +3,7 @@
 import React, { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { CheckCircle2, AlertOctagon, RefreshCw, CalendarDays, ArrowRight } from 'lucide-react';
-import { api } from '@/lib/api';
+import { api, getOAuthRedirectUri } from '@/lib/api';
 
 function OAuthCallbackContent() {
   const router = useRouter();
@@ -31,7 +31,7 @@ function OAuthCallbackContent() {
 
     const processCode = async () => {
       try {
-        const redirectUri = window.location.origin + '/oauth/callback';
+        const redirectUri = getOAuthRedirectUri();
         const res = await api.exchangeOAuthCallback({
           code,
           redirect_uri: redirectUri

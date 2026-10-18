@@ -89,6 +89,10 @@ def create_project(data: ProjectCreate):
         jira_settings.api_token = jira_settings.api_token or settings.JIRA_API_TOKEN
         mode = ProjectMode.ENTERPRISE_SYNC
 
+    if jira_settings and jira_settings.instance_url:
+        from apps.api.src.core.providers.backlog.jira_provider import clean_jira_instance_url
+        jira_settings.instance_url = clean_jira_instance_url(jira_settings.instance_url)
+
     # Check if a project with the same key already exists in Firestore
     for d in list(db.collection("projects").stream()):
         p_dict = d.to_dict()
@@ -809,10 +813,16 @@ def update_integrations(project_id: str, payload: dict):
     if "jira_settings" in payload and payload["jira_settings"] is not None:
         jira = current.get("jira_settings") or {}
         jira.update(payload["jira_settings"])
+        if jira.get("instance_url"):
+            from apps.api.src.core.providers.backlog.jira_provider import clean_jira_instance_url
+            jira["instance_url"] = clean_jira_instance_url(jira["instance_url"])
         current["jira_settings"] = jira
     if "confluence_settings" in payload and payload["confluence_settings"] is not None:
         conf = current.get("confluence_settings") or {}
         conf.update(payload["confluence_settings"])
+        if conf.get("instance_url"):
+            from apps.api.src.core.providers.doc.confluence_provider import clean_confluence_instance_url
+            conf["instance_url"] = clean_confluence_instance_url(conf["instance_url"])
         current["confluence_settings"] = conf
     if "git_settings" in payload and payload["git_settings"] is not None:
         git = current.get("git_settings") or {}
