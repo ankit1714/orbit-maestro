@@ -1,6 +1,7 @@
 import logging
 import uuid
 import json
+from datetime import datetime
 from typing import List, Any, Optional
 from apps.api.src.schemas.ambiguity import OpenQuestion
 from apps.api.src.schemas.common import Priority
@@ -121,6 +122,7 @@ Only output raw JSON.
         data["resolved"] = True
         data["resolved_answer"] = answer
         data["resolved_by"] = resolved_by
+        data["resolved_at"] = datetime.utcnow()
         doc_ref.update(data)
         return OpenQuestion(**data)
 

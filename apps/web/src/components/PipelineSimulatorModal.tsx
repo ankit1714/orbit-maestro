@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Cpu, X, UploadCloud, FileCheck, AlertTriangle, Layers, CheckCircle2, ArrowRight } from 'lucide-react';
+import { Cpu, X, UploadCloud, FileCheck, AlertTriangle, Layers, CheckCircle2, ArrowRight, Edit2, Check } from 'lucide-react';
 import { api } from '@/lib/api';
 
 interface PipelineSimulatorModalProps {
@@ -20,6 +20,8 @@ export const PipelineSimulatorModal: React.FC<PipelineSimulatorModalProps> = ({
   const [currentStep, setCurrentStep] = useState(1);
   const [agentLogs, setAgentLogs] = useState<Array<{ agent: string; desc: string; color: string }>>([]);
   const [resolvedQuestions, setResolvedQuestions] = useState<Record<number, string>>({});
+  const [editingQuestion, setEditingQuestion] = useState<number | null>(null);
+  const [customDrafts, setCustomDrafts] = useState<Record<number, string>>({});
   const [loading, setLoading] = useState(false);
 
   if (!isOpen) return null;
@@ -209,26 +211,84 @@ export const PipelineSimulatorModal: React.FC<PipelineSimulatorModalProps> = ({
                   <span className="text-[10px] font-mono text-[#137333] font-semibold">96% confidence</span>
                 </div>
 
-                <div className="flex items-center justify-end space-x-2 pt-1">
-                  {resolvedQuestions[1] ? (
-                    <span className="text-xs text-[#137333] font-mono font-bold">✓ Resolved: {resolvedQuestions[1]}</span>
-                  ) : (
-                    <>
+                {editingQuestion === 1 ? (
+                  <div className="p-3 rounded-xl bg-white border-2 border-[#1a73e8] space-y-2">
+                    <label className="text-[10px] font-bold text-[#3c4043] uppercase tracking-wider block">
+                      Edit Decision / Human Rule:
+                    </label>
+                    <input
+                      type="text"
+                      value={customDrafts[1] !== undefined ? customDrafts[1] : (resolvedQuestions[1] || 'PDF, JPG, PNG up to 25MB')}
+                      onChange={(e) => setCustomDrafts((prev) => ({ ...prev, 1: e.target.value }))}
+                      className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-[#dadce0] focus:border-[#1a73e8] focus:outline-none"
+                      autoFocus
+                    />
+                    <div className="flex justify-end gap-2 pt-1">
                       <button
-                        onClick={() => resolveQuestion(1, 'PDF, JPG, PNG up to 25MB')}
-                        className="px-3.5 py-1.5 text-xs rounded-lg bg-[#1a73e8] hover:bg-[#1557b0] text-white font-medium shadow-sm transition"
+                        type="button"
+                        onClick={() => setEditingQuestion(null)}
+                        className="px-2.5 py-1 text-xs rounded-lg bg-white border border-[#dadce0] hover:bg-[#f1f3f4] text-[#5f6368]"
                       >
-                        Accept AI Rule
+                        Cancel
                       </button>
                       <button
-                        onClick={() => resolveQuestion(1, 'PDF only, max 10MB')}
-                        className="px-3.5 py-1.5 text-xs rounded-lg bg-[#f1f3f4] hover:bg-[#e8eaed] text-[#3c4043] border border-[#dadce0] font-medium transition"
+                        type="button"
+                        onClick={() => resolveQuestion(1, customDrafts[1] || resolvedQuestions[1] || 'PDF, JPG, PNG up to 25MB')}
+                        className="px-3 py-1 text-xs rounded-lg bg-[#1a73e8] hover:bg-[#1557b0] text-white font-medium flex items-center gap-1 shadow-sm"
                       >
-                        Select: PDF Only (10MB)
+                        <Check className="w-3.5 h-3.5" />
+                        <span>Submit Override</span>
                       </button>
-                    </>
-                  )}
-                </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-end space-x-2 pt-1">
+                    {resolvedQuestions[1] ? (
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-[#137333] font-mono font-bold">✓ Resolved: {resolvedQuestions[1]}</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingQuestion(1);
+                            setCustomDrafts((prev) => ({ ...prev, 1: resolvedQuestions[1] }));
+                          }}
+                          className="px-2 py-0.5 text-[11px] rounded bg-white border border-[#dadce0] hover:bg-[#f1f3f4] text-[#3c4043] flex items-center gap-1"
+                        >
+                          <Edit2 className="w-3 h-3 text-[#5f6368]" />
+                          <span>Edit</span>
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingQuestion(1);
+                            setCustomDrafts((prev) => ({ ...prev, 1: 'PDF, JPG, PNG up to 25MB' }));
+                          }}
+                          className="px-2.5 py-1.5 text-xs rounded-lg bg-white border border-[#dadce0] hover:bg-[#f1f3f4] text-[#3c4043] font-medium transition flex items-center gap-1"
+                        >
+                          <Edit2 className="w-3 h-3 text-[#5f6368]" />
+                          <span>Edit / Override</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => resolveQuestion(1, 'PDF, JPG, PNG up to 25MB')}
+                          className="px-3.5 py-1.5 text-xs rounded-lg bg-[#1a73e8] hover:bg-[#1557b0] text-white font-medium shadow-sm transition"
+                        >
+                          Accept AI Rule
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => resolveQuestion(1, 'PDF only, max 10MB')}
+                          className="px-3.5 py-1.5 text-xs rounded-lg bg-[#f1f3f4] hover:bg-[#e8eaed] text-[#3c4043] border border-[#dadce0] font-medium transition"
+                        >
+                          Select: PDF Only (10MB)
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Question 2 */}
@@ -246,18 +306,77 @@ export const PipelineSimulatorModal: React.FC<PipelineSimulatorModalProps> = ({
                   <span className="text-[10px] font-mono text-[#137333] font-semibold">91% confidence</span>
                 </div>
 
-                <div className="flex items-center justify-end space-x-2 pt-1">
-                  {resolvedQuestions[2] ? (
-                    <span className="text-xs text-[#137333] font-mono font-bold">✓ Resolved: {resolvedQuestions[2]}</span>
-                  ) : (
-                    <button
-                      onClick={() => resolveQuestion(2, '3 attempts, then manual agent review')}
-                      className="px-3.5 py-1.5 text-xs rounded-lg bg-[#1a73e8] hover:bg-[#1557b0] text-white font-medium shadow-sm transition"
-                    >
-                      Accept AI Rule
-                    </button>
-                  )}
-                </div>
+                {editingQuestion === 2 ? (
+                  <div className="p-3 rounded-xl bg-white border-2 border-[#1a73e8] space-y-2">
+                    <label className="text-[10px] font-bold text-[#3c4043] uppercase tracking-wider block">
+                      Edit Decision / Human Rule:
+                    </label>
+                    <input
+                      type="text"
+                      value={customDrafts[2] !== undefined ? customDrafts[2] : (resolvedQuestions[2] || '3 attempts, then manual agent review')}
+                      onChange={(e) => setCustomDrafts((prev) => ({ ...prev, 2: e.target.value }))}
+                      className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-[#dadce0] focus:border-[#1a73e8] focus:outline-none"
+                      autoFocus
+                    />
+                    <div className="flex justify-end gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => setEditingQuestion(null)}
+                        className="px-2.5 py-1 text-xs rounded-lg bg-white border border-[#dadce0] hover:bg-[#f1f3f4] text-[#5f6368]"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => resolveQuestion(2, customDrafts[2] || resolvedQuestions[2] || '3 attempts, then manual agent review')}
+                        className="px-3 py-1 text-xs rounded-lg bg-[#1a73e8] hover:bg-[#1557b0] text-white font-medium flex items-center gap-1 shadow-sm"
+                      >
+                        <Check className="w-3.5 h-3.5" />
+                        <span>Submit Override</span>
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-end space-x-2 pt-1">
+                    {resolvedQuestions[2] ? (
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-[#137333] font-mono font-bold">✓ Resolved: {resolvedQuestions[2]}</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingQuestion(2);
+                            setCustomDrafts((prev) => ({ ...prev, 2: resolvedQuestions[2] }));
+                          }}
+                          className="px-2 py-0.5 text-[11px] rounded bg-white border border-[#dadce0] hover:bg-[#f1f3f4] text-[#3c4043] flex items-center gap-1"
+                        >
+                          <Edit2 className="w-3 h-3 text-[#5f6368]" />
+                          <span>Edit</span>
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingQuestion(2);
+                            setCustomDrafts((prev) => ({ ...prev, 2: '3 attempts, then manual agent review' }));
+                          }}
+                          className="px-2.5 py-1.5 text-xs rounded-lg bg-white border border-[#dadce0] hover:bg-[#f1f3f4] text-[#3c4043] font-medium transition flex items-center gap-1"
+                        >
+                          <Edit2 className="w-3 h-3 text-[#5f6368]" />
+                          <span>Edit / Override</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => resolveQuestion(2, '3 attempts, then manual agent review')}
+                          className="px-3.5 py-1.5 text-xs rounded-lg bg-[#1a73e8] hover:bg-[#1557b0] text-white font-medium shadow-sm transition"
+                        >
+                          Accept AI Rule
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="pt-2 flex justify-end">
