@@ -429,7 +429,7 @@ Only output raw JSON.
                         requires_approval=False,
                         governance_tier=GovernanceTier.AUTO_EXECUTE
                     ))
-                elif any(w in line_lower for w in ["action", "todo", "will", "today i", "going to", "finished", "completed"]):
+                elif any(w in line_lower for w in ["action", "todo", "will", "today i", "going to", "finished", "completed", "requested", "request", "feature", "feedback"]):
                     actions.append(ExtractedAction(
                         id=f"act-{uuid.uuid4().hex[:6]}",
                         action_type="TASK_UPDATE",

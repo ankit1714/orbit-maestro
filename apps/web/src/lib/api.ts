@@ -1,16 +1,16 @@
 // Production API Client for AI Scrum Master Backend
 export const getApiBase = () => {
+  if (process.env.NEXT_PUBLIC_API_URL) {
+    return process.env.NEXT_PUBLIC_API_URL;
+  }
   if (typeof window !== "undefined") {
     const hostname = window.location.hostname;
     if (hostname.includes("run.app")) {
       if (hostname.startsWith("ai-scrum-cockpit")) {
         return `https://${hostname.replace("ai-scrum-cockpit", "ai-scrum-api")}/v1`;
       }
-      return "https://ai-scrum-api-638799400872.us-central1.run.app/v1";
+      return `${window.location.origin.replace("cockpit", "api")}/v1`;
     }
-  }
-  if (process.env.NEXT_PUBLIC_API_URL) {
-    return process.env.NEXT_PUBLIC_API_URL;
   }
   return "http://localhost:8000/v1";
 };
@@ -19,8 +19,7 @@ export const getApiBase = () => {
  * Returns the exact Authorized Redirect URI for Google OAuth 2.0.
  * In Google Cloud Console, authorized URIs & JS origins must include:
  * 1) http://localhost:3000 (callback: /oauth/callback)
- * 2) https://ai-scrum-cockpit-a355sfc3uq-uc.a.run.app (callback: /oauth/callback)
- * 3) https://ai-scrum-cockpit-638799400872.us-central1.run.app (callback: /oauth/callback)
+ * 2) https://<ai-scrum-cockpit-url> (callback: /oauth/callback)
  *
  * Normalizes 127.0.0.1, 0.0.0.0, or local dev variants to http://localhost:3000/oauth/callback
  * so Google never rejects the login with Error 400: redirect_uri_mismatch.
@@ -241,7 +240,8 @@ export const api = {
  * Prevents appended paths (/jira/software/projects/... or /browse/...) from corrupting API calls or links.
  */
 export const cleanJiraInstanceUrl = (rawUrl?: string): string => {
-  if (!rawUrl || !rawUrl.trim()) return 'https://the-ai-scrum-master.atlassian.net';
+  const defaultUrl = process.env.NEXT_PUBLIC_JIRA_INSTANCE_URL || '';
+  if (!rawUrl || !rawUrl.trim()) return defaultUrl;
   try {
     let clean = rawUrl.trim();
     if (!clean.startsWith('http://') && !clean.startsWith('https://')) {
@@ -259,14 +259,15 @@ export const cleanJiraInstanceUrl = (rawUrl?: string): string => {
  * Handles team-managed (next-gen) boards, company-managed boards, custom domains, and explicit links.
  */
 export const getJiraBoardUrl = (project?: any, sprint?: any): string => {
-  if (!project) return 'https://the-ai-scrum-master.atlassian.net';
+  const defaultUrl = process.env.NEXT_PUBLIC_JIRA_INSTANCE_URL || '';
+  if (!project) return defaultUrl;
 
   // 1. If explicit jira_project_link is provided, prioritize it
   if (project.jira_project_link && typeof project.jira_project_link === 'string' && project.jira_project_link.trim()) {
     return project.jira_project_link.trim();
   }
 
-  const instanceUrl = cleanJiraInstanceUrl(project?.jira_settings?.instance_url);
+  const instanceUrl = cleanJiraInstanceUrl(project?.jira_settings?.instance_url) || defaultUrl;
   const projectKey = (project?.jira_settings?.project_key || project?.key || '').trim().toUpperCase();
 
   if (!projectKey) return instanceUrl;

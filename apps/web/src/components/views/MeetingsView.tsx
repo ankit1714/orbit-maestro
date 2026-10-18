@@ -182,8 +182,12 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({ project, onSwitchVie
   const handleConnectGoogle = () => {
     const clientId =
       process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ||
-      (typeof window !== 'undefined' ? localStorage.getItem('gcal_client_id') || '' : '') ||
-      '638799400872-4viurp9q4bvr6oq0q9pb1dsp5s299fdk.apps.googleusercontent.com';
+      (typeof window !== 'undefined' ? localStorage.getItem('gcal_client_id') || '' : '');
+
+    if (!clientId) {
+      alert("Google OAuth Client ID is not configured. Please set NEXT_PUBLIC_GOOGLE_CLIENT_ID in .env or environment.");
+      return;
+    }
 
     initiateGisLogin(clientId);
   };
@@ -225,7 +229,7 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({ project, onSwitchVie
                 console.warn('Could not fetch userinfo from Google:', ex);
               }
 
-              const email = userEmail || 'ankit1714@gmail.com';
+              const email = userEmail || calendarEmail || 'user@company.com';
               setCalendarEmail(email);
               if (typeof window !== 'undefined') {
                 localStorage.setItem('gcal_user_email', email);

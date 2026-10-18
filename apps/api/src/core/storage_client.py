@@ -13,7 +13,7 @@ class CloudStorageService:
     def __new__(cls):
         if cls._instance is None:
             cls._instance = super(CloudStorageService, cls).__new__(cls)
-            cls._instance.bucket_name = settings.PRD_BUCKET_NAME or f"{settings.PROJECT_ID}-prd-uploads"
+            cls._instance.bucket_name = settings.PRD_BUCKET_NAME or (f"{settings.PROJECT_ID}-prd-uploads" if settings.PROJECT_ID else "prd-uploads")
         return cls._instance
 
     def _get_access_token(self) -> Optional[str]:
