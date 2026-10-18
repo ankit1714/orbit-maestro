@@ -253,3 +253,29 @@ def test_sync_jira_users_and_push_to_firestore():
         assert priya_doc.exists
         assert priya_doc.to_dict()["email"] == "priya.sharma@example.com"
 
+def test_create_project_key_separate_from_jira_link():
+    import uuid
+    random_key = f"PK{uuid.uuid4().hex[:4].upper()}"
+    payload = {
+        "name": "Key Separation Test Project",
+        "key": random_key,
+        "description": "Testing that user key is preserved independently of Jira URL key",
+        "jira_project_link": "https://company.atlassian.net/jira/software/projects/EXTRACTEDKEY/summary"
+    }
+    res = client.post("/v1/projects", json=payload)
+    assert res.status_code == 200
+    data = res.json()
+    proj_id = data["id"]
+    try:
+        # User defined key must be preserved
+        assert data["key"] == random_key
+        # Jira settings receives the extracted Jira key
+        assert data["jira_settings"]["project_key"] == "EXTRACTEDKEY"
+
+        # Attempting to create another project with the same key must return 409 Conflict
+        dup_res = client.post("/v1/projects", json=payload)
+        assert dup_res.status_code == 409
+        assert "already in use" in dup_res.json()["detail"]
+    finally:
+        client.delete(f"/v1/projects/{proj_id}")
+

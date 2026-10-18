@@ -77,8 +77,10 @@ def create_project(data: ProjectCreate):
         m_key = re.search(r'/(?:projects|browse)/([A-Za-z0-9_]+)', link)
         if m_key:
             extracted_key = m_key.group(1).upper()
-            project_key = extracted_key
             jira_settings.project_key = extracted_key
+            # Only fallback project_key to extracted Jira key if user did not specify a key
+            if not data.key:
+                project_key = extracted_key
 
         m_board = re.search(r'/boards/(\d+)', link)
         if m_board:
@@ -97,8 +99,12 @@ def create_project(data: ProjectCreate):
     for d in list(db.collection("projects").stream()):
         p_dict = d.to_dict()
         if p_dict.get("key", "").upper() == project_key:
-            logger.info(f"Project with key {project_key} already exists ({d.id}). Returning existing project.")
-            return Project(**p_dict)
+            existing_name = p_dict.get("name", d.id)
+            logger.warning(f"Project key '{project_key}' already exists in project '{existing_name}' ({d.id}).")
+            raise HTTPException(
+                status_code=409,
+                detail=f"Project key '{project_key}' is already in use by project '{existing_name}'. Please choose a unique project key."
+            )
 
     project_id = f"proj-{uuid.uuid4().hex[:8]}"
 

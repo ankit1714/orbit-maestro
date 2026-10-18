@@ -3,10 +3,10 @@ export const getApiBase = () => {
   if (typeof window !== "undefined") {
     const hostname = window.location.hostname;
     if (hostname.includes("run.app")) {
-      if (hostname.startsWith("ai-scrum-cockpit")) {
+      if (hostname.includes("ai-scrum-cockpit")) {
         return `https://${hostname.replace("ai-scrum-cockpit", "ai-scrum-api")}/v1`;
       }
-      return "https://ai-scrum-api-638799400872.us-central1.run.app/v1";
+      return "https://ai-scrum-api-a355sfc3uq-uc.a.run.app/v1";
     }
   }
   if (process.env.NEXT_PUBLIC_API_URL) {
