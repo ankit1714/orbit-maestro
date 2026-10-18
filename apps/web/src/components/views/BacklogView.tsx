@@ -24,7 +24,7 @@ export const BacklogView: React.FC<BacklogViewProps> = ({
   const [generating, setGenerating] = useState(false);
   const [uploadingJira, setUploadingJira] = useState(false);
   const [showJiraModal, setShowJiraModal] = useState(false);
-  const defaultJiraInstance = project?.jira_project_link || project?.jira_settings?.instance_url || 'https://the-ai-scrum-master.atlassian.net';
+  const defaultJiraInstance = project?.jira_project_link || project?.jira_settings?.instance_url || process.env.NEXT_PUBLIC_JIRA_INSTANCE_URL || '';
   const defaultJiraKey = project?.jira_settings?.project_key || project?.key || "SCRUM";
 
   const [jiraInstance, setJiraInstance] = useState(defaultJiraInstance);
@@ -81,14 +81,14 @@ export const BacklogView: React.FC<BacklogViewProps> = ({
   };
 
   useEffect(() => {
-    const inst = project?.jira_project_link || project?.jira_settings?.instance_url || 'https://the-ai-scrum-master.atlassian.net';
+    const inst = project?.jira_project_link || project?.jira_settings?.instance_url || process.env.NEXT_PUBLIC_JIRA_INSTANCE_URL || '';
     const key = project?.jira_settings?.project_key || project?.key || "SCRUM";
     setJiraInstance(inst);
     setTargetJiraKey(key);
   }, [project?.id, project?.jira_project_link, project?.jira_settings?.instance_url, project?.jira_settings?.project_key, project?.key]);
 
   const handleOpenJiraModal = () => {
-    const inst = project?.jira_project_link || project?.jira_settings?.instance_url || 'https://the-ai-scrum-master.atlassian.net';
+    const inst = project?.jira_project_link || project?.jira_settings?.instance_url || process.env.NEXT_PUBLIC_JIRA_INSTANCE_URL || '';
     const key = project?.jira_settings?.project_key || project?.key || "SCRUM";
     setJiraInstance(inst);
     setTargetJiraKey(key);

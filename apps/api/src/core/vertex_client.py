@@ -302,28 +302,35 @@ class VertexAIService:
                     }
                 ]
             })
-        elif "standup" in prompt_lower or "meeting" in prompt_lower:
+        elif any(k in prompt_lower for k in ["standup", "meeting", "review", "retro"]):
             return json.dumps({
                 "summary": f"Team completed core API endpoints for {proj_name}. External dependency contracts are under review.",
                 "decisions": [
                     {
-                        "summary": "Validation timeout constraint locked to 15s",
-                        "context": "Agreed in standup for system stability",
-                        "decided_by": "Product Owner"
+                        "decision_text": "Validation timeout constraint locked to 15s",
+                        "speaker": "Product Owner",
+                        "confidence_score": 0.95,
+                        "requires_approval": False,
+                        "governance_tier": "AUTO_EXECUTE"
                     }
                 ],
                 "blockers": [
                     {
-                        "description": "Waiting on external partner API schema specification",
-                        "impact": "Blocks end-to-end integration tests"
+                        "task_key": "IMPEDIMENT",
+                        "assignee": "Lead Engineer",
+                        "blocker_description": "Waiting on external partner API schema specification",
+                        "impact": "Blocks end-to-end integration tests",
+                        "confidence_score": 0.92
                     }
                 ],
                 "actions": [
                     {
                         "action_type": "TASK_UPDATE",
+                        "target_entity": "TASK",
                         "description": "Advance completed backend endpoints to In Progress",
                         "assignee": "Developer",
-                        "priority": "HIGH"
+                        "confidence_score": 0.90,
+                        "governance_tier": "AUTO_EXECUTE"
                     }
                 ]
             })

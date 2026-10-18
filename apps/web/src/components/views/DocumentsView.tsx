@@ -1891,7 +1891,7 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
                   required
                   value={jiraInstanceUrl}
                   onChange={(e) => setJiraInstanceUrl(e.target.value)}
-                  placeholder="https://the-ai-scrum-master.atlassian.net"
+                  placeholder="https://your-domain.atlassian.net"
                   className="w-full bg-[#f8f9fa] border border-[#dadce0] rounded-xl p-2.5 text-[#202124] font-mono text-[11px] placeholder-[#80868b] focus:outline-none focus:border-[#1a73e8] focus:bg-white"
                 />
               </div>

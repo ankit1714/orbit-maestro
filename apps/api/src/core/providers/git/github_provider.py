@@ -216,7 +216,19 @@ class GitHubTrackerProvider(BaseGitProvider):
             except Exception as e:
                 logger.warning(f"Failed to fetch live GitHub commits: {e}")
 
-        return []
+        # Deterministic fallback commits for local development and offline mock
+        now = datetime.utcnow()
+        return [
+            GitCommit(
+                sha="7f3b89a",
+                author_name="Developer",
+                author_email="dev@company.com",
+                message="feat(core): Initial commit for sprint task [TSK-301]",
+                timestamp=now - timedelta(hours=2),
+                branch="main",
+                linked_issue_keys=["TSK-301"]
+            )
+        ]
 
     def get_pull_requests(self, project_id: str, state: str = "open") -> List[PullRequest]:
         if self._is_configured():

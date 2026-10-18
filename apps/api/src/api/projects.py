@@ -67,7 +67,7 @@ def create_project(data: ProjectCreate):
     jira_settings = data.jira_settings or JiraSettings()
     mode = data.mode
 
-    # 1. Parse Jira project link if provided (e.g. https://the-ai-scrum-master.atlassian.net/jira/software/projects/SCRUM/summary)
+    # 1. Parse Jira project link if provided (e.g. https://your-domain.atlassian.net/jira/software/projects/SCRUM/summary)
     if data.jira_project_link:
         link = data.jira_project_link.strip()
         m_domain = re.search(r'(https?://[^/]+)', link)

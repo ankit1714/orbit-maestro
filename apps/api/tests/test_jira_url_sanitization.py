@@ -12,16 +12,16 @@ from apps.api.src.core.providers.doc.confluence_provider import (
 
 def test_clean_jira_instance_url():
     # Full browser UI project summary URL
-    assert clean_jira_instance_url("https://the-ai-scrum-master.atlassian.net/jira/software/projects/IRIS/summary") == "https://the-ai-scrum-master.atlassian.net"
+    assert clean_jira_instance_url("https://test-domain.atlassian.net/jira/software/projects/IRIS/summary") == "https://test-domain.atlassian.net"
 
     # Issue browse URL
-    assert clean_jira_instance_url("https://the-ai-scrum-master.atlassian.net/browse/SCRUM-123") == "https://the-ai-scrum-master.atlassian.net"
+    assert clean_jira_instance_url("https://test-domain.atlassian.net/browse/SCRUM-123") == "https://test-domain.atlassian.net"
 
     # URL with trailing slashes
-    assert clean_jira_instance_url("https://the-ai-scrum-master.atlassian.net///") == "https://the-ai-scrum-master.atlassian.net"
+    assert clean_jira_instance_url("https://test-domain.atlassian.net///") == "https://test-domain.atlassian.net"
 
     # Clean domain
-    assert clean_jira_instance_url("https://the-ai-scrum-master.atlassian.net") == "https://the-ai-scrum-master.atlassian.net"
+    assert clean_jira_instance_url("https://test-domain.atlassian.net") == "https://test-domain.atlassian.net"
 
     # No scheme provided
     assert clean_jira_instance_url("myorg.atlassian.net/jira/boards") == "https://myorg.atlassian.net"
@@ -32,14 +32,14 @@ def test_clean_jira_instance_url():
 
 def test_clean_confluence_instance_url():
     # Bare Atlassian net domain -> adds /wiki
-    assert clean_confluence_instance_url("https://the-ai-scrum-master.atlassian.net") == "https://the-ai-scrum-master.atlassian.net/wiki"
-    assert clean_confluence_instance_url("https://the-ai-scrum-master.atlassian.net/") == "https://the-ai-scrum-master.atlassian.net/wiki"
+    assert clean_confluence_instance_url("https://test-domain.atlassian.net") == "https://test-domain.atlassian.net/wiki"
+    assert clean_confluence_instance_url("https://test-domain.atlassian.net/") == "https://test-domain.atlassian.net/wiki"
 
     # Already has /wiki
-    assert clean_confluence_instance_url("https://the-ai-scrum-master.atlassian.net/wiki") == "https://the-ai-scrum-master.atlassian.net/wiki"
+    assert clean_confluence_instance_url("https://test-domain.atlassian.net/wiki") == "https://test-domain.atlassian.net/wiki"
 
     # Specific space / page path
-    assert clean_confluence_instance_url("https://the-ai-scrum-master.atlassian.net/wiki/spaces/DEV/pages/12345") == "https://the-ai-scrum-master.atlassian.net/wiki"
+    assert clean_confluence_instance_url("https://test-domain.atlassian.net/wiki/spaces/DEV/pages/12345") == "https://test-domain.atlassian.net/wiki"
 
 def test_safe_err_text_with_html():
     mock_res = MagicMock()
@@ -66,9 +66,9 @@ def test_safe_err_text_with_json_errors():
 
 def test_jira_provider_init_sanitizes_instance_url():
     provider = JiraBacklogProvider(
-        instance_url="https://the-ai-scrum-master.atlassian.net/jira/software/projects/IRIS/summary",
+        instance_url="https://test-domain.atlassian.net/jira/software/projects/IRIS/summary",
         user_email="test@example.com",
         api_token="token123",
         project_key="IRIS"
     )
-    assert provider.instance_url == "https://the-ai-scrum-master.atlassian.net"
+    assert provider.instance_url == "https://test-domain.atlassian.net"

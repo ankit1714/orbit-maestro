@@ -209,9 +209,9 @@ def test_sync_jira_users_and_push_to_firestore():
     """
     mock_jira_users = [
         {
-            "accountId": "acc-ankit-123",
-            "displayName": "Ankit Maurya",
-            "emailAddress": "ankit1714@gmail.com",
+            "accountId": "acc-dev-123",
+            "displayName": "Alex Rivera",
+            "emailAddress": "alex.rivera@example.com",
             "active": True
         },
         {
@@ -236,11 +236,11 @@ def test_sync_jira_users_and_push_to_firestore():
         users = data["users"]
         assert len(users) >= 2
         
-        # Verify Ankit Maurya was matched and tagged
-        ankit = next((u for u in users if "ankit" in u.get("email", "").lower() or "ankit" in u.get("name", "").lower()), None)
-        assert ankit is not None
-        assert "PROJ_ALPHA" in ankit.get("project_ids", [])
-        assert ankit.get("is_jira_project_user") is True
+        # Verify Alex Rivera was matched or tagged
+        alex = next((u for u in users if "alex" in u.get("email", "").lower() or "alex" in u.get("name", "").lower()), None)
+        assert alex is not None
+        assert "PROJ_ALPHA" in alex.get("project_ids", [])
+        assert alex.get("is_jira_project_user") is True
 
         # Verify new user Priya Sharma was inserted into Firestore DB
         priya = next((u for u in users if "priya" in u.get("name", "").lower()), None)

@@ -1022,7 +1022,7 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
               <div className="p-3.5 rounded-xl bg-[#e8f0fe] border border-[#d2e3fc] text-xs text-[#174ea6] flex items-center gap-2.5 shadow-sm">
                 <Database className="w-4 h-4 text-[#1a73e8] shrink-0" />
                 <div>
-                  <strong>Firestore Persistence:</strong> This project will be saved into the <code className="text-[#1a73e8] bg-white px-1.5 py-0.5 rounded border border-[#d2e3fc]">projects</code> collection in Google Cloud Project <code className="text-[#1a73e8] bg-white px-1.5 py-0.5 rounded border border-[#d2e3fc]">ai-scrum-master-510116</code>, and user documents in <code className="text-[#1a73e8] bg-white px-1.5 py-0.5 rounded border border-[#d2e3fc]">users</code> will be updated with this project's ID.
+                  <strong>Firestore Persistence:</strong> This project will be saved into the <code className="text-[#1a73e8] bg-white px-1.5 py-0.5 rounded border border-[#d2e3fc]">projects</code> collection in Google Cloud Firestore, and user documents in <code className="text-[#1a73e8] bg-white px-1.5 py-0.5 rounded border border-[#d2e3fc]">users</code> will be updated with this project's ID.
                 </div>
               </div>
             </div>

@@ -6,10 +6,10 @@ export const getApiBase = () => {
   if (typeof window !== "undefined") {
     const hostname = window.location.hostname;
     if (hostname.includes("run.app")) {
-      if (hostname.includes("ai-scrum-cockpit")) {
-        return `https://${hostname.replace("ai-scrum-cockpit", "ai-scrum-api")}/v1`;
+      if (hostname.includes("cockpit")) {
+        return `https://${hostname.replace("cockpit", "api")}/v1`;
       }
-      return "https://ai-scrum-api-a355sfc3uq-uc.a.run.app/v1";
+      return "/v1";
     }
   }
   return "http://localhost:8000/v1";

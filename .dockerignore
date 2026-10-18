@@ -7,3 +7,7 @@ __pycache__
 *.pyc
 .pytest_cache
 _temp
+.env
+.env.*
+*.env
+
