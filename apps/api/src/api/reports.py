@@ -83,7 +83,7 @@ def get_executive_report(project_id: str):
         for e in backlog.epics:
             e_points = 0
             e_delivered = 0
-            e_stories_cnt = len(e.stories)
+            e_stories_cnt = 0
             e_done_cnt = 0
 
             for s in e.stories:
@@ -92,53 +92,114 @@ def get_executive_report(project_id: str):
                 e_points += s_pts
                 planned_pts += s_pts
 
-                st = (getattr(s, "status", "") or "").lower()
-                is_done = st in ["done", "completed", "resolved", "closed"]
-                is_in_progress = st in ["in progress", "in_progress", "active", "in review"]
-                is_blocked = st in ["blocked", "impediment"] or getattr(s, "is_blocked", False)
+                parent_st = (getattr(s, "status", "") or "").lower()
+                parent_is_done = parent_st in ["done", "completed", "complete", "resolved", "closed", "finished"]
+                parent_is_ip = parent_st in ["in progress", "in_progress", "active", "in review"]
+                parent_is_blocked = parent_st in ["blocked", "impediment"] or getattr(s, "is_blocked", False)
 
-                if is_done:
-                    delivered_pts += s_pts
-                    e_delivered += s_pts
-                    done_count += 1
-                    e_done_cnt += 1
-                elif is_in_progress:
-                    in_progress_pts += s_pts
-                    in_progress_count += 1
-                elif is_blocked:
-                    blocked_count += 1
-                else:
-                    todo_pts += s_pts
-                    todo_count += 1
+                parent_assignee = getattr(s, "assignee_name", None) or "Unassigned"
+                parent_email = getattr(s, "assignee_email", "") or ""
 
-                # Track user attribution for Leaderboard
-                assignee = getattr(s, "assignee_name", None) or "Unassigned"
-                if assignee and assignee != "Unassigned":
-                    if assignee not in user_stats:
-                        user_stats[assignee] = {
-                            "name": assignee,
-                            "email": getattr(s, "assignee_email", "") or "",
-                            "role": "Team Member",
-                            "closed_stories_count": 0,
-                            "closed_story_points": 0,
-                            "in_progress_count": 0,
-                            "in_progress_points": 0,
-                            "total_assigned_stories": 0,
-                            "total_assigned_points": 0,
-                        }
-                    user_stats[assignee]["total_assigned_stories"] += 1
-                    user_stats[assignee]["total_assigned_points"] += s_pts
-                    if is_done:
-                        user_stats[assignee]["closed_stories_count"] += 1
-                        user_stats[assignee]["closed_story_points"] += s_pts
-                    elif is_in_progress:
-                        user_stats[assignee]["in_progress_count"] += 1
-                        user_stats[assignee]["in_progress_points"] += s_pts
+                if s.tasks and len(s.tasks) > 0:
+                    n_tasks = len(s.tasks)
+                    base_pts = max(1, s_pts // n_tasks)
+                    rem_pts = max(0, s_pts - (base_pts * n_tasks))
+                    s_delivered_pts = 0
 
-                if s.tasks:
-                    all_tasks.extend(s.tasks)
+                    for idx, t in enumerate(s.tasks):
+                        all_tasks.append(t)
+                        e_stories_cnt += 1
+                        t_pts = base_pts + (1 if idx < rem_pts else 0)
+
+                        t_st = (getattr(t, "status", t.get("status") if isinstance(t, dict) else "") or "").lower()
+                        is_t_done = parent_is_done or t_st in ["done", "completed", "complete", "resolved", "closed", "finished"]
+                        is_t_ip = not is_t_done and (parent_is_ip or t_st in ["in progress", "in_progress", "active", "in review"])
+                        is_t_blocked = getattr(t, "is_blocked", t.get("is_blocked", False) if isinstance(t, dict) else False) or t_st in ["blocked", "impediment"] or parent_is_blocked
+
+                        if is_t_done:
+                            delivered_pts += t_pts
+                            s_delivered_pts += t_pts
+                            done_count += 1
+                            e_done_cnt += 1
+                        elif is_t_ip:
+                            in_progress_pts += t_pts
+                            in_progress_count += 1
+                        elif is_t_blocked:
+                            blocked_count += 1
+                        else:
+                            todo_pts += t_pts
+                            todo_count += 1
+
+                        # Track user attribution for Leaderboard
+                        t_assignee = getattr(t, "assignee_name", t.get("assignee_name") if isinstance(t, dict) else None)
+                        if not t_assignee or t_assignee.strip().lower() in ["", "unassigned", "none"]:
+                            t_assignee = parent_assignee
+
+                        if t_assignee and t_assignee.strip().lower() not in ["", "unassigned", "none"]:
+                            u_name = t_assignee.strip()
+                            u_email = getattr(t, "assignee_email", t.get("assignee_email") if isinstance(t, dict) else None) or parent_email
+                            if u_name not in user_stats:
+                                user_stats[u_name] = {
+                                    "name": u_name,
+                                    "email": u_email or "",
+                                    "role": "Team Member",
+                                    "closed_stories_count": 0,
+                                    "closed_story_points": 0,
+                                    "in_progress_count": 0,
+                                    "in_progress_points": 0,
+                                    "total_assigned_stories": 0,
+                                    "total_assigned_points": 0,
+                                }
+                            user_stats[u_name]["total_assigned_stories"] += 1
+                            user_stats[u_name]["total_assigned_points"] += t_pts
+                            if is_t_done:
+                                user_stats[u_name]["closed_stories_count"] += 1
+                                user_stats[u_name]["closed_story_points"] += t_pts
+                            elif is_t_ip:
+                                user_stats[u_name]["in_progress_count"] += 1
+                                user_stats[u_name]["in_progress_points"] += t_pts
+
+                    e_delivered += s_delivered_pts
                 else:
                     all_tasks.append(s)
+                    e_stories_cnt += 1
+
+                    if parent_is_done:
+                        delivered_pts += s_pts
+                        e_delivered += s_pts
+                        done_count += 1
+                        e_done_cnt += 1
+                    elif parent_is_ip:
+                        in_progress_pts += s_pts
+                        in_progress_count += 1
+                    elif parent_is_blocked:
+                        blocked_count += 1
+                    else:
+                        todo_pts += s_pts
+                        todo_count += 1
+
+                    if parent_assignee and parent_assignee.strip().lower() not in ["", "unassigned", "none"]:
+                        u_name = parent_assignee.strip()
+                        if u_name not in user_stats:
+                            user_stats[u_name] = {
+                                "name": u_name,
+                                "email": parent_email or "",
+                                "role": "Team Member",
+                                "closed_stories_count": 0,
+                                "closed_story_points": 0,
+                                "in_progress_count": 0,
+                                "in_progress_points": 0,
+                                "total_assigned_stories": 0,
+                                "total_assigned_points": 0,
+                            }
+                        user_stats[u_name]["total_assigned_stories"] += 1
+                        user_stats[u_name]["total_assigned_points"] += s_pts
+                        if parent_is_done:
+                            user_stats[u_name]["closed_stories_count"] += 1
+                            user_stats[u_name]["closed_story_points"] += s_pts
+                        elif parent_is_ip:
+                            user_stats[u_name]["in_progress_count"] += 1
+                            user_stats[u_name]["in_progress_points"] += s_pts
 
             e_pct = round((e_delivered / e_points) * 100.0, 1) if e_points > 0 else 0.0
             epics_progress.append({
@@ -157,8 +218,10 @@ def get_executive_report(project_id: str):
         if sprint.delivered_points and sprint.delivered_points > delivered_pts:
             delivered_pts = sprint.delivered_points
 
-        done_tasks = [t for t in all_tasks if getattr(t, "status", "").lower() in ["done", "completed", "resolved", "closed"]]
-        blocked_tasks = [t for t in all_tasks if getattr(t, "status", "").lower() in ["blocked", "impediment"] or getattr(t, "is_blocked", False)]
+        done_tasks = [t for t in all_tasks if getattr(t, "status", t.get("status") if isinstance(t, dict) else "").lower() in ["done", "completed", "complete", "resolved", "closed", "finished"]]
+        blocked_tasks = [t for t in all_tasks if getattr(t, "status", t.get("status") if isinstance(t, dict) else "").lower() in ["blocked", "impediment"] or getattr(t, "is_blocked", t.get("is_blocked", False) if isinstance(t, dict) else False)]
+        done_count = max(done_count, len(done_tasks))
+        blocked_count = max(blocked_count, len(blocked_tasks))
 
     else:
         # Fallback to local Firestore
