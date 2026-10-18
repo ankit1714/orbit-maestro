@@ -112,8 +112,16 @@ export default function CockpitPage() {
 
   const handleCreateProject = async (projectData: any) => {
     try {
-      const created = await api.createProject(projectData);
-      setProjects((prev) => [created, ...prev]);
+      let created = projectData;
+      if (!projectData?.id) {
+        created = await api.createProject(projectData);
+      }
+      setProjects((prev) => {
+        if (prev.some((p) => p.id === created.id)) {
+          return prev.map((p) => (p.id === created.id ? created : p));
+        }
+        return [created, ...prev];
+      });
       setActiveProject(created);
     } catch (e) {
       console.warn("Project creation error:", e);

@@ -427,7 +427,8 @@ class JiraBacklogProvider(BaseBacklogProvider):
                 summary = fields.get("summary", "Untitled")
                 status_name = fields.get("status", {}).get("name", "To Do")
                 desc_text = adf_to_plain_text(fields.get("description")) or summary
-                points = int(fields.get("customfield_10016") or 5)
+                raw_pts = fields.get("customfield_10016")
+                points = int(round(float(raw_pts))) if raw_pts is not None else None
 
                 assignee = fields.get("assignee")
                 assignee_name = assignee.get("displayName") if assignee else "Unassigned"
@@ -469,6 +470,8 @@ class JiraBacklogProvider(BaseBacklogProvider):
                     )
                 elif is_subtask or it_name in ["subtask", "sub-task"]:
                     task_type = "QA" if "[qa]" in summary.lower() or "qa" in summary.lower() else "DEV"
+                    raw_sub_pts = fields.get("customfield_10016")
+                    sub_pts = int(round(float(raw_sub_pts))) if raw_sub_pts is not None else None
                     tasks_dict[key] = TaskItem(
                         id=item.get("id", key),
                         key=key,
@@ -480,6 +483,7 @@ class JiraBacklogProvider(BaseBacklogProvider):
                         assignee_name=assignee_name,
                         assignee_email=assignee_email,
                         effort_days=1.5,
+                        story_points=sub_pts,
                         created_at=created_dt,
                         updated_at=updated_dt,
                         jira_url=jira_link,
@@ -533,7 +537,7 @@ class JiraBacklogProvider(BaseBacklogProvider):
                             title=f"Stories under {orphan_story_key}",
                             description="Auto-grouped Jira subtasks",
                             requirement_origin="Jira",
-                            story_points=3,
+                            story_points=None,
                             status="In Progress",
                             assignee_name=t_item.assignee_name,
                             tasks=[],
@@ -564,7 +568,7 @@ class JiraBacklogProvider(BaseBacklogProvider):
                     title="General Project Backlog",
                     description="Standalone Jira tasks, stories, and exploratory items not bound to a parent epic.",
                     requirement_origin=f"Jira Project: {self.project_key}",
-                    total_points=sum(s.story_points for s in unassigned_stories),
+                    total_points=sum((s.story_points or 0) for s in unassigned_stories),
                     status="Active",
                     stories=unassigned_stories,
                     created_at=min((s.created_at for s in unassigned_stories), default=datetime.utcnow()),
@@ -578,7 +582,7 @@ class JiraBacklogProvider(BaseBacklogProvider):
             total_pts_count = 0
 
             for e in epics_dict.values():
-                e.total_points = sum(s.story_points for s in e.stories)
+                e.total_points = sum((s.story_points or 0) for s in e.stories)
                 total_stories_count += len(e.stories)
                 total_tasks_count += sum(len(s.tasks) for s in e.stories)
                 total_pts_count += e.total_points

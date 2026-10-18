@@ -22,6 +22,7 @@ class TaskItem(BaseModel):
     assignee_name: Optional[str] = None
     assignee_email: Optional[str] = None
     effort_days: float = 1.0
+    story_points: Optional[int] = None
     trace_ref: Optional[str] = None
     is_blocked: bool = False
     blocker_reason: Optional[str] = None
@@ -42,7 +43,7 @@ class UserStory(BaseModel):
     title: str
     description: Optional[str] = ""
     requirement_origin: Optional[str] = ""
-    story_points: int = 5
+    story_points: Optional[int] = None
     priority: Union[Priority, str] = Priority.HIGH
     status: Union[ItemStatus, str] = ItemStatus.TODO
     assignee_id: Optional[str] = None

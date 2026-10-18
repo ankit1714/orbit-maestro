@@ -30,23 +30,29 @@ interface CreateProjectModalProps {
   isOpen: boolean;
   onClose: () => void;
   onProjectCreated: (createdProject: any) => void;
+  existingProjects?: any[];
 }
 
 export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
   isOpen,
   onClose,
   onProjectCreated,
+  existingProjects = [],
 }) => {
   const { can, currentUser: activeUser, profile } = useRole();
 
   // Wizard Step: 1 = Details, 2 = Team Selection, 3 = Summary Review, 4 = Final Success
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
 
+  // Cached Projects List from Firestore for live duplicate detection
+  const [projectsList, setProjectsList] = useState<any[]>(existingProjects || []);
+
   // Step 1: Project Details State
   const [projectName, setProjectName] = useState('');
   const [projectKey, setProjectKey] = useState('');
   const [projectDesc, setProjectDesc] = useState('');
   const [jiraLink, setJiraLink] = useState('');
+  const [detectedJiraKey, setDetectedJiraKey] = useState<string | null>(null);
   const [projectMode, setProjectMode] = useState<'ENTERPRISE_SYNC'>('ENTERPRISE_SYNC');
   const [isKeyManuallyEdited, setIsKeyManuallyEdited] = useState(false);
 
@@ -75,24 +81,47 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
 
   const [jiraSyncStatus, setJiraSyncStatus] = useState<string | null>(null);
 
+  // Sync projects list when modal opens to ensure fresh Firestore data
+  useEffect(() => {
+    if (isOpen) {
+      if (existingProjects && existingProjects.length > 0) {
+        setProjectsList(existingProjects);
+      }
+      api.getProjects()
+        .then((res) => {
+          if (Array.isArray(res)) {
+            setProjectsList(res);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [isOpen, existingProjects]);
+
+  // Real-time duplicate project key validation against Firestore
+  const cleanKey = projectKey.trim().toUpperCase();
+  const duplicateProject = cleanKey
+    ? projectsList.find((p) => (p.key || '').trim().toUpperCase() === cleanKey)
+    : null;
+  const isKeyDuplicate = !!duplicateProject;
+
   // Fetch users: syncs assignable users from Jira Cloud for the selected project and pushes them to Firestore DB
   const fetchUsers = async () => {
     setIsLoadingUsers(true);
     setUsersError(null);
     try {
       let users: DBUser[] = [];
-      const currentKey = projectKey.trim().toUpperCase();
+      const syncKey = detectedJiraKey || cleanKey;
 
-      if (currentKey || jiraLink.trim()) {
+      if (syncKey || jiraLink.trim()) {
         try {
           const syncRes = await api.syncProjectJiraUsers({
-            project_key: currentKey || undefined,
+            project_key: syncKey || undefined,
             jira_link: jiraLink.trim() || undefined,
           });
           users = (syncRes && syncRes.users) ? syncRes.users : [];
           const jiraCount = syncRes?.synced_count ?? (users || []).filter(u => u.is_jira_project_user).length;
           if (jiraCount > 0) {
-            setJiraSyncStatus(`Live Jira sync: ${jiraCount} user(s) fetched for [${currentKey || 'SCRUM'}] & pushed to Firestore DB.`);
+            setJiraSyncStatus(`Live Jira sync: ${jiraCount} user(s) fetched for [${syncKey || 'SCRUM'}] & pushed to Firestore DB.`);
           }
         } catch (jErr) {
           console.warn("Jira user sync error, falling back to Firestore users:", jErr);
@@ -454,6 +483,14 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
                     </button>
                   )}
                 </div>
+                {detectedJiraKey && (
+                  <div className="mt-1.5 flex items-center gap-1.5 text-[11px] text-[#1967d2] bg-[#e8f0fe] px-2.5 py-1 rounded-lg border border-[#d2e3fc]">
+                    <LinkIcon className="w-3.5 h-3.5 shrink-0" />
+                    <span>
+                      Jira Project Key detected: <strong>[{detectedJiraKey}]</strong>. Jira tickets will sync under this key while your dashboard tracks Project Key <strong>[{cleanKey || '...'}]</strong>.
+                    </span>
+                  </div>
+                )}
                 <span className="text-[11px] text-[#5f6368] mt-1 block">
                   Optional: Paste Jira board or summary link. The system extracts the project key prefix and enables bi-directional ticket synchronization.
                 </span>
@@ -465,7 +502,11 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
                   <label className="block text-[#202124] mb-1.5 font-medium text-xs flex items-center justify-between">
                     <span>Project Key Prefix <span className="text-[#c5221f]">*</span></span>
                     {projectKey && (
-                      <span className="font-mono text-[10px] text-[#1967d2] bg-[#e8f0fe] px-2 py-0.5 rounded-full border border-[#d2e3fc]">
+                      <span className={`font-mono text-[10px] px-2 py-0.5 rounded-full border ${
+                        isKeyDuplicate
+                          ? 'text-[#c5221f] bg-[#fce8e6] border-[#fad2cf]'
+                          : 'text-[#1967d2] bg-[#e8f0fe] border-[#d2e3fc]'
+                      }`}>
                         [{projectKey}-101]
                       </span>
                     )}
@@ -480,8 +521,20 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
                       setIsKeyManuallyEdited(true);
                     }}
                     placeholder="e.g. SCRUM, CLM, PAY"
-                    className="w-full bg-[#f8f9fa] border border-[#dadce0] rounded-xl p-3 text-[#202124] font-mono uppercase text-sm focus:bg-white focus:outline-none focus:border-[#1a73e8] focus:ring-1 focus:ring-[#1a73e8] transition shadow-sm"
+                    className={`w-full bg-[#f8f9fa] border rounded-xl p-3 font-mono uppercase text-sm focus:bg-white focus:outline-none transition shadow-sm ${
+                      isKeyDuplicate
+                        ? 'border-[#c5221f] text-[#c5221f] focus:border-[#c5221f] focus:ring-1 focus:ring-[#c5221f]'
+                        : 'border-[#dadce0] text-[#202124] focus:border-[#1a73e8] focus:ring-1 focus:ring-[#1a73e8]'
+                    }`}
                   />
+                  {isKeyDuplicate && (
+                    <div className="mt-1.5 p-2 rounded-xl bg-[#fce8e6] border border-[#fad2cf] text-[#c5221f] text-xs flex items-center gap-2 shadow-sm">
+                      <AlertCircle className="w-4 h-4 shrink-0 text-[#c5221f]" />
+                      <span>
+                        Project key <strong>[{cleanKey}]</strong> already exists in project <strong>&ldquo;{duplicateProject?.name}&rdquo;</strong>. Please enter a unique key.
+                      </span>
+                    </div>
+                  )}
                   <span className="text-[11px] text-[#5f6368] mt-1 block">
                     1-10 uppercase alphanumeric characters used for task and story identifiers.
                   </span>

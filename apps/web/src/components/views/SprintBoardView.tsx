@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { TrendingDown, AlertOctagon, Check, Play, CheckCircle2, ChevronRight, ExternalLink, RefreshCw, Calendar, Clock, User, Lock } from 'lucide-react';
+import { TrendingDown, AlertOctagon, Check, Play, CheckCircle2, ChevronRight, ExternalLink, RefreshCw, Calendar, Clock, User, Lock, Zap } from 'lucide-react';
 import { api, getJiraBoardUrl, getJiraBrowseUrl } from '@/lib/api';
 import { useRole } from '@/lib/roleContext';
 
@@ -77,11 +77,27 @@ export const SprintBoardView: React.FC<SprintBoardViewProps> = ({
 
   epics.forEach((e: any) => {
     (e.stories || []).forEach((s: any) => {
+      const isSyntheticOrphan = s.key?.endsWith('-parent') || s.title?.startsWith('Stories under ') || !s.key;
+      const actualStoryKey = isSyntheticOrphan ? null : s.key;
+      const actualStoryTitle = isSyntheticOrphan ? null : s.title;
+
       let addedSubtaskCount = 0;
       if (s.tasks && s.tasks.length > 0) {
         s.tasks.forEach((t: any) => {
           if (!isJiraSource || isItemInCurrentSprint(t, s)) {
-            allTasks.push({ ...t, story_title: s.title });
+            let pts: number | null = null;
+            if (t.story_points != null && !isNaN(Number(t.story_points)) && Number(t.story_points) > 0) {
+              pts = Number(t.story_points);
+            } else if (!isSyntheticOrphan && s.story_points != null && !isNaN(Number(s.story_points)) && Number(s.story_points) > 0) {
+              pts = Number(s.story_points);
+            }
+
+            allTasks.push({
+              ...t,
+              story_title: actualStoryTitle,
+              story_key: actualStoryKey,
+              story_points: pts
+            });
             addedSubtaskCount++;
           }
         });
@@ -89,6 +105,10 @@ export const SprintBoardView: React.FC<SprintBoardViewProps> = ({
 
       // If no subtasks were attached or none belonged to current sprint, but the story belongs to current sprint
       if (addedSubtaskCount === 0 && (!isJiraSource || isItemInCurrentSprint(s))) {
+        const sPts = s.story_points != null && !isNaN(Number(s.story_points)) && Number(s.story_points) > 0
+          ? Number(s.story_points)
+          : null;
+
         allTasks.push({
           id: s.id,
           key: s.key,
@@ -96,8 +116,10 @@ export const SprintBoardView: React.FC<SprintBoardViewProps> = ({
           status: s.status,
           task_type: "STORY",
           assignee_name: s.assignee_name || "Unassigned",
-          effort_days: s.story_points ? s.story_points * 0.5 : 1.0,
-          story_title: e.title,
+          story_points: sPts,
+          effort_days: sPts ? sPts * 0.5 : 1.0,
+          story_title: actualStoryTitle,
+          story_key: actualStoryKey,
           jira_url: s.jira_url || getJiraBrowseUrl(s.key, project),
           created_at: s.created_at,
           updated_at: s.updated_at
@@ -152,6 +174,43 @@ export const SprintBoardView: React.FC<SprintBoardViewProps> = ({
     } catch {
       return null;
     }
+  };
+
+  const renderStoryPointsBadge = (pts?: number | null) => {
+    if (pts != null && !isNaN(pts) && pts > 0) {
+      return (
+        <span
+          className="px-2 py-0.5 rounded-full bg-[#e8f0fe] text-[#1967d2] font-mono text-[9px] font-bold border border-[#d2e3fc] flex items-center gap-1 shadow-2xs"
+          title={`${pts} Story Points`}
+        >
+          <Zap className="w-2.5 h-2.5 text-[#1967d2]" />
+          <span>{pts} pts</span>
+        </span>
+      );
+    }
+    return (
+      <span
+        className="px-2 py-0.5 rounded-full bg-[#f1f3f4] text-[#80868b] font-mono text-[9px] font-bold border border-[#dadce0]"
+        title="No Story Points Assigned (TBD)"
+      >
+        TBD
+      </span>
+    );
+  };
+
+  const renderStoryLine = (t: any) => {
+    return (
+      <p className="text-[10px] text-[#5f6368] truncate flex items-center gap-1.5" title={t.story_title || "No story assigned (TBD)"}>
+        <span className="text-[#80868b] font-medium shrink-0">Story:</span>
+        {t.story_title ? (
+          <span className="truncate text-[#3c4043] font-medium">{t.story_key ? `[${t.story_key}] ${t.story_title}` : t.story_title}</span>
+        ) : (
+          <span className="font-mono font-semibold text-[#80868b] bg-[#f1f3f4] px-1.5 py-0.5 rounded text-[9px] border border-[#dadce0]">
+            TBD
+          </span>
+        )}
+      </p>
+    );
   };
 
   return (
@@ -261,16 +320,15 @@ export const SprintBoardView: React.FC<SprintBoardViewProps> = ({
                     <span>{t.key}</span>
                     <ExternalLink className="w-2.5 h-2.5" />
                   </a>
-                  <span className="px-2 py-0.5 rounded bg-[#f1f3f4] text-[#5f6368] font-mono text-[9px] border border-[#dadce0]">
-                    {t.task_type || "DEV"}
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    {renderStoryPointsBadge(t.story_points)}
+                    <span className="px-2 py-0.5 rounded bg-[#f1f3f4] text-[#5f6368] font-mono text-[9px] border border-[#dadce0]">
+                      {t.task_type || "DEV"}
+                    </span>
+                  </div>
                 </div>
                 <h4 className="text-xs font-semibold text-[#202124] leading-snug">{t.title}</h4>
-                {t.story_title && (
-                  <p className="text-[10px] text-[#5f6368] truncate" title={t.story_title}>
-                    Parent: {t.story_title}
-                  </p>
-                )}
+                {renderStoryLine(t)}
                 <div className="flex items-center justify-between pt-2 border-t border-[#f1f3f4] text-[11px] text-[#5f6368]">
                   <span className="flex items-center gap-1.5 text-[10px] text-[#5f6368] truncate max-w-[120px]">
                     <User className="w-3 h-3 text-[#5f6368]" />
@@ -325,16 +383,15 @@ export const SprintBoardView: React.FC<SprintBoardViewProps> = ({
                     <span>{t.key}</span>
                     <ExternalLink className="w-2.5 h-2.5" />
                   </a>
-                  <span className="px-2 py-0.5 rounded bg-[#e8f0fe] text-[#1967d2] border border-[#d2e3fc] font-mono text-[9px] font-medium">
-                    {t.status}
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    {renderStoryPointsBadge(t.story_points)}
+                    <span className="px-2 py-0.5 rounded bg-[#e8f0fe] text-[#1967d2] border border-[#d2e3fc] font-mono text-[9px] font-medium">
+                      {t.status}
+                    </span>
+                  </div>
                 </div>
                 <h4 className="text-xs font-semibold text-[#202124] leading-snug">{t.title}</h4>
-                {t.story_title && (
-                  <p className="text-[10px] text-[#5f6368] truncate" title={t.story_title}>
-                    Parent: {t.story_title}
-                  </p>
-                )}
+                {renderStoryLine(t)}
                 <div className="flex items-center justify-between pt-2 border-t border-[#f1f3f4] text-[11px] text-[#5f6368]">
                   <span className="flex items-center gap-1.5 text-[10px] text-[#1967d2] truncate max-w-[120px]">
                     <User className="w-3 h-3 text-[#1a73e8]" />
@@ -389,11 +446,15 @@ export const SprintBoardView: React.FC<SprintBoardViewProps> = ({
                     <span>{t.key}</span>
                     <ExternalLink className="w-2.5 h-2.5" />
                   </a>
-                  <span className="px-2 py-0.5 rounded bg-[#fce8e6] text-[#c5221f] font-bold font-mono text-[9px] border border-[#fad2cf]">
-                    IMPEDIMENT
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    {renderStoryPointsBadge(t.story_points)}
+                    <span className="px-2 py-0.5 rounded bg-[#fce8e6] text-[#c5221f] font-bold font-mono text-[9px] border border-[#fad2cf]">
+                      IMPEDIMENT
+                    </span>
+                  </div>
                 </div>
                 <h4 className="text-xs font-semibold text-[#202124] leading-snug">{t.title}</h4>
+                {renderStoryLine(t)}
                 <div className="p-2 rounded-lg bg-[#fce8e6]/60 border border-[#fad2cf] text-[10px] text-[#c5221f]">
                   <p><strong>Blocker:</strong> {t.blocker_reason || "Dependency impediment flagged in Jira"}</p>
                 </div>
@@ -438,11 +499,15 @@ export const SprintBoardView: React.FC<SprintBoardViewProps> = ({
                     <span>{t.key}</span>
                     <ExternalLink className="w-2.5 h-2.5" />
                   </a>
-                  <span className="px-2 py-0.5 rounded bg-[#e6f4ea] text-[#137333] text-[9px] font-mono border border-[#ceead6] font-semibold">
-                    Complete
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    {renderStoryPointsBadge(t.story_points)}
+                    <span className="px-2 py-0.5 rounded bg-[#e6f4ea] text-[#137333] text-[9px] font-mono border border-[#ceead6] font-semibold">
+                      Complete
+                    </span>
+                  </div>
                 </div>
                 <h4 className="text-xs font-medium text-[#5f6368] line-through leading-snug">{t.title}</h4>
+                {renderStoryLine(t)}
                 <div className="flex items-center justify-between pt-2 border-t border-[#f1f3f4] text-[11px] text-[#5f6368]">
                   <span className="truncate max-w-[120px]">{t.assignee_name || "Unassigned"}</span>
                   <span className="text-[#137333] flex items-center gap-1 text-[10px] font-semibold">

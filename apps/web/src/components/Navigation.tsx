@@ -298,9 +298,9 @@ export const Navigation: React.FC<NavigationProps> = ({
       <CreateProjectModal
         isOpen={createModalOpen}
         onClose={() => setCreateModalOpen(false)}
+        existingProjects={projects}
         onProjectCreated={(newProj) => {
           onCreateProject(newProj);
-          setCreateModalOpen(false);
         }}
       />
 
